@@ -763,14 +763,16 @@ already the energy carrier, which is the neatest thing about the whole arrangeme
 
 ### The corrected headline numbers
 
-| Plant output | Total area at 0.3 AU (10 % panels) | vs Greece |
+| Plant output | At 10 % panels | At 50 % panels (§13) |
 |---|---|---|
-| 1 t/yr | **16 500 km²** | 0.13× |
-| 10 t/yr | **165 000 km²** | 1.3× |
-| **100 t/yr** | **1 652 000 km²** | **12.5×** |
-| 1 000 t/yr | 16 520 000 km² | 125× |
+| 1 t/yr | 16 500 km² | **3 300 km²** |
+| 10 t/yr | 165 000 km² | **33 000 km²** |
+| **100 t/yr** | 1 652 000 km² | **330 000 km²** |
+| 1 000 t/yr | 16 520 000 km² | 3 305 000 km² |
 
-*(These count generator, radiator and structure. See §13.)*
+*(Generator, radiator and structure; 0.30 AU.)* The 10 % column is what the figures in
+§12's prose were based on. **§13 supersedes it**: the panels run at 50 %, which is a 5×
+reduction.
 
 Compare with the Venus-orbit figures, which were 5× larger. **A hundred tonnes of antimatter
 a year — enough for roughly five fast courier crossings — needs a power swarm about twelve
@@ -783,47 +785,69 @@ depends. Small, hot, far from home, and indispensable.
 
 ---
 
-## 13. The locked design point: 100 t/yr
+## 13. The locked design point: 100 t/yr on quantum panels
 
-**[DECIDED] The Workers' antimatter plant produces 100 tonnes a year.** Everything else in
-this section follows from that.
+**[DECIDED] The Workers' antimatter plant produces 100 tonnes a year, and its panels run at
+50 % efficiency.** The efficiency is "quantum magic" in the sense that it is far beyond
+anything conventional photovoltaics reaches, and it is the same order of engineering as
+their 50 % antimatter converter — the two are the same technology family, which is why
+nobody else has either.
 
-### What it is
+### The design
 
 | | |
 |---|---|
 | Antimatter output | **100 t/yr** |
 | Location | Power swarm at **0.30 AU** |
-| Panel efficiency | **10 %** — a long-lived thin film, not a fresh cell |
-| Panel temperature | 589 K |
+| Panel efficiency | **50 %** |
+| Panel temperature | **509 K** |
 | Collected power | 1 141 TW |
-| Generator | 751 078 km² |
-| Radiator | 751 078 km² |
-| Structure | 150 216 km² |
-| **Total** | **1 652 373 km²** |
-| | **12.5 × the area of Greece** (0.36 % of Venus's surface) |
-| Panel mass at 0.1 kg/m² | 1.65 × 10¹¹ kg |
+| Generator | 150 216 km² |
+| Radiator | 150 216 km² |
+| Structure | 30 043 km² |
+| **Total** | **330 475 km²** |
+| | **2.5 × the area of Greece** (0.07 % of Venus's surface) |
+| Panel mass at 0.1 kg/m² | 3.3 × 10¹⁰ kg — 33 million tonnes |
 
-**The total is 12.5× Greece, not the 6.8× quoted in §12**, because that figure counted the
-generator alone at a more optimistic efficiency. This is the honest number: generator,
-radiator and structure, at an efficiency a century-old panel can actually hold.
+**The efficiency is worth exactly 5× over the 10 % case**, and it is worth that much for two
+reasons rather than one:
 
-### Building it is cheap; the numbers say so
+1. **Half the area collects the same power**, which is the obvious gain.
+2. **The panels run cooler, not hotter.** A better cell converts more of what it absorbs, so
+   less becomes heat: 509 K at 50 % against 589 K at 10 %. The thermal ceiling moves
+   *outward* with efficiency, so the gain is not partly eaten by cooling.
 
-| Build time | Panel mass per day | Area per day |
-|---|---|---|
-| 1 year | 4.5 × 10⁸ kg | 4 524 km² |
-| **10 years** | **4.5 × 10⁷ kg** | **452 km²** |
-| 30 years | 1.5 × 10⁷ kg | 151 km² |
+That second point is worth dwelling on, because it is counter-intuitive: **making the panels
+better makes them cooler.** The radiator is still half the plant, though — at 50 %
+conversion half the collected power still leaves as heat, and that is a floor set by the
+converter, not the panels.
 
-Compare with the terraforming, which needs **7.5 × 10¹⁵ kg of rock per day** (see §10). The
-swarm at a ten-year build is **eight orders of magnitude less material**. It is a large
-project and a small one at the same time: large in area, trivial in mass next to the work
-going on below it.
+### Where else it could go
 
-The energy to make the carbon is equally negligible: unlike CO₂ *splitting*, making panels
-from carbon is an ordinary industrial process at perhaps 1 × 10⁷ J/kg, which over ten years
-is 0.06 % of what the plant collects.
+| Orbit | Panel temp (50 %) | Total area | vs Greece |
+|---|---|---|---|
+| 0.25 AU | 557 K | **229 496 km²** | 1.7× |
+| **0.30 AU** | **509 K** | **330 475 km²** | **2.5×** |
+| 0.35 AU | 471 K | 449 813 km² | 3.4× |
+| Mercury 0.387 AU | 448 K | 549 943 km² | 4.2× |
+| Venus 0.723 AU | 328 K | 1 921 022 km² | 14.6× |
+
+At 50 % the swarm can sit **as close as 0.25 AU** and still keep its panels at 557 K, which
+is inside what a refractory film takes. Every step sunward is area and mass saved.
+
+**[OPEN] 0.30 AU or 0.25 AU.** 0.30 AU is comfortable at 509 K and needs 2.5× Greece.
+0.25 AU saves a third of the structure but runs the panels at 557 K, near the limit.
+The choice is how much thermal margin the Workers buy with steel.
+
+### Building it is cheap, and the numbers are blunt about it
+
+At 0.1 kg/m² the swarm is 3.3 × 10¹⁰ kg. Over a ten-year build that is 9 × 10⁶ kg/day,
+against the terraforming's **7.5 × 10¹⁵ kg of rock per day** (§10). The swarm is **nine
+orders of magnitude less material** than the work going on below it.
+
+It is large in area and trivial in mass. The energy to make the carbon is an ordinary
+industrial process at perhaps 1 × 10⁷ J/kg — over ten years, **0.02 % of what the plant
+collects.**
 
 ### What 100 t/yr buys
 
@@ -837,24 +861,24 @@ One-way Mars crossing at 0.1 g is 3.3 days and 277 km/s:
 | 500 t | 106.4 t | 0.9 |
 
 **About five fast crossings a year for a 100 t courier — one every eleven weeks.** Or one a
-year for a 500 t capital ship. That is a courier service and a strategic strike capability,
-and it is not a fleet. The Workers cannot fight a high-tempo war with this; they can
-*decide things quickly* with it.
+year for a 500 t capital ship. A courier service and a strategic strike capability; not a
+fleet. The Workers cannot fight a high-tempo war with this, but they can **decide things
+quickly** with it.
 
 ### And what it does not buy
 
-100 t/yr is 1.8 × 10²² J, which is **5 million megatons** — militarily enormous, about 28
-years of humanity's entire primary energy use.
+100 t/yr is 1.8 × 10²² J — **5 million megatons**, about 28 years of humanity's entire
+primary energy use.
 
-But using antimatter to split Venus's atmosphere would need **1.72 × 10²⁸ J**, so the entire
-annual output is **0.01 % of that bill.** Splitting the CO₂ by antimatter is not a plan; it
-would take **950 000 years** of the whole plant.
+But splitting Venus's atmosphere would need **1.72 × 10²⁸ J**, so the entire annual output is
+**0.01 % of that bill.** Splitting the CO₂ by antimatter is not a plan; it would take
+**950 000 years** of the whole plant.
 
 **So the antimatter is militarily decisive and terraformingly irrelevant**, and that is a
 clean split: the antimatter buys *speed and violence*, and the terraforming is bought with
-sunlight, rock and time. The two do not compete for the same resource after all — they
-compete for the same **yards and workers**, which is a far more interesting constraint than
-a shared fuel.
+sunlight, rock and time. The two do not compete for the same resource — they compete for the
+same **yards and workers**, which is a sharper constraint than a shared fuel, because it is
+about factories and people rather than joules.
 
 ---
 
