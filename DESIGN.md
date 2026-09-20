@@ -289,9 +289,10 @@ needed. **That swarm is the single point on which the whole antimatter economy
 depends**, it is not at Venus, and the cloud deck does not defend it.
 
 **[DECIDED] There is enough antimatter, and the fleet competes with the
-terraforming for the same budget.** A power swarm about seven times the area
-of Greece — sitting closer to the Sun than Mercury — makes enough for roughly
-fifty 100 t courier crossings a year (`docs/TRIP-ENERGY.md` §11–12). So the constraint is never the fuel. Every square
+terraforming for the same budget.** **The plant is locked at 100 t/yr**: a power swarm at
+0.30 AU with 10 % panels, **1.65 million km² — 12.5× the area of Greece** — which
+is about five fast 100 t courier crossings a year
+(`docs/TRIP-ENERGY.md` §11–13). So the constraint is never the fuel. Every square
 kilometre of collector turned over to antimatter is a square kilometre not shading
 Venus or grinding rock — **the fleet and the terraforming draw on the same
 industrial base, and the player decides the split.** That competition is the
@@ -809,7 +810,8 @@ staged state machine.
 | 12 | ~~Antimatter production efficiency~~ | **Closed: 50 %.** See §3 and `docs/TRIP-ENERGY.md` §8 |
 | 15 | Antimatter containment loss rate and the safe stockpile ceiling | Whether depots are tempo-limited or quantity-limited |
 | 17 | Terraforming timescale target (100 / 300 / 1 000 years) | Sets the rock throughput, which sets how much of the economy is mining |
-| 18 | The split between fleet and terraforming in the Workers' budget | The faction's central strategic decision |
+| 18 | ~~The split between fleet and terraforming~~ | **Closed: they do not share a resource.** The antimatter is 0.01 % of the CO₂-splitting bill, so they compete for *yards and workers*, not fuel |
+| 21 | Operating temperature and efficiency of the swarm panels | Sets the swarm's area and how far sunward it can sit |
 | 19 | What is in the Martian south polar facility (`docs/SETTING.md` §6) | The campaign's spine |
 | 20 | Are the Venusian hives intelligent, and do they respond? | Whether terraforming is engineering or war |
 | 13 | Exhaust velocity for each drive | Propellant mass is `exp(Δv/vₑ)` — nothing can be balanced without it |

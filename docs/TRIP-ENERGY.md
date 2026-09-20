@@ -765,14 +765,16 @@ already the energy carrier, which is the neatest thing about the whole arrangeme
 
 | Plant output | Total area at 0.3 AU (10 % panels) | vs Greece |
 |---|---|---|
-| 1 t/yr | **9 000 km²** | 0.07× |
-| 10 t/yr | **90 000 km²** | 0.7× |
-| **100 t/yr** | **900 000 km²** | **6.8×** |
-| 1 000 t/yr | 9 000 000 km² | 68× |
+| 1 t/yr | **16 500 km²** | 0.13× |
+| 10 t/yr | **165 000 km²** | 1.3× |
+| **100 t/yr** | **1 652 000 km²** | **12.5×** |
+| 1 000 t/yr | 16 520 000 km² | 125× |
+
+*(These count generator, radiator and structure. See §13.)*
 
 Compare with the Venus-orbit figures, which were 5× larger. **A hundred tonnes of antimatter
-a year — enough for roughly fifty courier crossings — needs a power swarm about seven times
-the area of Greece, sitting closer to the Sun than Mercury.** That is the real scale of the
+a year — enough for roughly five fast courier crossings — needs a power swarm about twelve
+times the area of Greece, sitting closer to the Sun than Mercury.** That is the real scale of the
 Workers' strategic capability: large, but a nation's project rather than a world's.
 
 It also gives the swarm a **vulnerability with a shape**: it is not at Venus, it is not
@@ -781,7 +783,82 @@ depends. Small, hot, far from home, and indispensable.
 
 ---
 
-## 13. Assumptions, for anyone who wants to argue
+## 13. The locked design point: 100 t/yr
+
+**[DECIDED] The Workers' antimatter plant produces 100 tonnes a year.** Everything else in
+this section follows from that.
+
+### What it is
+
+| | |
+|---|---|
+| Antimatter output | **100 t/yr** |
+| Location | Power swarm at **0.30 AU** |
+| Panel efficiency | **10 %** — a long-lived thin film, not a fresh cell |
+| Panel temperature | 589 K |
+| Collected power | 1 141 TW |
+| Generator | 751 078 km² |
+| Radiator | 751 078 km² |
+| Structure | 150 216 km² |
+| **Total** | **1 652 373 km²** |
+| | **12.5 × the area of Greece** (0.36 % of Venus's surface) |
+| Panel mass at 0.1 kg/m² | 1.65 × 10¹¹ kg |
+
+**The total is 12.5× Greece, not the 6.8× quoted in §12**, because that figure counted the
+generator alone at a more optimistic efficiency. This is the honest number: generator,
+radiator and structure, at an efficiency a century-old panel can actually hold.
+
+### Building it is cheap; the numbers say so
+
+| Build time | Panel mass per day | Area per day |
+|---|---|---|
+| 1 year | 4.5 × 10⁸ kg | 4 524 km² |
+| **10 years** | **4.5 × 10⁷ kg** | **452 km²** |
+| 30 years | 1.5 × 10⁷ kg | 151 km² |
+
+Compare with the terraforming, which needs **7.5 × 10¹⁵ kg of rock per day** (see §10). The
+swarm at a ten-year build is **eight orders of magnitude less material**. It is a large
+project and a small one at the same time: large in area, trivial in mass next to the work
+going on below it.
+
+The energy to make the carbon is equally negligible: unlike CO₂ *splitting*, making panels
+from carbon is an ordinary industrial process at perhaps 1 × 10⁷ J/kg, which over ten years
+is 0.06 % of what the plant collects.
+
+### What 100 t/yr buys
+
+One-way Mars crossing at 0.1 g is 3.3 days and 277 km/s:
+
+| Ship | Antimatter per crossing | Crossings per year |
+|---|---|---|
+| 50 t | 10.6 t | 9.4 |
+| **100 t** | **21.3 t** | **4.7** |
+| 200 t | 42.6 t | 2.3 |
+| 500 t | 106.4 t | 0.9 |
+
+**About five fast crossings a year for a 100 t courier — one every eleven weeks.** Or one a
+year for a 500 t capital ship. That is a courier service and a strategic strike capability,
+and it is not a fleet. The Workers cannot fight a high-tempo war with this; they can
+*decide things quickly* with it.
+
+### And what it does not buy
+
+100 t/yr is 1.8 × 10²² J, which is **5 million megatons** — militarily enormous, about 28
+years of humanity's entire primary energy use.
+
+But using antimatter to split Venus's atmosphere would need **1.72 × 10²⁸ J**, so the entire
+annual output is **0.01 % of that bill.** Splitting the CO₂ by antimatter is not a plan; it
+would take **950 000 years** of the whole plant.
+
+**So the antimatter is militarily decisive and terraformingly irrelevant**, and that is a
+clean split: the antimatter buys *speed and violence*, and the terraforming is bought with
+sunlight, rock and time. The two do not compete for the same resource after all — they
+compete for the same **yards and workers**, which is a far more interesting constraint than
+a shared fuel.
+
+---
+
+## 14. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the
