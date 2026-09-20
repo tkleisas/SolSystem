@@ -849,11 +849,13 @@ rescues it.**
 - [x] Keplerian propagator: elements, anomaly solver, frame rotation
 - [x] Local frame: finite propellant, mass-coupled thrust, 120 Hz tick
 - [x] Hull acceleration bands — corrected to milligee once radiators are charged (`docs/TRIP-ENERGY.md` §16)
-- [ ] **Real ephemerides** — Keplerian elements with secular rates for the Sun, the
-      eight planets and the Moon, plus a star catalogue. Gated by a test that checks
-      Earth's heliocentric position against a published value for a known date, so
-      "ephemeris correct" is a pass/fail rather than a claim (§6.5)
-- [ ] One body, two stations
+- [x] **Real ephemerides** — `Ephemeris` carries JPL's elements and secular rates for
+      the eight planets; `SolarSystem` joins them to the local frame on one clock. Every
+      planet is checked against an independent evaluation of the same elements, and the
+      propagator and the ephemeris are checked against each other over a quarter year.
+      Still missing: the Moon, which needs geocentric rather than heliocentric elements
+- [ ] One body, two stations — `SolarSystem` places a point in a body's local frame and
+      gives it the body's orbital velocity; the stations themselves are not built
 - [ ] Docking that is a skill rather than a button
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
