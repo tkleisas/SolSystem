@@ -722,7 +722,7 @@ answers:
 
 | Element | How | Why it is tractable |
 |---|---|---|
-| **Planets, Sun, Moon** | Keplerian elements with secular rates, propagated by `SolSystem.Core` | The propagator is already built and tested. Earth's position to a few thousand km is arc-seconds at every distance the game cares about |
+| **Planets, Sun, Moon** | Keplerian elements with secular rates, computed by `SolSystem.Core`. The Moon is geocentric and composed with the Earth | Built and tested. The Moon is an ellipse about the Earth, which is an approximation: the Sun pulls it twice as hard as the Earth does, so the ellipse is what that perturbation averages to. The periodic part left out is a few tenths of a degree |
 | **Stars** | A real catalogue on the celestial sphere — direction, magnitude, colour, proper motion | ~5 000 stars to magnitude 6 is a few hundred kB and covers everything visible to the eye |
 | **Milky Way** | A textured band plus a procedural unresolved-star field | A survey-derived all-sky image, composited rather than modelled |
 | **Parallax** | Per-star distance, used as the camera moves between orbits | Alpha Centauri shifts about a degree across the system. It costs nothing and it is the single strongest cue that the ship actually moved |
@@ -874,10 +874,11 @@ rescues it.**
 - [x] Local frame: finite propellant, mass-coupled thrust, 120 Hz tick
 - [x] Hull acceleration bands — corrected to milligee once radiators are charged (`docs/TRIP-ENERGY.md` §16)
 - [x] **Real ephemerides** — `Ephemeris` carries JPL's elements and secular rates for
-      the eight planets; `SolarSystem` joins them to the local frame on one clock. Every
-      planet is checked against an independent evaluation of the same elements, and the
-      propagator and the ephemeris are checked against each other over a quarter year.
-      Still missing: the Moon, which needs geocentric rather than heliocentric elements
+      the eight planets, and the Moon's geocentric elements with their own much faster
+      precession; `SolarSystem` joins them to the local frame on one clock. Every planet
+      is checked against an independent evaluation of the same elements, the Moon against
+      its ellipse and its phase, and the propagator and the ephemeris against each other
+      over a quarter year
 - [x] **One body, two stations** — `Station` orbits a body in its local frame, carries a
       docking port, and is placed by `SolarSystem`. A station left alone holds its orbit to
       zero drift over a full revolution, which is the symplectic integrator earning its keep

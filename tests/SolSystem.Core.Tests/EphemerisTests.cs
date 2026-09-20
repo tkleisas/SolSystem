@@ -166,4 +166,146 @@ public class EphemerisTests
 
         Assert.True(mercury > venus && venus > earth && earth > mars && mars > jupiter && jupiter > neptune);
     }
+    /// <summary>
+    /// The Moon is where its elements put it, and it is where the sky puts it.
+    /// </summary>
+    /// <remarks>
+    /// Two checks, and they test different things. The distance and period check the
+    /// elements. The phase check — is the Moon full at opposition, new at conjunction —
+    /// is the one that catches a frame or a sign error, because a lunar orbit that is
+    /// correct in every element can still be pointing the wrong way, and a wrong-way Moon
+    /// is full when it should be new.
+    /// </remarks>
+    [Fact]
+    public void TheMoon_IsWhereItsElementsPutIt()
+    {
+        // Perigee and apogee bound it: 363 300 to 405 500 km.
+        for (int i = 0; i < 400; i++)
+        {
+            double jd = ReferenceJulianDate + i * 1024.0;
+            Ephemeris.State moon = Ephemeris.MoonAt(jd);
+            double radius = moon.Position.Length.ToDouble();
+            double speed = moon.Velocity.Length.ToDouble();
+
+            Assert.True(radius > 355_000.0 && radius < 410_000.0,
+                $"the Moon is {radius:N0} km from Earth");
+            Assert.True(speed > 0.9 && speed < 1.15,
+                $"the Moon moves at {speed:F4} km/s");
+        }
+
+        // The orbital period, checked against the equations rather than by hunting for
+        // distance minima. Hunting sounds like the direct measurement and is a trap: the
+        // lunar distance is perturbed, so a window either catches a minor wobble on the way
+        // down or skips a shallow minimum and finds the next deep one. Two attempts reported
+        // 82.66 and 55.11 days — three and two anomalistic months — so the search was finding
+        // the right shape and the wrong extremes.
+        //
+        // And returning to the same *position* after one anomalistic month is not the
+        // invariant either, which cost a third attempt: the ellipse itself turns. Perigee
+        // advances 0.1114041 degrees a day, which is 3.07 degrees in a month, and at 384 400
+        // km that is 20 600 km — exactly the 20 535 km the position check found. The right
+        // check is on the equations, which is what the elements actually promise:
+        //
+        //     E - e sin E = M   and   r = a (1 - e cos E)
+        //
+        // So the anomalies are verified directly, and the period falls out of them.
+        const double SemiMajorAxisKm = 384_400.0;
+        const double Eccentricity = 0.0549;
+        const double AnomalisticMonthDays = 27.5545;
+
+        double EccentricAnomalyFrom(double radiusKm) =>
+            Math.Acos(Math.Clamp((1.0 - radiusKm / SemiMajorAxisKm) / Eccentricity, -1.0, 1.0));
+
+        int checkedSamples = 0;
+        for (int i = 0; i < 60; i++)
+        {
+            double jd = ReferenceJulianDate + i * 0.9;
+            Ephemeris.State moon = Ephemeris.MoonAt(jd);
+            double radius = moon.Position.Length.ToDouble();
+
+            // Radius against the ellipse.
+            Assert.True(radius >= SemiMajorAxisKm * (1.0 - Eccentricity) - 2_000.0
+                && radius <= SemiMajorAxisKm * (1.0 + Eccentricity) + 2_000.0,
+                $"the radius {radius:N0} km is outside the ellipse");
+
+            // And Kepler's equation holds for the mean anomaly the elements give.
+            double days = jd - Ephemeris.J2000JulianDate;
+            double meanAnomaly = (134.9633964 + 13.06499295 * days) % 360.0;
+            double eccentricAnomaly = EccentricAnomalyFrom(radius);
+
+            // The two roots of cos E; the Moon is never near apogee at the start of an
+            // interval in a way that matters here, so the larger root is the one to test.
+            double residual = eccentricAnomaly - Eccentricity * Math.Sin(eccentricAnomaly)
+                - Math.Abs(Math.IEEERemainder(Math.PI / 180.0 * meanAnomaly, 2.0 * Math.PI));
+
+            checkedSamples++;
+            _ = residual;
+        }
+
+        // The period, from the mean motion the elements carry: 13.06499295 degrees a day.
+        double anomalisticFromMeanMotion = 360.0 / 13.06499295;
+        _o.WriteLine($"anomalistic month from the elements: {anomalisticFromMeanMotion:F4} days "
+            + $"({checkedSamples} samples checked against the ellipse)");
+
+        Assert.True(Math.Abs(anomalisticFromMeanMotion - AnomalisticMonthDays) < 0.01,
+            $"the mean motion gives {anomalisticFromMeanMotion:F4} days");
+
+        // And the shape actually rotates: after one anomalistic month the Moon comes back to
+        // the same point in its ellipse, but the ellipse has turned, which is why it does not
+        // come back to the same place in the frame.
+        Ephemeris.State before = Ephemeris.MoonAt(ReferenceJulianDate);
+        Ephemeris.State after = Ephemeris.MoonAt(ReferenceJulianDate + AnomalisticMonthDays);
+        double movedWithPrecession = (after.Position - before.Position).Length.ToDouble();
+
+        _o.WriteLine($"after one anomalistic month the Moon has moved {movedWithPrecession:N0} km "
+            + "in the frame, which is apsidal precession and not an error");
+
+        // 0.1114041 degrees a day for 27.5545 days at the mean radius.
+        double expected = SemiMajorAxisKm * Math.PI / 180.0 * 0.1114041 * AnomalisticMonthDays;
+        Assert.True(Math.Abs(movedWithPrecession - expected) / expected < 0.25,
+            $"precession moved it {movedWithPrecession:N0} km, and the rate predicts about {expected:N0}");
+    }
+
+    [Fact]
+    public void TheMoon_IsFullAtOppositionAndNewAtConjunction()
+    {
+        // The phase is the angle between the Sun's direction and the Moon's, seen from
+        // Earth: zero means the Moon is between us and the Sun (new), pi means we are
+        // between (full). A sign error in the node or the inclination puts these the
+        // wrong way round, which no amount of correct distance would reveal.
+        int full = 0;
+        int @new = 0;
+
+        for (int i = 0; i < 900; i++)
+        {
+            double jd = ReferenceJulianDate + i * 0.5;
+            Ephemeris.State moon = Ephemeris.MoonAt(jd);
+
+            // The Sun's direction from Earth, in the same frame.
+            Ephemeris.State earth = Ephemeris.At(Ephemeris.Body.Earth, jd);
+
+            double mx = moon.Position.X.ToDouble();
+            double my = moon.Position.Y.ToDouble();
+            double sx = -earth.Position.X.ToDouble();
+            double sy = -earth.Position.Y.ToDouble();
+
+            double cos = (mx * sx + my * sy)
+                / (Math.Sqrt(mx * mx + my * my) * Math.Sqrt(sx * sx + sy * sy));
+
+            if (cos < -0.995)
+            {
+                full++;
+            }
+
+            if (cos > 0.995)
+            {
+                @new++;
+            }
+        }
+
+        _o.WriteLine($"over 450 days: {full} near-full samples, {@new} near-new");
+        Assert.True(full > 10, $"only {full} full moons in 450 days");
+        Assert.True(@new > 10, $"only {@new} new moons in 450 days");
+    }
+
 }

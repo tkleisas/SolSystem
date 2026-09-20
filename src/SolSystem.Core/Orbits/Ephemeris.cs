@@ -184,6 +184,103 @@ internal static class Ephemeris
         }
     }
 
+    /// <summary>
+    /// The Moon, whose elements are geocentric and whose angles precess quickly.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not one of <see cref="Body"/> and not in the table above, because a lunar orbit is
+    /// a different kind of object: it is measured from the Earth, not the Sun, and its
+    /// angles move fast enough that linear rates over a century are not good enough —
+    /// the node regresses in 18.6 years and perigee advances in 8.85, so both complete
+    /// several cycles inside the game's span.
+    /// </para>
+    /// <para>
+    /// <b>A Kepler ellipse about the Earth is an approximation and it is worth knowing
+    /// how big an approximation.</b> The Sun pulls the Moon at 5.9 mm/s² and the Earth at
+    /// 2.7, so the Moon is really in orbit about the Sun and merely perturbed by the
+    /// Earth. The ellipse is what that perturbation averages to, which is why the rates
+    /// above exist at all — they *are* the perturbation, folded in as precession. What is
+    /// left out is the periodic part: evection and variation, a few tenths of a degree.
+    /// That is a few thousand kilometres on the sky, which is a fine error for a target
+    /// you are flying to and a poor one for predicting an occultation.
+    /// </para>
+    /// <para>
+    /// The elements are referred to the mean ecliptic and equinox of <em>date</em>, not of
+    /// J2000 like the planetary ones, so the result carries one precession's worth of
+    /// frame difference — about 2.5 degrees by 2185. It is left uncorrected and stated
+    /// here rather than quietly mixed in: rotating it properly needs the precession
+    /// matrix, which is a piece of work with its own tests.
+    /// </para>
+    /// </remarks>
+    internal static State MoonAt(double julianDate)
+    {
+        double days = julianDate - J2000JulianDate;
+
+        // Secular rates: the node regresses westward, perigee advances eastward.
+        const double nodeLongitude = 125.0445479 - 0.0529539 * 0.0;
+        const double perigeeLongitude = 83.3532465 + 0.1114041 * 0.0;
+
+        double node = nodeLongitude - 0.0529539 * days;
+        double perigee = perigeeLongitude + 0.1114041 * days;
+        double meanAnomaly = 134.9633964 + 13.06499295 * days;
+
+        const double semiMajorAxisKm = 384_400.0;
+        const double eccentricity = 0.0549;
+        const double inclinationDegrees = 5.145;
+
+        double eccentricAnomaly = SolveKepler(Radians(WrapDegrees(meanAnomaly)), eccentricity);
+
+        double cosE = Math.Cos(eccentricAnomaly);
+        double sinE = Math.Sin(eccentricAnomaly);
+        double root = Math.Sqrt(1.0 - eccentricity * eccentricity);
+
+        double xOrbital = semiMajorAxisKm * (cosE - eccentricity);
+        double yOrbital = semiMajorAxisKm * root * sinE;
+
+        // The same rotation as the planets, in the same order, with the same argument.
+        (double cosW, double sinW) = CosSin(Radians(WrapDegrees(perigee - node)));
+        (double cosI, double sinI) = CosSin(Radians(inclinationDegrees));
+        (double cosO, double sinO) = CosSin(Radians(WrapDegrees(node)));
+
+        double positionX = (cosO * cosW - sinO * sinW * cosI) * xOrbital
+            + (-cosO * sinW - sinO * cosW * cosI) * yOrbital;
+        double positionY = (sinO * cosW + cosO * sinW * cosI) * xOrbital
+            + (-sinO * sinW + cosO * cosW * cosI) * yOrbital;
+        double positionZ = (sinW * sinI) * xOrbital + (cosW * sinI) * yOrbital;
+
+        // Velocity, from the same differentiation the planets use and then per second.
+        double meanMotion = 13.06499295 * Math.PI / 180.0;   // radians per day
+        double oneMinusECosE = 1.0 - eccentricity * cosE;
+        double eccentricAnomalyRate = meanMotion / oneMinusECosE;
+
+        double vxOrbital = -semiMajorAxisKm * sinE * eccentricAnomalyRate;
+        double vyOrbital = semiMajorAxisKm * root * cosE * eccentricAnomalyRate;
+
+        const double perDayToPerSecond = 1.0 / SecondsPerDay;
+
+        double velocityX = ((cosO * cosW - sinO * sinW * cosI) * vxOrbital
+            + (-cosO * sinW - sinO * cosW * cosI) * vyOrbital) * perDayToPerSecond;
+        double velocityY = ((sinO * cosW + cosO * sinW * cosI) * vxOrbital
+            + (-sinO * sinW + cosO * cosW * cosI) * vyOrbital) * perDayToPerSecond;
+        double velocityZ = ((sinW * sinI) * vxOrbital + (cosW * sinI) * vyOrbital)
+            * perDayToPerSecond;
+
+        return new State(
+            new Fix128Vec(
+                Fix128.FromDouble(positionX),
+                Fix128.FromDouble(positionY),
+                Fix128.FromDouble(positionZ)),
+            new Fix128Vec(
+                Fix128.FromDouble(velocityX),
+                Fix128.FromDouble(velocityY),
+                Fix128.FromDouble(velocityZ)));
+    }
+
+    /// <summary>The Moon's geocentric state at a count of seconds from J2000.</summary>
+    internal static State MoonAtSecondsFromJ2000(double seconds) =>
+        MoonAt(J2000JulianDate + seconds / SecondsPerDay);
+
     /// <summary>Where <paramref name="body"/> is at Julian date <paramref name="julianDate"/>.</summary>
     internal static State At(Body body, double julianDate)
     {

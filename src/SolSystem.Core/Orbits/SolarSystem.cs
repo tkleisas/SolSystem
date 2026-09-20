@@ -67,8 +67,9 @@ internal sealed class SolarSystem
     /// </summary>
     /// <remarks>
     /// Radii are IAU mean values and GM is from the same source as the elements. The Moon is
-    /// absent for now: it needs its own geocentric elements rather than heliocentric ones, and
-    /// nothing in the skeleton requires it yet.
+    /// not in this list because it is not a heliocentric body — it orbits the Earth, and
+    /// <see cref="Heliocentric"/> composes its position with the Earth's rather than looking
+    /// it up in a table.
     /// </remarks>
     internal static readonly Body[] Bodies =
     {
@@ -81,6 +82,10 @@ internal sealed class SolarSystem
         new(Ephemeris.Body.Uranus, "Uranus", 25_559.0, 5.793939e6),
         new(Ephemeris.Body.Neptune, "Neptune", 24_764.0, 6.836529e6),
     };
+
+    /// <summary>The Moon as a body entry, for the code that only needs a radius and a GM.</summary>
+    internal static readonly Body Moon =
+        new(Ephemeris.Body.Earth, "Moon", MoonRadiusKm, MoonGmKm);
 
     /// <summary>The body entry for <paramref name="kind"/>.</summary>
     internal static Body BodyOf(Ephemeris.Body kind)
@@ -112,6 +117,33 @@ internal sealed class SolarSystem
     /// <summary>Heliocentric position and velocity, solar frame: kilometres and km/s.</summary>
     internal Ephemeris.State Heliocentric(Ephemeris.Body body) =>
         Ephemeris.AtSecondsFromJ2000(body, SecondsFromJ2000);
+
+    /// <summary>
+    /// The Moon, heliocentric: the Earth's position plus the Moon's offset from it.
+    /// </summary>
+    /// <remarks>
+    /// The composition is the whole reason the Moon is a special case. Its elements are
+    /// geocentric — measured from the Earth, with the node and perigee precessing on 18.6-
+    /// and 8.85-year cycles — so there is no heliocentric element set to look up. Adding the
+    /// two states gives the same answer the simulation needs, and the velocity follows for
+    /// the same reason: a sum of two states is a state.
+    /// </remarks>
+    internal Ephemeris.State MoonHeliocentric()
+    {
+        Ephemeris.State earth = Heliocentric(Ephemeris.Body.Earth);
+        Ephemeris.State moon = Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000);
+        return new Ephemeris.State(earth.Position + moon.Position, earth.Velocity + moon.Velocity);
+    }
+
+    /// <summary>The Moon's offset from the Earth, in kilometres and km/s.</summary>
+    internal Ephemeris.State MoonRelativeToEarth() =>
+        Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000);
+
+    /// <summary>GM of the Moon, in km³/s².</summary>
+    internal const double MoonGmKm = 4_902.8001;
+
+    /// <summary>Mean radius of the Moon, in kilometres.</summary>
+    internal const double MoonRadiusKm = 1_737.4;
 
     /// <summary>
     /// Planet <paramref name="body"/> relative to planet <paramref name="origin"/>, in
