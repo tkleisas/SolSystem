@@ -102,11 +102,21 @@ internal readonly struct Engine
     /// </summary>
     /// <remarks>
     /// A property of the drive-and-hull pairing rather than of the engine alone, because it
-    /// is really a statement about what the ship can survive. A crewed hull is held between
-    /// 0.1 g and 1 g: below 0.1 g a fusion torch is not worth lighting for manoeuvring, and
-    /// above 1 g the crew is being squashed. A mechanical hull — an Illuminus shell — has no
-    /// flesh to squash and can take 10 to 100 g, at which point the limit becomes the
-    /// structural frame carrying the thrust rather than anything inside it.
+    /// is really a statement about what the ship can survive.
+    /// <para>
+    /// For a fusion torch that limit is <b>thermal, not biological</b>, and it is far lower
+    /// than it looks. The drive's waste heat has to be radiated by a radiator that is part of
+    /// the ship: at thermal efficiency <c>η</c> and rejection temperature <c>T</c>, a jet of
+    /// power <c>P</c> needs <c>P(1-η)/(2ησT⁴)</c> of it, at 6–8 kg/m² for a liquid-metal
+    /// loop. Run that honestly and a torch that will spend a third of its mass on radiator
+    /// reaches single-digit milligee — not the tenths of a g the first pass assumed, and not
+    /// the tens of g. See <c>docs/TRIP-ENERGY.md</c> §16.
+    /// </para>
+    /// <para>
+    /// So the crewed and mechanical bands are adjacent rather than three orders of magnitude
+    /// apart. What an uncrewed hull buys is the freedom to run the drive harder and the
+    /// radiator hotter, not the freedom to ignore heat.
+    /// </para>
     /// </remarks>
     internal readonly Fix128 MaxAccelerationInMetresPerSecondSquared;
 
@@ -117,34 +127,41 @@ internal readonly struct Engine
         MaxAccelerationInMetresPerSecondSquared = maxAccelerationInMetresPerSecondSquared;
     }
 
+    /// <summary>The crewed torch's exhaust velocity, in m/s. 1 200 km/s.</summary>
+    internal static readonly Fix128 CrewedExhaustVelocity = Fix128.FromDouble(1_200_000.0);
+
+    /// <summary>
+    /// The crewed torch's steady acceleration, in m/s².
+    /// </summary>
+    /// <remarks>
+    /// Four milligee, derived from a 1500 K radiator at 65 % thermal efficiency spending 35 %
+    /// of the ship. It is the design's reference acceleration and the number transits are
+    /// quoted at.
+    /// </remarks>
+    internal static readonly Fix128 CrewedAcceleration = Fix128.FromDouble(0.0392);
+
     /// <summary>An engine for a crewed hull, limited to <paramref name="maxG"/>.</summary>
+    /// <remarks>
+    /// The default ceiling is the torch's steady acceleration rather than a g: a crewed hull
+    /// is not limited by what its people can take, it is limited by what its radiator can
+    /// reject. Pass <paramref name="maxG"/> only for a hull with a better radiator than the
+    /// reference, which is a real advantage and a small one.
+    /// </remarks>
     internal static Engine Crewed(Fix128 thrustKilonewtons, Fix128 specificImpulse, Fix128 maxG = default) =>
         new(thrustKilonewtons, specificImpulse,
-            (maxG == Fix128.Zero ? Fix128.One : maxG) * StandardGravity);
+            maxG == Fix128.Zero ? CrewedAcceleration : maxG * StandardGravity);
 
     /// <summary>
     /// An engine for a mechanical hull, limited to <paramref name="maxG"/>.
     /// </summary>
     /// <remarks>
-    /// Defaults to 10 g, the bottom of the shell band: enough to be recognisably inhuman,
-    /// and the point at which the ship's structure rather than its occupant becomes the
-    /// constraint.
+    /// Defaults to four times the crewed torch, which is what a hotter radiator and no crew
+    /// to look after is worth. Not the hundred-fold the first pass assumed — the limit is the
+    /// radiator in both cases, and an uncrewed hull does not stop needing one.
     /// </remarks>
     internal static Engine Shell(Fix128 thrustKilonewtons, Fix128 specificImpulse, Fix128 maxG = default) =>
         new(thrustKilonewtons, specificImpulse,
-            (maxG == Fix128.Zero ? Fix128.FromDouble(10.0) : maxG) * StandardGravity);
-
-    /// <summary>The crewed hull's acceleration band, in g.</summary>
-    internal static readonly Fix128 CrewedMinimumG = Fix128.FromDouble(0.1);
-
-    /// <summary>The crewed hull's ceiling, in g.</summary>
-    internal static readonly Fix128 CrewedMaximumG = Fix128.One;
-
-    /// <summary>The mechanical hull's floor, in g.</summary>
-    internal static readonly Fix128 ShellMinimumG = Fix128.FromDouble(10.0);
-
-    /// <summary>The mechanical hull's ceiling, in g.</summary>
-    internal static readonly Fix128 ShellMaximumG = Fix128.FromDouble(100.0);
+            maxG == Fix128.Zero ? CrewedAcceleration * Fix128.FromWhole(4) : maxG * StandardGravity);
 
     /// <summary>Exhaust velocity in m/s: <c>Isp · g₀</c>.</summary>
     /// <remarks>

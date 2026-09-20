@@ -25,6 +25,9 @@ public class LocalFrameTests
 
     private static Fix128 F(double value) => Fix128.FromDouble(value);
 
+    /// <summary>The crewed torch's steady acceleration, in milligee, for readable tests.</summary>
+    private static double CrewedMilligee => Engine.CrewedAcceleration.ToDouble() / 9.80665 * 1000.0;
+
     /// <summary>
     /// A crewed ship, 7000 km from the centre — low Earth orbit, where gravity is a real
     /// force rather than a rounding error, so an integrator mistake shows up immediately.
@@ -154,33 +157,34 @@ public class LocalFrameTests
     [Fact]
     public void AFullBurn_UnderACeiling_GainsThrustOverMassTimesTime()
     {
-        // With the crewed 1 g ceiling in force and the thrust sized for 1 g at the full
-        // mass, the acceleration is clamped to 1 g for the whole burn even as the ship
-        // lightens. The velocity gained is therefore a·t, NOT the rocket equation's
-        // vₑ·ln(mass ratio) — the ceiling is throwing away the extra acceleration that the
-        // falling mass would have bought.
+        // With the crewed ceiling in force and the thrust sized for it at the full mass, the
+        // acceleration is clamped for the whole burn even as the ship lightens. The velocity
+        // gained is therefore a·t, NOT the rocket equation's vₑ·ln(mass ratio) — the ceiling
+        // throws away the extra acceleration the falling mass would have bought.
         //
-        // This is a real property of the design rather than an artifact: a crewed hull
-        // cannot use its own mass loss to accelerate harder, because the crew cannot take
-        // more than 1 g. It is exactly the trade a shell hull escapes.
-        Ship ship = MakeShip(ThrustFor(1.0, 10), 900, 5, 5);
+        // The ceiling is a radiator limit rather than a biological one (see the torch tests
+        // below), and the property is the same either way: a crewed hull cannot use its own
+        // mass loss to accelerate harder.
+        Ship ship = MakeShip(ThrustFor(CrewedMilligee, 10), 102_000, 5, 5);
         var sources = new[] { GravitySource.AtOrigin(Fix128.Zero) };
         var command = Command.WithThrottle(Fix128.One);
 
-        Fix128 flow = ship.Engine.MassFlowTonnesPerSecond;
-        double burnSeconds = 5.0 / flow.ToDouble();
-
-        for (int i = 0; i < 60000 && ship.Propellant > Fix128.Zero; i++)
+        // Ten seconds at 120 Hz. The tank lasts three and a half hours at this thrust, so the
+        // burn is stopped by the tick count rather than by running dry, and the ship is at the
+        // ceiling for every tick of it.
+        const int ticks = 1200;
+        double burnSeconds = ticks * TickSeconds;
+        for (int i = 0; i < ticks; i++)
         {
             ship.Step(sources, F(TickSeconds), command);
         }
 
         double gained = ship.Velocity.Length.ToDouble();
-        double expected = 1.0 * 9.80665 * burnSeconds;
+        double expected = Engine.CrewedAcceleration.ToDouble() * burnSeconds;
 
         Assert.True(
             Math.Abs(gained - expected) / expected < 1e-4,
-            $"burn produced {gained} m/s; 1 g for {burnSeconds} s is {expected} m/s");
+            $"burn produced {gained} m/s; {CrewedMilligee} milligee for {burnSeconds} s is {expected} m/s");
     }
 
     [Fact]
@@ -239,10 +243,10 @@ public class LocalFrameTests
     [Fact]
     public void Thrust_ProducesTheAccelerationItShould()
     {
-        // 1 m/s² is 0.102 g, inside the crewed band, so it must not be clamped. The thrust
-        // is sized for the LOADED mass: MakeShip adds propellant to the dry mass, and sizing
-        // for the dry mass alone under-thrusts by a factor of 105/100.
-        Ship ship = MakeShip(ThrustFor(1.0 / 9.80665, 105), 900, 100, 5);
+        // Thrust sized for exactly the torch's steady acceleration at the LOADED mass, so the
+        // ceiling is not in play and the kinematic answer is the whole answer. Sizing for the
+        // dry mass instead would under-thrust, which is what this test first caught.
+        Ship ship = MakeShip(ThrustFor(CrewedMilligee, 105), 102_000, 100, 5);
         var sources = new[] { GravitySource.AtOrigin(Fix128.Zero) };
         var command = new Command(
             new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero), Fix128.One, Fix128Vec.Zero);
@@ -252,8 +256,11 @@ public class LocalFrameTests
             ship.Step(sources, F(TickSeconds), command);
         }
 
+        double expected = Engine.CrewedAcceleration.ToDouble();
         double speed = ship.Velocity.Length.ToDouble();
-        Assert.True(Math.Abs(speed - 1.0) < 0.001, $"one second at 1 m/s² gave {speed} m/s");
+        Assert.True(
+            Math.Abs(speed - expected) < expected * 1e-3,
+            $"one second at the ceiling gave {speed} m/s, expected {expected}");
     }
 
     [Fact]
@@ -291,10 +298,10 @@ public class LocalFrameTests
     [Fact]
     public void CrewedHull_IsHeldInsideTheAccelerationBand()
     {
-        // A drive far more powerful than the crew can take must be throttled back to 1 g.
-        // Without the ceiling this ship would pull 50 m/s², which is five times what a
-        // person survives for more than a few seconds.
-        Ship ship = MakeShip(ThrustFor(50.0, 10), 900, 10, 10);
+        // A drive far more powerful than the torch must be throttled back to the torch's
+        // steady acceleration. Without the ceiling this ship would pull 50 m/s², a thousand
+        // times what its radiator can reject.
+        Ship ship = MakeShip(ThrustFor(50.0, 10), 102_000, 10, 10);
         var sources = new[] { GravitySource.AtOrigin(Fix128.Zero) };
         var command = Command.WithThrottle(Fix128.One);
 
@@ -303,22 +310,24 @@ public class LocalFrameTests
             ship.Step(sources, F(TickSeconds), command);
         }
 
-        // One second of 1 g is 9.80665 m/s.
-        double g = ship.Velocity.Length.ToDouble() / 9.80665;
-        Assert.True(g <= 1.0001, $"a crewed hull reached {g} g in one second");
-        Assert.True(g >= 0.9999, $"a crewed hull only reached {g} g");
+        double milligee = ship.Velocity.Length.ToDouble() / 9.80665 * 1000.0;
+        Assert.True(milligee <= CrewedMilligee * 1.001, $"a crewed hull reached {milligee} milligee in one second");
+        Assert.True(milligee >= CrewedMilligee * 0.999, $"a crewed hull only reached {milligee} milligee");
     }
 
     [Fact]
     public void ShellHull_CanUseTheMechanicalBand()
     {
-        // A shell has no flesh to squash, so the same physics is allowed to reach 10 g.
+        // A shell has no crew, so a hotter radiator and a coarser torch are allowed: four
+        // times the crewed acceleration. Not a hundred times — the radiator still has to
+        // reject the waste heat, and an uncrewed hull does not stop needing one.
+        double shellMilligee = Engine.CrewedAcceleration.ToDouble() * 4.0 / 9.80665 * 1000.0;
         Ship ship = new(
             new Fix128Vec(F(7_000_000.0), Fix128.Zero, Fix128.Zero),
             Fix128Vec.Zero,
             F(10),
             F(10),
-            Engine.Shell(F(ThrustFor(50.0, 10)), F(900)));
+            Engine.Shell(F(ThrustFor(shellMilligee, 10)), F(102_000)));
 
         var sources = new[] { GravitySource.AtOrigin(Fix128.Zero) };
         var command = Command.WithThrottle(Fix128.One);
@@ -328,21 +337,75 @@ public class LocalFrameTests
             ship.Step(sources, F(TickSeconds), command);
         }
 
-        double g = ship.Velocity.Length.ToDouble() / 9.80665;
-        Assert.True(Math.Abs(g - 10.0) < 0.001, $"a shell hull should reach 10 g, reached {g}");
+        double milligee = ship.Velocity.Length.ToDouble() / 9.80665 * 1000.0;
+        Assert.True(
+            Math.Abs(milligee - shellMilligee) < shellMilligee * 1e-3,
+            $"a shell hull should reach {shellMilligee} milligee, reached {milligee}");
     }
 
+    /// <summary>
+    /// The torch's acceleration comes from its radiator, not from what a crew can survive.
+    /// </summary>
+    /// <remarks>
+    /// This is the correction in `docs/TRIP-ENERGY.md` §16, as a test. The drive's waste heat
+    /// is rejected by a radiator that is part of the ship, so the achievable acceleration is
+    /// a thermal limit four orders of magnitude below what a person can take. If the ceiling
+    /// ever drifts back toward a g, this is where it should fail.
+    /// </remarks>
     [Fact]
-    public void TheAccelerationBands_AreTheOnesTheDesignNames()
+    public void TheTorchAcceleration_IsSetByItsRadiator()
     {
-        Assert.Equal(0.1, Engine.CrewedMinimumG.ToDouble(), 9);
-        Assert.Equal(1.0, Engine.CrewedMaximumG.ToDouble(), 9);
-        Assert.Equal(10.0, Engine.ShellMinimumG.ToDouble(), 9);
-        Assert.Equal(100.0, Engine.ShellMaximumG.ToDouble(), 9);
+        // 1200 km/s of exhaust velocity, and 4 milligee of it.
+        Assert.Equal(1_200_000.0, Engine.CrewedExhaustVelocity.ToDouble(), 3);
+        Assert.Equal(0.0392, Engine.CrewedAcceleration.ToDouble(), 6);
 
-        // And the defaults land on the right side of each band.
-        Assert.Equal(9.80665, Engine.Crewed(F(100), F(900)).MaxAccelerationInMetresPerSecondSquared.ToDouble(), 6);
-        Assert.Equal(98.0665, Engine.Shell(F(100), F(900)).MaxAccelerationInMetresPerSecondSquared.ToDouble(), 6);
+        // Which is four thousandths of a g: the crewed band is nowhere near a g.
+        double inG = Engine.CrewedAcceleration.ToDouble() / 9.80665;
+        Assert.True(inG < 0.005, $"the crewed torch is {inG:G4} g, which is not a milligee drive");
+
+        // A crewed hull defaults to it, and an uncrewed one gets four times it, not a hundred.
+        Assert.Equal(0.0392, Engine.Crewed(F(100), F(102_000)).MaxAccelerationInMetresPerSecondSquared.ToDouble(), 6);
+        Assert.Equal(0.1568, Engine.Shell(F(100), F(102_000)).MaxAccelerationInMetresPerSecondSquared.ToDouble(), 6);
+    }
+
+    /// <summary>
+    /// The reference torch, with the mass budget that produces its acceleration.
+    /// </summary>
+    /// <remarks>
+    /// A drive that spends 17.6 % of the ship on radiator and 10 % on plant has 72 % left for
+    /// everything else, and at 1200 km/s the propellant for a 314 km/s Jupiter crossing is
+    /// another 23 % — so the Workers' torch delivers about half its mass to the outer system.
+    /// The point of asserting it is that the numbers are checked against each other rather
+    /// than quoted: an earlier draft of the same table claimed 35 % of radiator at these
+    /// accelerations, and the arithmetic says 17.6.
+    /// </remarks>
+    [Fact]
+    public void TheRadiatorBudget_ClosesAtFourMilligee()
+    {
+        // Sheet 2: the radiator area a jet of power P needs at efficiency eta and temperature T.
+        const double sigma = 5.670374419e-8;
+        const double temperature = 1500.0;
+        const double efficiency = 0.65;
+        const double arealDensity = 8.0;
+
+        double acceleration = Engine.CrewedAcceleration.ToDouble();
+        double exhaustVelocity = Engine.CrewedExhaustVelocity.ToDouble();
+
+        // Per kilogram of ship: jet power, waste heat, radiator area, radiator mass.
+        double jetPower = acceleration * exhaustVelocity / 2.0;
+        double radiatorArea = jetPower * (1.0 - efficiency) / efficiency / (2.0 * sigma * Math.Pow(temperature, 4));
+        double radiatorMass = radiatorArea * arealDensity;
+
+        Assert.True(
+            Math.Abs(radiatorMass - 0.176) < 0.01,
+            $"a kilogram of ship needs {radiatorMass:F3} kg of radiator, not the 0.176 the design assumes");
+
+        // And the exhaust velocity is what makes the long transits affordable: at 250 km/s of
+        // delta-v the propellant fraction is under a fifth.
+        double propellantFraction = 1.0 - Math.Exp(-250_000.0 / exhaustVelocity);
+        Assert.True(
+            propellantFraction < 0.20,
+            $"crossing to Jupiter would burn {propellantFraction:P0} of the ship as propellant");
     }
 
     // ------------------------------------------------------------------ gravity and motion

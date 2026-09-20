@@ -1042,3 +1042,146 @@ a 0.1 g sprint is 18 days, which nobody sleeps through, but a picket stationed a
 moon for years is a different problem, and a warship that can transit at 0.01 g while its
 crew sleeps is a warship that arrives without having aged. That is a capability, and §8 can
 price it.
+
+## 16. Correction: the acceleration bands were fiction, because radiators have mass
+
+§6 and §9 treated drive specific power as a free parameter and quoted accelerations of
+0.1 g for a crewed hull and 10–100 g for a shell. **Both are wrong by two to three orders
+of magnitude, and the reason is that a drive's waste heat has to be radiated away by a
+radiator that is part of the ship.**
+
+Section 9's own relation, `Mp/m = a·vₑ/(2·SP)`, is right, and it already contains the
+problem: SP is watts per kilogram *of plant*. But the plant is not the only thing the jet
+power buys you. At thermal efficiency `η`, a jet of power `P` rejects `P(1-η)/η`, and a
+radiator at temperature `T` with areal density `σ_A` needs
+
+```
+A = P(1-η) / (2 η σ T⁴)        M_rad = A · σ_A
+```
+
+For a 1000 t ship at 0.1 g and vₑ = 500 km/s that is a 245 GW jet, 1.1 km² of radiator at
+1300 K, and **11 400 t of radiator** — eleven times the ship — to support a plant that
+§9 said would weigh a few thousand tonnes. Run the numbers honestly and §9's figures are
+not optimistic, they are unreachable:
+
+| vₑ | Acceleration for which the radiator is 50 % of the ship |
+|---|---|
+| 100 km/s | 25 milligee |
+| 200 km/s | 12 milligee |
+| 300 km/s | 8.3 milligee |
+| 500 km/s | 5.0 milligee |
+| 1000 km/s | 2.5 milligee |
+
+> **DECIDED. Powered ships in this setting accelerate at milligee, not g. There is no
+> 0.1 g crewed hull and no 10 g shell.** The band is roughly **0.5 to 15 milligee**, and
+> which end a ship sits at is set by its exhaust velocity, its radiator technology and how
+> much of its own mass it will spend on both.
+
+This is a *correction*, and it is worth being blunt that it invalidates numbers rather than
+refining them. §6's transit table, §9's drive table and §11's courier figures were all
+computed in the zero-radiator limit.
+
+### What survives, and what it does to the setting
+
+**The bulk tier survives intact and is now the main tier.** §15's insight — that
+acceleration is the dial and the two logistics tiers fall out of the rocket equation — was
+right; what changes is that *both* tiers are slow, so the distinction becomes exhaust
+velocity and radiator budget rather than thrust. The 1000 t hauler and the 1000 t courier
+differ by their vₑ and their tolerance for months in transit, not by g.
+
+**Combat changes completely, and for the better.** With every hull at milligee there are no
+high-speed chases and no sprinting away. An engagement is a *rendezvous*: two ships on
+nearly the same orbit with nearly the same velocity, because neither can change its vector
+quickly. §8's combat has to be built on that, and it is a better fit for the setting than
+torch-ship dogfighting — it is the difference between a naval engagement and a car chase.
+
+**Transit times become the strategy.** A Mars crossing is a month, Jupiter is four, Saturn
+is five and a half. Convoys are visible, slow and interceptable *by construction* rather
+than by convention, which is exactly what §4.1's raiding economy wanted and what §15 said
+the haulage problem was really about.
+
+### The numbers that do close
+
+Charging the radiator to 17.6 % of the ship and the plant to 10 %, at 1500 K rejection and
+8 kg/m²:
+
+| | Workers torch | Illuminus torch |
+|---|---|---|
+| Drive | antimatter-catalysed D-D fusion | pure D-D fusion |
+| Exhaust velocity | 1 200 km/s | 600 km/s |
+| Specific impulse | 122 000 s | 61 000 s |
+| Radiator | 1500 K, 65 % thermal, 8 kg/m², **17.6 % of the ship** | 1500 K, 60 % thermal, 8 kg/m², **40 % of the ship** |
+| Jet power | 23.5 kW per kg of ship | 23.5 kW per kg of ship |
+| **Steady acceleration** | **4.0 milligee** | **14 milligee** |
+| Specific power, plant and radiator charged | **85 kW/kg** | **47 kW/kg** |
+
+The Illuminus torch is quicker because it is *coarser*: half the exhaust velocity means the
+same thrust costs half the jet power, so the radiator can be smaller — and they spend the
+saving on a hotter-running hull rather than on payload. Over a long haul the Workers' extra
+velocity wins that trade back exponentially, which is the asymmetry the design wants.
+
+And the transits that follow, radiator included:
+
+| Route | Workers at 4.0 milligee | Illuminus at 14 milligee |
+|---|---|---|
+| Venus 0.3 AU | 22 d | 12 d |
+| Mars 0.5 AU | 29 d | 16 d |
+| Jupiter 4.2 AU | 83 d | 45 d |
+| Saturn 8.5 AU | 118 d | 63 d |
+
+Payload fractions at those accelerations, radiator and plant included. The crossing cost is
+`Δv = 2√(a·d)` and the propellant is `1 - exp(-Δv/vₑ)`:
+
+| Route | Workers (4.0 milligee, vₑ 1200 km/s) | Illuminus (14.4 milligee, vₑ 600 km/s) |
+|---|---|---|
+| Venus 0.3 AU | 25 d, 66 % payload | 13 d, 27 % |
+| Mars 0.5 AU | 32 d, 64 % | 17 d, 22 % |
+| Jupiter 4.2 AU | **93 d, 49 %** | **49 d, −12 %** |
+| Saturn 8.5 AU | **132 d, 41 %** | **69 d, −25 %** |
+
+### The strategic consequence, which is large
+
+**The Illuminus cannot reach the outer system with cargo at all.** Past about 0.6 AU their
+payload fraction goes negative — a fast, low-`vₑ` torch spends its whole mass on propellant
+and radiator long before it arrives. The Workers, with twice the exhaust velocity and a
+quarter of the acceleration, reach **33 AU with a fifth of their mass intact**.
+
+This is not a small asymmetry, and it reframes §4.1 of `DESIGN.md`:
+
+- The Workers are the only faction that can *hold* anything beyond the Belt. Their logistics
+  chain to the Jovian moons is real, and so is the convoy economy built on it.
+- The Illuminus can *arrive* almost anywhere quickly and can *bring nothing back*. That is
+  the mechanical basis for raiding instead of holding — §1.3's flavour stops being a choice
+  and becomes the only option open to them.
+- **The Jovian war is therefore asymmetric in an interesting way.** The Illuminus are not
+  racing the Workers to Jupiter; they are trying to make the Workers' route unprofitable
+  from positions they can actually supply. Every raid has to be launched from the inner
+  system, which makes range, timing and the Ceres depot the whole game.
+- And it puts the Illuminus' own Mars programme under pressure too: at 22 % payload on a
+  17-day crossing they can just about supply it, and not much more.
+
+> **Tuning note.** This asymmetry is a consequence of two numbers, `vₑ` and rejection
+> temperature, and it is *razor* — at 600 km/s a 20 % payload gets you 0.6 AU, and the
+> Illuminus playstyle only works at all because raiding does not need to bring anything back.
+> If that is too sharp, the dial is the Illuminus torch's exhaust velocity, not their
+> acceleration: 900 km/s instead of 600 puts them back in the Jovian game at 15 % payload.
+
+The factions are now asymmetric in a way that is worth the asymmetry: **the Workers are
+faster over long distances and the Illuminus are quicker to respond**, which is the same
+shape as §3's antimatter-versus-fusion split expressed in time rather than in fuel. The
+Workers' high vₑ pays off exponentially on the longest routes; the Illuminus' better
+radiators pay off on the shortest.
+
+### Sprint drives do not rescue the high-g case
+
+The tempting escape is a burst drive: run for seconds, radiate adiabatically, never carry a
+steady-state radiator. It does not work, and the arithmetic is short. A 1000 t ship at 1 g
+with vₑ = 1200 km/s is a 5.9 TW jet; at 65 % efficiency that is 2 TW of waste heat. Even
+lithium's 4 kJ/kg/K gives a 1000 t heat sink 4.8 GJ, which is **2.4 milliseconds** of burn —
+about 25 mm/s of Δv. High thrust and high exhaust velocity cannot coexist without either a
+radiator that dwarfs the ship or a heat sink that vaporises.
+
+> **There is no torch-ship regime in this setting.** §1.3's shells are not fast because they
+> are mechanical; they are *uncrewed*, which lets them burn harder and run their crews'
+acceleration limits off, not their thermal ones. That is a real advantage and a much smaller
+one than 10 g.

@@ -390,26 +390,42 @@ economy is balanced.
 very long way away. Stealth is running cold and letting a body occlude you — not a
 cloak.
 
-**[DECIDED] Transits are brachistochrones, not Hohmann transfers.** A torch ship
-accelerates to the midpoint and decelerates — Mars in days, Jupiter in weeks —
-rather than coasting for months. The design does not have a "long slow crossing"
-mode for powered ships.
+**[DECIDED] Transits are brachistochrones, not Hohmann transfers.** A ship
+accelerates to the midpoint and decelerates — Mars in weeks, Jupiter in months —
+rather than coasting for the better part of a year. The design does not have a
+"long slow crossing" mode for powered ships.
+
+> **Corrected.** These were "Mars in days, Jupiter in weeks" until the radiator
+> was charged to the ship. It cannot be: see `docs/TRIP-ENERGY.md` §16. The
+> shapes below survive; the times are roughly triple.
 
 **[DECIDED] The drive plant is the wall, and it is a different object from the
 antimatter plant.** The antimatter plant is stationary, so its mass is free. The
 drive plant has to fly, so its mass is the ship. For a ship of mass `m` at
 acceleration `a` with exhaust velocity `vₑ`, the plant's mass fraction is
 **`Mp/m = a·vₑ/(2·SP)`** — independent of ship size, so there is no "build it
-larger" escape. At 0.1 g and vₑ = 500 km/s the plant must be under a quarter of
-the ship, needing **SP ≥ 981 kW/kg**. NERVA flew at ~200; the best fission concept
-is ~1 000; fusion is normally assumed at 10 000–100 000. So **0.1 g is reachable
-and 1 g is not** — the crewed band's top end is aspirational and belongs to the
-best hulls only.
+larger" escape.
+
+**[DECIDED] And so is the radiator, which is what actually sets the band.** The
+plant's waste heat must be radiated, and a radiator is part of the ship too. At
+thermal efficiency `η` and rejection temperature `T`, a jet of power `P` needs
+`A = P(1-η)/(2ησT⁴)` of it, at 6–8 kg/m² for a liquid-metal loop. Run that
+honestly and the acceleration bands collapse by two to three orders of magnitude
+(`docs/TRIP-ENERGY.md` §16): **crewed and mechanical hulls alike sit between
+about 0.5 and 15 milligee**, and which end a ship reaches is set by its exhaust
+velocity and how much of its own mass it will spend on radiator.
+
+> **Corrected.** The band was 0.1–1 g crewed and 10–100 g mechanical, which
+> assumed the drive plant came with no radiator. There is no high-g torpedo boat
+> and no 1 g sprint; a "fast" ship is one with a high `vₑ` and a generous
+> radiator, not one with a big engine.
 
 Fast ships are therefore scarce for a **reactor** reason, not a fuel reason. The
 Workers' 50 % converter is necessary but not sufficient: they can make fuel nobody
 else can make, and still have to build a drive nobody else can build — which is
-exactly what the Illuminus' five-times-better hulls are aimed at.
+exactly what the Illuminus' five-times-better hulls are aimed at. In the corrected
+model the two factions split by *exhaust velocity against radiator temperature*:
+the Workers are faster over long hauls, the Illuminus quicker to respond.
 
 **[DECIDED] The binding constraint is the power plant's specific power, not
 propellant.** Working it through (`docs/TRIP-ENERGY.md` §6): acceleration is
@@ -765,7 +781,7 @@ rescues it.**
 - [x] Integer trig — `sin`, `cos`, `atan2` on turn-based angles
 - [x] Keplerian propagator: elements, anomaly solver, frame rotation
 - [x] Local frame: finite propellant, mass-coupled thrust, 120 Hz tick
-- [x] Hull acceleration bands: 0.1–1 g crewed, 10–100 g mechanical
+- [x] Hull acceleration bands — corrected to milligee once radiators are charged (`docs/TRIP-ENERGY.md` §16)
 - [ ] One body, two stations, real ephemerides
 - [ ] Docking that is a skill rather than a button
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
@@ -814,7 +830,7 @@ staged state machine.
 
 | # | Question | Gates |
 |---|---|---|
-| 1 | ~~Numerics: all-int64, or split with doubles in action?~~ (§6.2) | **Closed: all int64 Q32.32, two scales** |
+| 1 | ~~Numerics: all-int64, or split with doubles in action?~~ (§6.2) | **Closed: fixed point everywhere, Q64.64 in both frames** — the two frames differ in *unit*, not in width. The narrower Q32.32 local frame was built and then measured out of existence (§6.2, `docs/SPIKE-NUMERICS.md`). **Superseded the original answer**, which was Q32.32 for the local frame |
 | 2 | Can the player slow Earth's decline? (§1.1) | Whether a third playstyle exists |
 | 3 | Is adaptation irreversible, and how is that felt rather than punished? (§1.2) | Character systems |
 | 4 | Terraforming stage lists and survival threshold (§5) | Win condition |
@@ -826,13 +842,13 @@ staged state machine.
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
 | 12 | ~~Antimatter production efficiency~~ | **Closed: 50 %.** See §3 and `docs/TRIP-ENERGY.md` §8 |
 | 15 | Antimatter containment loss rate and the safe stockpile ceiling | Whether depots are tempo-limited or quantity-limited |
-| 17 | Terraforming timescale target (100 / 300 / 1 000 years) | Sets the rock throughput, which sets how much of the economy is mining |
+| 17 | Terraforming timescale target (100 / 300 / 1 000 years) | Sets the rock throughput, which sets how much of the economy is mining. §15 of `docs/TRIP-ENERGY.md` now bounds it from the transport side |
 | 18 | ~~The split between fleet and terraforming~~ | **Closed: they do not share a resource.** The antimatter is 0.01 % of the CO₂-splitting bill, so they compete for *yards and workers*, not fuel |
 | 21 | Swarm orbit: 0.30 AU (comfortable, 509 K) or 0.25 AU (a third less structure, 557 K)? | Area against thermal margin |
 | 19 | What is in the Martian south polar facility (`docs/SETTING.md` §6) | The campaign's spine |
 | 20 | Are the Venusian hives intelligent, and do they respond? | Whether terraforming is engineering or war |
-| 13 | Exhaust velocity for each drive | Propellant mass is `exp(Δv/vₑ)` — nothing can be balanced without it |
-| 16 | **Drive specific power for each faction** (`docs/TRIP-ENERGY.md` §9) | Who has fast ships. Independent of the antimatter question, and `Mp/m = a·vₑ/(2·SP)` |
+| 13 | ~~Exhaust velocity for each drive~~ | **Closed: 1 200 km/s Workers, 600 km/s Illuminus.** Set jointly with the radiator, see §16 of `docs/TRIP-ENERGY.md` |
+| 16 | ~~Drive specific power for each faction~~ | **Closed: 52 kW/kg Workers, 94 kW/kg Illuminus**, plant *and* radiator charged. Who has fast ships is now a question of radiator temperature |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |
 
