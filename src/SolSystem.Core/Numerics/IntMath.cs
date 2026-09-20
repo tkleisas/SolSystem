@@ -267,26 +267,47 @@ internal static class IntMath
             return UInt128.Zero;
         }
 
-        UInt128 baseRoot = Sqrt128(n);
-        UInt128 remainder = n - (baseRoot * baseRoot);
+        // The Q64.64 square root of x is floor(sqrt(x) * 2^64), and with x = n / 2^64 that is
+        // the integer root of D = n * 2^64. D needs 193 bits, which is why this cannot be
+        // written as "root of n, then shift up": the intermediate overflows UInt128 for any
+        // input above 2^62, and 2^62 kilometres is 2.6 AU — inside the solar system and
+        // outside the useful range, since Jupiter alone is at 5.2.
+        //
+        // So the root is built one bit at a time by the bit-pair method, reading D's bits
+        // where they live rather than materialising them. Bit i of D is zero for i < 64 and
+        // for i >= 192, and is bit i-64 of n in between; the pairs below walk k from the top
+        // of the 97-bit root down to zero.
+        UInt128 remaining = UInt128.Zero;
+        UInt128 root = UInt128.Zero;
 
-        UInt128 root = baseRoot << (FractionalScale / 2);
-        UInt128 step = (root << 1) + UInt128.One;
-        UInt128 remaining = remainder << FractionalScale;
-
-        // First estimate, then one exact correction downwards.
-        UInt128 correction = remaining / step;
-        while (correction > UInt128.Zero
-            && remaining < correction * step + correction * correction)
+        for (int k = 96; k >= 0; k--)
         {
-            correction--;
+            ulong pair = 0;
+            for (int j = 0; j < 2; j++)
+            {
+                int source = 2 * k + j - 64;
+                if (source >= 0 && source <= 127 && ((n >> source) & UInt128.One) != UInt128.Zero)
+                {
+                    pair |= 1UL << j;
+                }
+            }
+
+            remaining = (remaining << 2) | pair;
+
+            UInt128 trial = (root << 2) | UInt128.One;
+            if (remaining >= trial)
+            {
+                remaining -= trial;
+                root = (root << 1) | UInt128.One;
+            }
+            else
+            {
+                root <<= 1;
+            }
         }
 
-        return root + correction;
+        return root;
     }
-
-    /// <summary>The scale used by <see cref="SqrtScaled"/>, matching the Q64.64 type.</summary>
-    private const int FractionalScale = 64;
 
     /// <summary>
     /// Signed 128-bit product of two 64-bit integers.

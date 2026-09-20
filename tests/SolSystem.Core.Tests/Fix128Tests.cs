@@ -176,6 +176,45 @@ public class Fix128Tests
         }
     }
 
+    /// <summary>
+    /// The square root is exact over the whole range, including past 2.6 AU.
+    /// </summary>
+    /// <remarks>
+    /// The exact contract above was only checked up to 1e12 — a twelfth of an AU — and the
+    /// implementation had a hard guard rejecting anything above 2^62, which is 2.6 AU. So the
+    /// test passed while Jupiter, Saturn and the whole Jovian theatre were unreachable, and the
+    /// guard threw rather than returning something wrong, which is the only reason it was ever
+    /// noticed. This checks the contract where it used to end.
+    /// </remarks>
+    [Fact]
+    public void Sqrt_IsExactAcrossTheSolarSystem()
+    {
+        // 0.4 AU out to 50 AU, in kilometres, plus the extremes of the type.
+        foreach (double kilometres in new[]
+        {
+            6e7, 1.496e8, 7.8e8, 2.28e9, 7.78e9, 1.43e9, 2.87e9, 4.5e9, 7.5e9,
+            1e12, 1e15, 1e18, 4e18,
+        })
+        {
+            Fix128 a = Fix128.FromDouble(kilometres);
+            Fix128 root = Fix128.Sqrt(a);
+
+            BigInteger rawRoot = (BigInteger)root.Magnitude;
+            BigInteger rawValue = (BigInteger)a.Magnitude;
+
+            Assert.True(
+                rawRoot * rawRoot <= (rawValue << 64),
+                $"sqrt({kilometres:G6}) is too large: {root.ToDouble():G17}");
+            Assert.True(
+                (rawRoot + 1) * (rawRoot + 1) > (rawValue << 64),
+                $"sqrt({kilometres:G6}) is too small: {root.ToDouble():G17}");
+
+            Assert.True(
+                RelativeError(root.ToDouble(), Math.Sqrt(kilometres)) < 1e-14,
+                $"sqrt({kilometres:G6}) = {root.ToDouble():G17}");
+        }
+    }
+
     [Fact]
     public void Sqrt_OfNegative_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => Fix128.Sqrt(Fix128.FromDouble(-1.0)));
@@ -223,4 +262,40 @@ public class Fix128Tests
         BigInteger exact = ((BigInteger)a.Magnitude * a.Magnitude) >> 64;
         Assert.Equal((BigInteger)product.Magnitude, exact);
     }
+    /// <summary>
+    /// A vector's length is right out to the edge of the solar frame, where the squares do not
+    /// fit.
+    /// </summary>
+    /// <remarks>
+    /// <c>x² + y² + z²</c> overflows Q64.64 once a component passes 2^63.5, which in kilometres
+    /// is 22 AU. Neptune is past it: its components are 4.5 x 10^9 km, their squares reach
+    /// 2 x 10^19 against the type's 1.8 x 10^19, and the sum wraps — so a vector thirty
+    /// astronomical units long reported itself as 8.3. Silently, because the square feeding the
+    /// root was already wrong.
+    /// </remarks>
+    [Fact]
+    public void VectorLength_IsRightAtEveryDistanceInTheSystem()
+    {
+        var cases = new (double X, double Y, double Z, string Name)[]
+        {
+            (1.0, 2.0, 2.0, "3"),
+            (0.0, 0.0, -5.0, "5"),
+            (1.496e8, 0.0, 0.0, "1 AU"),
+            (2.28e9, 2.28e9, 2.28e9, "3 x 15 AU"),
+            (4.469235e9, -9.552462e7, -1.010250e8, "Neptune"),
+            (7.5e9, 0.0, 0.0, "50 AU"),
+        };
+
+        foreach ((double x, double y, double z, string name) in cases)
+        {
+            var v = new Fix128Vec(Fix128.FromDouble(x), Fix128.FromDouble(y), Fix128.FromDouble(z));
+            double expected = Math.Sqrt(x * x + y * y + z * z);
+            double actual = v.Length.ToDouble();
+
+            Assert.True(
+                RelativeError(actual, expected) < 1e-14,
+                $"{name}: |({x:G6},{y:G6},{z:G6})| = {actual:G17}, expected {expected:G17}");
+        }
+    }
+
 }

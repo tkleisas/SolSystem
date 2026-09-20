@@ -175,12 +175,14 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
             return Zero;
         }
 
-        if ((ulong)(a.Magnitude >> 64) >= 1UL << 62)
-        {
-            throw new OverflowException(
-                "Fix128.Sqrt input is too large: its square root would leave the type's range.");
-        }
-
+        // No range guard is needed. sqrt(x) < x for every x above one, so the root can never
+        // leave the type's range; what happens for large inputs is a loss of FRACTIONAL
+        // precision, which is the honest answer — a Q64.64 square root of 5 x 10^10 carries a
+        // metre of resolution, and that is exactly enough to be useful.
+        //
+        // There used to be a guard here rejecting anything above 2^62, which is 2.6 AU. It was
+        // covering an overflow in the integer root rather than a real limit, and it made the
+        // entire outer solar system unreachable.
         return new(IntMath.SqrtScaled(a.Magnitude), false);
     }
 

@@ -689,6 +689,73 @@ tools/blender/          procedural hull generation
 
 ---
 
+## 6.5 The look: real sky, and two design languages
+
+**[DECIDED] The sky is real, and it is the same sky from everywhere in the system.**
+This is a game about the solar system, so the planets have to be in the right places
+and the stars have to be the actual stars. Four separate problems, with four separate
+answers:
+
+| Element | How | Why it is tractable |
+|---|---|---|
+| **Planets, Sun, Moon** | Keplerian elements with secular rates, propagated by `SolSystem.Core` | The propagator is already built and tested. Earth's position to a few thousand km is arc-seconds at every distance the game cares about |
+| **Stars** | A real catalogue on the celestial sphere — direction, magnitude, colour, proper motion | ~5 000 stars to magnitude 6 is a few hundred kB and covers everything visible to the eye |
+| **Milky Way** | A textured band plus a procedural unresolved-star field | A survey-derived all-sky image, composited rather than modelled |
+| **Parallax** | Per-star distance, used as the camera moves between orbits | Alpha Centauri shifts about a degree across the system. It costs nothing and it is the single strongest cue that the ship actually moved |
+
+Two properties fall out of doing it properly rather than approximating it.
+
+**Stars are directions, not positions.** A parsec is 2 × 10⁸ AU, and the local
+frame's reach is 9 × 10¹⁸ m — so a star placed at its true distance is a coordinate
+the engine cannot hold and does not need. Stars are drawn on a sphere of arbitrary
+radius, which is exact rather than a cheat, because at these baselines the
+difference between "that way" and "that way, 4.4 light years off" is smaller than a
+pixel.
+
+**One catalogue serves every viewpoint.** Cockpit, tactical and strategic all read
+the same sky, so there is no separate starfield to keep in sync and no risk of the
+map and the window disagreeing about which way is which.
+
+The single quality gate is that an ephemeris check written as a *test* — Earth's
+heliocentric position on a known date, against a published value — has to pass, and
+the plotted sky has to match a planetarium for the epoch. If it does not, the sky is
+decoration rather than a navigation aid, and the design loses a cheap source of
+beauty and a real one of orientation.
+
+**[DECIDED] The two factions have opposite design languages, and it is a plot point
+rather than a style choice.**
+
+- **Illuminus: futuristic, gleaming, stylised, intimidating.** Smooth hulls, long
+  unbroken curves, few visible seams, and no obvious machinery. Their ships are
+  *displayed* rather than used, because the people who own them are showing off —
+  a shell is inherited property and a statement of rank. Hard edges and high
+  contrast; the aesthetic of something that has never been rained on.
+- **Workers: utilitarian, function over form.** Radiators where the heat is, tanks
+  where the mass is, handrails where a person has to go. Asymmetric because the
+  parts are different sizes and hiding that would cost mass. Their ships look
+  *maintained*: patches, replacement panels, visible plumbing.
+
+The contrast is what a Worker hull looks like next to an Illuminus one, and it makes
+the two factions readable at a glance in a tactical view without any UI overlay —
+which matters, because identifying a contact should be a skill.
+
+It also encodes §1.3 and §3 without a word of dialogue. The Illuminus spend on
+appearance because appearance is how a feudal hierarchy is maintained; the Workers
+spend on function because their whole ideology is that the machine and the person
+who runs it are the same kind of thing. **A ship that looks expensive is an
+Illuminus ship, and in this setting that is a military disadvantage they have chosen
+to accept.**
+
+**[DECIDED] Procedural hulls, `tools/blender/`, in the MiVic pattern.** Both
+languages are parameterised rather than modelled by hand: a Worker hull is a set of
+tanks, radiators and trusses assembled by mass budget, and an Illuminus hull is a
+lofted form with a small number of parameters. That keeps a fleet of forty hulls
+consistent, keeps them re-derivable when the mass budget changes — which it just
+did, per `docs/TRIP-ENERGY.md` §16 — and means the radiator is drawn at the size
+the physics asks for rather than at the size that looks good.
+
+---
+
 ## 7. Time
 
 **[DECIDED] One clock, one tick rate, variable compression.** The simulation ticks
@@ -782,10 +849,15 @@ rescues it.**
 - [x] Keplerian propagator: elements, anomaly solver, frame rotation
 - [x] Local frame: finite propellant, mass-coupled thrust, 120 Hz tick
 - [x] Hull acceleration bands — corrected to milligee once radiators are charged (`docs/TRIP-ENERGY.md` §16)
-- [ ] One body, two stations, real ephemerides
+- [ ] **Real ephemerides** — Keplerian elements with secular rates for the Sun, the
+      eight planets and the Moon, plus a star catalogue. Gated by a test that checks
+      Earth's heliocentric position against a published value for a known date, so
+      "ephemeris correct" is a pass/fail rather than a claim (§6.5)
+- [ ] One body, two stations
 - [ ] Docking that is a skill rather than a button
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
+- [ ] The sky, drawn: stars, Milky Way band, and the two hull languages of §6.5
 - [ ] Docking that is a skill and not a button
 - [ ] Probe harness + screenshot pipeline ported from MiVic
 - [ ] A probe that reproduces a docking approach byte-exactly, twice
