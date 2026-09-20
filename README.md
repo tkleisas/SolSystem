@@ -79,7 +79,7 @@ Requires the .NET 10 SDK.
 
 ```sh
 dotnet build -c Release
-dotnet test  -c Release        # 163 tests
+dotnet test  -c Release        # 178 tests
 dotnet run   -c Release --project src/SolSystem.Spike
 ```
 
@@ -90,10 +90,10 @@ restore never needs to write outside the repository.
 
 | Project | Purpose |
 |---|---|
-| `src/SolSystem.Core` | Fixed-point maths, integer trigonometry, Keplerian orbits. No graphics, no floating point. |
+| `src/SolSystem.Core` | Fixed-point maths, integer trigonometry, Keplerian orbits, attitude and docking. No graphics, no floating point. |
 | `src/SolSystem.Spike` | The Phase 0 numerics experiment. Not shipped; it is the evidence. |
 | `tests/SolSystem.Core.Tests` | Checked against independent references, not hand-computed values. |
-| `docs/` | The spike report. |
+| `docs/` | The spike report, the transit and energy analysis, and the setting. |
 | `tools/` | Reserved for the probe harness and the model pipeline. |
 
 ## Why the tests look the way they do

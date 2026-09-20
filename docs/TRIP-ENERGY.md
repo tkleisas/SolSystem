@@ -898,10 +898,147 @@ about factories and people rather than joules.
 - 15 % flat margin on the ideal figure.
 - Exhaust velocities are placeholders chosen to bracket the plausible range. The design has
   not yet fixed them, and they matter more than anything else here: propellant mass is
-  exponential in `Δv/vₑ`.
+  exponential in `Δv/vₑ`. Section 15's haul rates inherit that: at vₑ = 500 km/s a
+  milligee hauler's mass ratio is 1.37, and at 100 km/s it would be much better — see
+  [OPEN] §11.17.
+- Section 15 charges drive energy as `Δv²/2 / efficiency` per kilogram delivered, which
+  treats each transit as paying for its own kinetic energy from rest. A permanent fleet
+  flying a circuit recovers none of it either, so the figure is right for the purpose, but
+  it is a *jet* energy and says nothing about how much of the drive's output ends up in the
+  exhaust versus the ship.
+- Section 15 assumes the haul rate is set by the reactors rather than by the ice, the
+  shipyards or the crews. Nothing here shows those are not the binding constraint at
+  10¹⁵ kg/yr; it shows that the reactors would be.
 - Fusion energy is the D-D figure per kilogram of deuterium *consumed in the plasma*.
   Reactor mass, shielding and the energy cost of refining the fuel are not counted; at these
   magnitudes they are not the constraint, but reactor **power** is — a 100 kN engine at
   vₑ = 100 km/s is a 5 GW jet.
 - Collector conversion is 30 % end-to-end, from sunlight to stored antimatter, excluding the
   production efficiency which is shown separately.
+
+## 15. Hydrogen is the clock, and the ice is not the constraint
+
+This section closes an [OPEN] from §4 and settles where a terraforming programme's
+hydrogen comes from, because §5's schemes all need it and none of them can make it.
+
+### The solar wind is not a source, and the margin is not close
+
+The Sun sheds about 2.5 × 10⁻¹⁴ solar masses a year in the wind. Spread over a sphere at
+Venus' orbit that is **0.34 kg of hydrogen per km² per year** — and the *entire* wind
+intercepted by Venus' disc comes to **39 tonnes a year**.
+
+| Goal | Hydrogen needed | Years of the whole wind |
+|---|---|---|
+| Reduce all atmospheric CO₂ to graphite and water | 1.2 × 10¹⁹ kg | 3 × 10¹⁴ |
+| A 100 m global ocean | 5.2 × 10¹⁸ kg | 1.3 × 10¹⁴ |
+| A 2.7 km ocean, Earth-equivalent | 1.4 × 10²⁰ kg | 3.6 × 10¹⁵ |
+
+To collect even the smallest of those from the wind would need a scoop about **10⁹ ×
+Venus' surface area**. Ionisation does not help: a magsail collects an ionised wind
+perfectly well, and the dilution still kills it. Moving to Mercury orbit buys a factor of
+seven in flux and nothing else.
+
+> **DECIDED. The solar wind is never a bulk hydrogen source. Terraforming hydrogen comes
+> from ice, and ice comes from the outer system.**
+
+What the wind *is* good for is texture, and it is worth keeping for that: magsails for
+station-keeping and cheap low-thrust logistics, trace-gas scooping as a niche economy, and
+radiation pressure as one of the forces the §13 swarm has to trim against. Never a line
+item.
+
+### The ice is genuinely not the constraint either
+
+Europa holds an estimated two to three Earth oceans, roughly 3.5 × 10²¹ kg of water;
+Ganymede and Callisto are comparable. Venus' entire 2.7 km appetite is **2.9 % of Europa
+alone**, which is what makes the Jovian theatre the place the war is actually about — and
+the deuterium rides along in the same ice, so §4.1's double role for those moons is
+confirmed rather than assumed.
+
+That was the expected answer. The surprise is one line down:
+
+> **Ceres holds about 2.3 × 10²⁰ kg of water ice — roughly twice Venus' entire 2.7 km
+> ocean, and about 20 % of it would cover Venus to a depth of 100 m — at a small fraction
+> of the Jovian Δv.**
+
+So the inner system does not need the outer system for water at all. Section 4.1's convoy
+economy survives, but its justification has to change: the Jovian moons are the *cheap*
+source, not the only one. That is a better strategic situation, not a worse one — it means
+the Illuminus can deny a route without denying the resource, and it puts Ceres on the map
+as the forward depot, bargaining chip and obvious place to fight.
+
+### The real constraint is the transport energy, and it is enormous
+
+A Jupiter–Venus crossing at vₑ = 500 km/s, over 4.2 AU (the orbit-to-orbit average, so
+shorter than the 5.2 AU figure between the two orbits' far sides):
+
+| Acceleration | Trip time | Δv | Mass ratio at vₑ = 500 km/s | Payload fraction |
+|---|---|---|---|---|
+| 0.1 g (warship sprint) | 18.5 d | 1 570 km/s | 23.1 | 4.3 % |
+| 0.01 g | 58.6 d | 496 km/s | 2.7 | 37 % |
+| 0.001 g (bulk hauler) | 185 d | 157 km/s | 1.37 | 73 % |
+
+This is the design's best structural result so far, and it falls out of the physics rather
+than being asserted:
+
+> **Acceleration is the dial. Bulk ice moves slow, low and predictable; warships sprint.
+> One propulsion physics, two logistics tiers.**
+
+A milligee hauler still flies a powered brachistochrone — no coasting, so §3's "no long
+slow crossing mode" survives — and delivers most of its wet mass as payload. Slow, visible,
+schedule-able convoys are exactly the gameplay §4.1 wanted, and they are now a consequence
+of the rocket equation rather than a convention. The hauler's reaction mass can be water,
+so the cargo partially fuels its own run and a fraction of it is cracked for deuterium on
+arrival.
+
+**The energy is the wall.** At 50 % drive efficiency the ideal figure of 1.23 × 10¹⁰ J/kg
+becomes 2.5 × 10¹⁰ J/kg delivered, and that makes the required jet power:
+
+| Haul rate | Jet power | Reactor mass at SP = 100 kW/kg |
+|---|---|---|
+| 10¹² kg/yr | 781 TW | 7.8 × 10⁹ kg |
+| 10¹⁵ kg/yr | 781 000 TW | 7.8 × 10¹² kg |
+| 3.3 × 10¹⁷ kg/yr (the whole 2.7 km ocean in 300 yr) | 2.6 × 10²⁰ W | 2.6 × 10¹⁵ kg |
+
+The last line is 258 000 TW and two and a half *billion* tonnes of reactor. **A 2.7 km
+ocean delivered in three centuries is not a shipping problem, it is a Kardashev-scale
+engineering project.** The Venus antimatter plant's entire 3.3 × 10¹⁰ kg collector field is
+five orders of magnitude short of the drive plant that would need to move it.
+
+### What this does to the design
+
+1. **[DECIDED]-ready: hydrogen throughput sets the terraforming clock.** Dedicating
+   shipping capacity to ice haulage is how a faction accelerates its survival project, and
+   raiding the enemy's ice convoys directly slows their clock. The war and the countdown
+   are now mechanically coupled: an attack on terraforming is a physical act with a
+   measurable delay attached, not an abstract one.
+
+2. **The scarcity row is volatile **transport capacity**, not volatiles.** The ice is
+   abundant; the drives, the reactors and the power to run them are not. That is a much
+   better thing for the game to be scarce, because it is buildable, targetable and
+   visible.
+
+3. **Scale the ambition to the power available, and let that be the story.** A 10 m ocean
+   needs 5.2 × 10¹⁷ kg of hydrogen; 100 m needs 5.2 × 10¹⁸ kg. Both are within reach of a
+   faction that has already built the §13 antimatter plant and a fusion drive fleet. The
+   2.7 km Earth-equivalent is a *thousand-year* project and should be treated as the
+   horizon the factions are arguing about, not the plan.
+
+4. **A Venus-scale carbon sink is a 121-metre graphite layer.** All 1.26 × 10²⁰ kg of
+   atmospheric carbon, reduced and left on the surface, is 5.6 × 10¹⁶ m³ of graphite —
+   about 121 m deep spread evenly. It is a real geological unit, and black. Worth knowing
+   before §5 decides what the finished planet looks like.
+
+### Hypersleep, and where it actually belongs
+
+Bulk cargo with a hibernating crew is the intuitive answer to a 185-day crossing, and the
+numbers say the opposite for the bulk tier: at 73 % payload fraction the hauler is nearly
+all cargo, so crew and consumables are pure overhead on a run that is already
+schedule-able and predictable. **Automate the bulk tier and keep crews on the fast tier.**
+That inverts the usual science-fiction arrangement, and it falls straight out of the mass
+ratios above — hulls that carry people are the ones fast enough to need them.
+
+Where hypersleep does earn its place is the *military* tier and the long-duration station:
+a 0.1 g sprint is 18 days, which nobody sleeps through, but a picket stationed at a Jovian
+moon for years is a different problem, and a warship that can transit at 0.01 g while its
+crew sleeps is a warship that arrives without having aged. That is a capability, and §8 can
+price it.
