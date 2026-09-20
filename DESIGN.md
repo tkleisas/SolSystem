@@ -273,10 +273,25 @@ thicker atmosphere; Venus has a surplus of exactly what Mars lacks. The two
 terraformings are complementary, which makes the war more interesting rather than
 less — the rational move is trade, and the war is what happens instead.
 
+**[DECIDED] The plant is split: a power swarm sunward, the works at Venus.**
+Corrected in `docs/TRIP-ENERGY.md` §12. A real orbital plant is generator *plus*
+radiator *plus* structure, and at 50 % conversion the radiator is as large as the
+generator — so any collector-only figure understates it by about half. At a
+realistic 10 % for a long-lived thin film, one tonne a year at Venus orbit is
+~96 000 km². But flux falls as 1/r², and a plant at **0.3 AU is five times
+smaller** — ~9 000 km² for the same output, with panels at 589 K, inside what a
+refractory film takes. 0.2 AU is thirteen times smaller and 722 K, which is not.
+
+So: a **hot, small, refractory power swarm at 0.25–0.35 AU**, feeding a
+**processing works in the Venus cloud deck** where people live. They are joined by
+the antimatter itself — the product is the energy carrier, so no beamed power is
+needed. **That swarm is the single point on which the whole antimatter economy
+depends**, it is not at Venus, and the cloud deck does not defend it.
+
 **[DECIDED] There is enough antimatter, and the fleet competes with the
-terraforming for the same budget.** A collector field about twice the area of Greece
-makes enough for roughly fifty 100 t courier crossings a year
-(`docs/TRIP-ENERGY.md` §11). So the constraint is never the fuel. Every square
+terraforming for the same budget.** A power swarm about seven times the area
+of Greece — sitting closer to the Sun than Mercury — makes enough for roughly
+fifty 100 t courier crossings a year (`docs/TRIP-ENERGY.md` §11–12). So the constraint is never the fuel. Every square
 kilometre of collector turned over to antimatter is a square kilometre not shading
 Venus or grinding rock — **the fleet and the terraforming draw on the same
 industrial base, and the player decides the split.** That competition is the

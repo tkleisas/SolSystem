@@ -679,7 +679,109 @@ Which means:
 
 ---
 
-## 12. Assumptions, for anyone who wants to argue
+## 12. Orbital panels: the area is bigger than I said, and distance is the lever
+
+The earlier sections quoted a *generator* area and stopped there. A real orbital plant has
+three surfaces — generator, radiator and structure — and the total is what gets built. This
+section corrects the figures and works out where such a plant should actually go.
+
+### The thermal limit comes first
+
+A panel absorbs sunlight and converts part of it; **the rest becomes heat**, and the only way
+to shed it in vacuum is to radiate. For a thin film with two radiating faces:
+
+```
+P_rad  = 2·σ·T⁴·A
+T      = ( flux·(1-η) / 2σ )^(1/4)
+```
+
+Note what that says: **a lower-efficiency film runs *cooler*, not hotter**, because it absorbs
+less net energy. That is why cheap thin films survive sunward where good cells bake.
+
+| Orbit | Flux | Panel temp at η = 30 % | Panel temp at η = 50 % |
+|---|---|---|---|
+| 0.20 AU | 34 171 W/m² | **678 K** | 623 K |
+| 0.30 AU | 15 187 W/m² | **553 K** | 509 K |
+| Mercury 0.387 AU | 9 126 W/m² | 487 K | 448 K |
+| Venus 0.723 AU | 2 613 W/m² | 356 K | 328 K |
+| Earth 1.000 AU | 1 367 W/m² | 303 K | 279 K |
+
+Conventional silicon dies near 400 K. Refractory thin films and concentrator cells reach
+500–600 K. **That ceiling is what decides where the plant can be.**
+
+### The corrected areas, at Venus orbit
+
+For one tonne of antimatter a year at 50 % conversion — 11.41 TW collected:
+
+| Panel η | Panel temp | Generator | Radiator | Structure | **Total** | vs Greece |
+|---|---|---|---|---|---|---|
+| 40 % | 343 K | 10 915 km² | 10 915 km² | 2 183 km² | **24 013 km²** | 0.18× |
+| 30 % | 356 K | 14 553 km² | 14 553 km² | 2 911 km² | **32 017 km²** | 0.24× |
+| 20 % | 368 K | 21 830 km² | 21 830 km² | 4 366 km² | **48 026 km²** | 0.36× |
+| **10 %** | **379 K** | **43 660 km²** | **43 660 km²** | **8 732 km²** | **96 051 km²** | **0.73×** |
+| 5 % | 385 K | 87 319 km² | 87 319 km² | 17 464 km² | **192 102 km²** | 1.46× |
+
+**The radiator is as large as the generator.** Half the collected power is waste heat at
+50 % conversion, and shedding it at a few hundred kelvin needs as much area as collecting it
+did. Any figure that quotes only the collector understates the plant by about half.
+
+At a realistic 10 % for a long-lived thin film, **one tonne a year is about 96 000 km²** —
+most of Greece, not a fifth of it.
+
+### Distance is the strongest lever there is
+
+Flux falls as `1/r²`, so moving sunward shrinks everything:
+
+| Orbit | Flux | Panel temp (η = 10 %) | Generator | **Total** | vs Greece |
+|---|---|---|---|---|---|
+| **0.20 AU** | 34 171 W/m² | 722 K | 3 338 km² | **4 006 km²** | 0.03× |
+| **0.30 AU** | 15 187 W/m² | 589 K | 7 511 km² | **9 013 km²** | 0.07× |
+| Mercury 0.387 AU | 9 126 W/m² | 519 K | 12 499 km² | **14 998 km²** | 0.11× |
+| Venus 0.723 AU | 2 613 W/m² | 379 K | 43 660 km² | **52 392 km²** | 0.40× |
+| Earth 1.000 AU | 1 367 W/m² | 323 K | 83 453 km² | **100 144 km²** | 0.76× |
+
+**A plant at 0.3 AU is five times smaller than the same plant at Venus orbit**, and its
+panels run at 589 K — hot, but inside what a refractory film can take. At 0.2 AU it is
+thirteen times smaller, and 722 K is beyond anything plausible.
+
+### So where does it go?
+
+There is a genuine tension, and it is a good one:
+
+- **At Venus orbit** the plant is cool, convenient, sits in the cloud deck you already
+  inhabit, and feeds the works directly — but it is five times the area.
+- **Sunward at ~0.3 AU** it is a fifth the area and a fifth the mass — but it is a
+  separate location, the panels are near their thermal limit, and the energy has to get
+  back to Venus somehow.
+
+**[DECIDED] The answer is both, and it is the interesting one.** A **power swarm at
+0.25–0.35 AU** — small, hot, refractory, cheap in material — feeding a **processing works
+in the Venus cloud deck** that is where people live. The two are joined by the only thing
+that makes sense over that distance: **the antimatter itself.** The swarm makes it; ships
+carry it in; the works uses it. No beamed power, no exotic transmission — the product is
+already the energy carrier, which is the neatest thing about the whole arrangement.
+
+### The corrected headline numbers
+
+| Plant output | Total area at 0.3 AU (10 % panels) | vs Greece |
+|---|---|---|
+| 1 t/yr | **9 000 km²** | 0.07× |
+| 10 t/yr | **90 000 km²** | 0.7× |
+| **100 t/yr** | **900 000 km²** | **6.8×** |
+| 1 000 t/yr | 9 000 000 km² | 68× |
+
+Compare with the Venus-orbit figures, which were 5× larger. **A hundred tonnes of antimatter
+a year — enough for roughly fifty courier crossings — needs a power swarm about seven times
+the area of Greece, sitting closer to the Sun than Mercury.** That is the real scale of the
+Workers' strategic capability: large, but a nation's project rather than a world's.
+
+It also gives the swarm a **vulnerability with a shape**: it is not at Venus, it is not
+defended by the cloud deck, and it is the single point on which the entire antimatter economy
+depends. Small, hot, far from home, and indispensable.
+
+---
+
+## 13. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the
