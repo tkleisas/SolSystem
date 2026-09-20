@@ -424,13 +424,17 @@ magnitude below anything the simulation can act on. Energy is conserved to one p
 orbital energy over long runs.
 
 **The remaining risk in Option A is not precision. It is implementation correctness**, and
-that risk is real. The types accumulated **six bugs** during construction, every one of
-which returned plausible numbers rather than raising: a multiply whose halves were
-assembled wrongly, a divide whose shift truncated silently, a square root that converged to
-a wrong fixed point (`sqrt(100)` → 8), a start bit one place too high, and two gravity
-formulas that were wrong by a factor of `r` and by underflow respectively. **Two of the six
-were in the `double` reference rather than the fixed-point code** — the path that was
-supposed to be the trustworthy one.
+that risk is real. The types accumulated **nine bugs** during construction, every one of
+which returned a plausible number rather than raising: a 128-bit multiply with the step and
+its high word swapped, a divide whose shift truncated silently in `UInt128`, a square root
+that converged to a wrong fixed point (`sqrt(100)` → 8), a start bit computed one place too
+high, two gravity formulas wrong by a factor of `r` and by underflow, a trigonometry table
+whose scale disagreed with its own pinned endpoints, an interpolation whose product
+overflowed `Int128` and wrapped, and a narrowing cast that reported sine as exactly zero at
+the quarter turn.
+
+**Two of the nine were in the `double` reference rather than the fixed-point code** — the
+path that was supposed to be the trustworthy one.
 
 `tests/SolSystem.Core.Tests/Fix128Tests.cs` therefore checks the type against an
 independent `BigInteger` reference rather than against hand-computed expectations, and the

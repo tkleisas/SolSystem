@@ -81,6 +81,9 @@ Recorded because every one produced plausible numbers rather than an exception:
 | `SqrtScaled` steps and shifts confused | under-estimated by ~2 × 10⁹, invisible for perfect squares |
 | Gravity scale multiplied the position vector by `GM/r²` | acceleration too large by a factor of `r` |
 | Gravity divided by `r²` twice | underflowed to exactly zero |
+| Trig table of `sin × 2⁶⁴` with endpoints pinned at `2⁶³` | sine read 0.5 at a quarter turn |
+| Interpolation formed `step * fraction`, reaching 2¹²⁷ | overflowed `Int128` and wrapped |
+| `(ulong)(Int128)2⁶⁴` in the return path | sine read exactly zero at a quarter turn |
 
 The gravity mistakes were in the **reference** implementation as well as the fixed-point
 one — the double path, which was supposed to be the trustworthy one, was the one that sent
