@@ -44,11 +44,18 @@ project reaches its survival threshold, everyone dies. There is no "you win
 anyway." This is the pressure that makes the strategic layer mean something, and
 it is identical for both factions and for the player.
 
-**[DECIDED] And the people watching it die are the ones who left.** Around 900
-million survivors are still on Earth and declining; the whole off-world population
-is about 95 million. So neither faction is saving "humanity" in the sense of most
-of it — they are a splinter with a story about saving everyone, watching the
-majority they left behind. Both know this. Neither says it.
+**[DECIDED] And the people watching it die are the ones who left, and there are
+almost none of them.** Around 900 million survivors are still on Earth and
+declining; the whole off-world population is **between one and two million**. That
+is one human in seven hundred, and it makes the loss condition literal in a way a
+larger frontier would not: neither faction is saving "humanity," they are a
+remainder with a story about saving everyone, watching the people they came from
+die. Both know it. Neither will say it, because to say it is to admit that the
+programme was never a rescue.
+
+It also means the frontier is not a lifeboat. It is what is left of the people who
+built one, and `docs/TRIP-ENERGY.md` §15 puts evacuating the rest five orders of
+magnitude out of reach.
 
 **[OPEN]** The exact decline curve, and whether the player can slow it. A player
 who can meaningfully help Earth has a third playstyle; a player who cannot

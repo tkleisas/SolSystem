@@ -193,46 +193,145 @@ constraints that fix the rest are the Exchange and the divergence.
 | 2071 | **First Venus cloud city.** At 55 km the pressure is 0.53 bar and the temperature 27 °C, which turns out to be the easiest place in the solar system to keep humans alive outside Earth. |
 | 2081 | **The hives are found.** First the phosphine, then the colonies. The argument about what they are has been running for a century by the time the game starts. |
 | **2090** | **The Exchange.** A limited nuclear war that kills nine in ten humans. See §5.1. |
-| 2090–2120 | **The long silence.** Earth is quarantined by its own collapse rather than by policy. The off-world settlements lose their industrial base and most of their people. |
+| 2090–2120 | **The long silence.** Earth is quarantined by its own collapse rather than by policy. The settlements lose their industrial base, and then most of their people. |
 | 2120–2185 | **The divergence.** Mars-adapted and Venus-adapted populations separate biologically over three to four generations, and stop being able to live on each other's worlds. |
 | **2185** | **The south polar door.** The Illuminus open it. Whatever happens next is the game. |
 
 ### 5.1 The Exchange
 
-**[DECIDED] Ninety per cent of humanity died.** The number is not flavour, it is the
-arithmetic the whole setting rests on, so it is written down with its parts:
+**[DECIDED] Ninety per cent of humanity died**, and the frontier was not a refuge. The
+whole off-world population in 2185 is **between one and two million people** — less than
+a large city, and about **one in seven hundred** of the humans still alive on Earth. That
+number is not flavour; it is the arithmetic the setting rests on, so it is written down
+with its parts:
 
-| | Before, 2090 | After |
-|---|---|---|
-| Earth | 10.6 billion | 1.06 billion |
-| Off-world — belt, Mars, orbital habitats, Jovian stations | 400 million | 68 million |
-| **Total** | **11.0 billion** | **1.1 billion** |
+| | 2090 before | 2090 after | 2185 |
+|---|---|---|---|
+| Earth | 10.6 billion | 1.06 billion | ~900 million, declining |
+| Off-world | 2.0 million | 200 thousand | **1.5 million** |
+| **Total** | **10.6 billion** | **1.06 billion** | ~900 million |
 
-The direct exchange killed a fraction of that. Most of it was what came after: a
-decade of nuclear winter collapsing agriculture worldwide, and then the collapse of
-everything that keeps a technological civilisation alive — medicine, spare parts,
-refrigeration, the supply chains that move food from where it grows to where people
-are. **Earth died of the war. The settlements died of losing Earth**, which they
-depended on for equipment they could not yet make and could not do without.
+**Earth effectively died.** It lost 99.99 % — it went from ten and a half billion people
+to a billion, and it has been losing since. The direct exchange killed a fraction of
+that; the rest was a decade of nuclear winter collapsing agriculture worldwide and then
+the collapse of everything that keeps a technological civilisation alive. Medicine,
+spare parts, refrigeration, the supply chains that move food from where it grows to
+where people are.
 
-> **The off-world population lost 83 % and not one warhead was aimed at it.** That is
-> the shape of the catastrophe: the people who thought they had escaped were the ones
-> who starved when the place they had escaped from stopped answering.
+**And the settlements lost ninety per cent as well.** This is the part that matters, and
+it is the part that is easy to get wrong. Two million people living in closed habitats on
+Mars, in the belt and at the Jovian stations did not survive on stored air and recycled
+water for a decade. They survived on equipment, and the equipment came from Earth. When
+Earth stopped answering, the habitats did not die at once — they failed *item by item*,
+as things wore out that could not be replaced, and the people who died on the frontier
+died of exactly what killed Earth, one supply chain further along.
 
-**[DECIDED] Some had already left.** The expansion of the 2030s–2050s was not
-evacuation and never pretended to be; it was industry, science and claim-jumping. But
-it means the off-world settlements were *founded before the exchange*, by people who
-chose to go, which is why they exist at all and why they carry the question with them:
-**we left, and then we watched.**
+> **The people who left were not saved. They were the last to find out.** A hundred and
+> eighty thousand people died in habitats that were working perfectly, and the only
+> thing wrong with them was that nobody on Earth was left to send the next shipment.
 
-**By 2185 the off-world population is about 95 million** — 80 million Workers, 2
-million Illuminus, 13 million elsewhere. That is 0.5 % a year of growth from 68 million
-over ninety-five years, which is what recovering from a catastrophe looks like rather
-than a heroic figure. **Earth's survivors number around 900 million and are declining**,
-so the people watching Earth die are a small splinter of humanity who left, and the
-people dying are the vast majority who could not.
+**By 2185 the frontier has recovered to 1.5 million** — 1.35 million Workers, 100,000
+Illuminus, and 50,000 elsewhere. That is 2.1 % a year from 200,000 over ninety-five
+years, which is what a young population rebuilding its industrial base looks like. The
+200,000 who came through are the founders of every faction in the game, and every one of
+them was on the wrong end of a supply chain.
+
+**[DECIDED] Some were lifted off during the collapse**, which is why the recovery starts
+from 200,000 rather than from the pre-war frontier alone. Roughly 1.2 million people were
+evacuated from Earth between 2088 and 2095 — **two hundred a day for seven years, the
+largest rescue in human history, and it moved one hundredth of one per cent of the
+people who needed it.** That single sentence is the whole moral position of the setting,
+and it is why §5.3's question is not whether the Workers care but whether caring was
+ever enough.
+
+The orbital lift capacity that performed it is gone. Nothing built since can replace it,
+and no faction has ever been able to explain where the next million would come from.
 
 ### 5.2 Who started it — the open wound
+
+**[DECIDED] Nobody in 2185 knows, and the question cannot be closed.** This is a plot
+point rather than a mystery to be solved, and it works because of one fact: **the
+exchange destroyed both homelands.** Today's population descends from the bombed and
+from the bombers, mixed, because there is no longer any difference between them. So the
+question "who started it" is not a question about other people. It is unanswerable *and*
+unavoidable, and every faction has built a story that happens to serve it.
+
+**[DECIDED] The dominant off-world account blames Earth.** The pre-war settlements were
+taxed, licenced and held to a launch monopoly by the states that had built them. The
+story runs: Earth's biosphere was failing, Earth demanded the belt's output outright to
+pay for a rescue it had no plan to perform, and when the settlements refused, Earth moved
+to take what it needed. **This is the Workers' account**, and it is popular with anyone
+who has ever been governed from somewhere they have never seen.
+
+**[DECIDED] The dominant Earth-side account blames the settlements.** The settlements had
+the resources and the leverage, and they used it — holding prices, withholding supply,
+and finally declaring independence at the exact moment Earth could least afford it. The
+story runs: a couple of million people who had escaped the gravity well decided the
+billions still under it could pay. **This is the Illuminus' account**, and it is popular
+with anyone who has been left behind.
+
+**Both accounts contain things that are true.** The settlements were squeezed and they did
+withhold. The launch monopoly was real and was used. Neither account requires any
+evidence, which is the point: a century of records burned in an afternoon, and the
+survivors were not thinking about archives.
+
+> **What neither account wants to say** is that the escalation was not controlled by
+> whoever decided to start it. Somebody launched first, believing a limited strike would
+> force a negotiation, and the negotiation never came, because the systems built to
+> guarantee retaliation had been built to work when nobody was left to give the order.
+> Both stories are about a *decision*, because a decision can be blamed on a person.
+> The truth is closer to nobody deciding anything after the first afternoon.
+
+**[OPEN]** Whether the game ever confirms the real sequence. It is usable three ways
+and the choice is a tone decision: **never resolved** (both factions stay right and the
+player has to live with it), **resolved in the sealed facility** (the Martians watched
+the whole thing and recorded it, which makes the campaign's spine carry the answer), or
+**resolved as a lie** (a document surfaces, one faction publishes it, and it is a
+forgery — the reaction to it is the story rather than the document).
+
+### 5.3 What it does to the setting
+
+**[DECIDED] Earth is neutral because it is powerless, not because it is virtuous.**
+Nine hundred million people on a dying planet with no launch capacity and no fleet do
+not get a vote. The factions' respect for Earth's neutrality is real and is also a
+courtesy they can withdraw at any time, which is exactly §1.3's "Earth becomes a live
+battlefield" waiting to happen.
+
+**[DECIDED] One and a half million people cannot save nine hundred million, and they
+know it.** The frontier is not a lifeboat; it is what is left of the people who built the
+lifeboat, and it holds one human in seven hundred. `docs/TRIP-ENERGY.md` §15 puts the
+transport for a mass evacuation five orders of magnitude out of reach, so the arithmetic
+is not a matter of will. Every faction's programme is a *second* home for a tiny
+fraction, dressed as a rescue — which is why the war over the Jovian ice is being fought
+by people who have already decided, without ever voting on it, who is not going.
+
+**[DECIDED] The cull is the Exchange at small scale, and a small scale is the point.**
+Illuminus society votes, ceremonially and in public, on which of its own minds to
+destroy. They did not invent this. A hundred thousand people are downstream of a
+catastrophe in which a small number of people decided which of everyone else would live,
+and they have built a government that does it on a schedule. **They are not repeating the
+Exchange out of malice; they are repeating it because it is the only model of a hard
+decision they inherited.**
+
+At 140,000 people the arithmetic is brutal and intimate. A cull removes tens of people,
+not thousands — a fraction of a per cent of the population, a few hundred over the
+century, and **the community knows every name on the list.** That is what makes it a
+ritual rather than an atrocity in the abstract, and it is the right scale for a society
+that is genuinely choosing which of its own to kill rather than administering a policy.
+
+**[DECIDED] The Workers' founding promise is the one they cannot keep.** Their
+egalitarianism comes out of the habitats, where air and water were shared because they
+had to be, and their position is that nobody gets left behind. Earth is nine hundred
+million people who were left behind — and the frontier *is* the two hundred thousand who
+were pulled out while the rest were not, on a list, in order. **Their ideology is not
+hypocrisy. It is a promise made by people who have already broken it once and remember
+exactly how the list was made.**
+
+**[DECIDED] Which is why the war is the same war.** §4's scarcity is not a new problem.
+It is the problem that killed Earth, arriving a second time between people who now have
+no shared planet to fall back on — and both factions know it, which is why neither will
+say it out loud.
+
 
 **[DECIDED] Nobody in 2185 knows, and the question cannot be closed.** This is a plot
 point rather than a mystery to be solved, and it works because of one fact: **the
@@ -274,35 +373,6 @@ player has to live with it), **resolved in the sealed facility** (the Martians w
 the whole thing and recorded it, which makes the campaign's spine carry the answer), or
 **resolved as a lie** (a document surfaces, one faction publishes it, and it is a
 forgery — the reaction to it is the story rather than the document).
-
-### 5.3 What it does to the setting
-
-**[DECIDED] Earth is neutral because it is powerless, not because it is virtuous.**
-Nine hundred million people on a dying planet with no launch capacity and no fleet do
-not get a vote. The factions' respect for Earth's neutrality is real and is also a
-courtesy they can withdraw at any time, which is exactly §1.3's "Earth becomes a live
-battlefield" waiting to happen.
-
-**[DECIDED] The cull is the Exchange at small scale.** Illuminus society votes,
-ceremonially and in public, on which of its own minds to destroy. They did not invent
-this. They are a hundred years downstream of a catastrophe in which a small number of
-people decided which of everyone else would live, and they have built a government that
-does it on a schedule. **They are not repeating the Exchange out of malice; they are
-repeating it because it is the only model of hard decisions they inherited.**
-
-**[DECIDED] The Workers' founding promise is the one they cannot keep.** Their
-egalitarianism comes out of the habitats, where air and water were shared because they
-had to be, and their position is that nobody gets left behind. Earth is nine hundred
-million people who were left behind. The Workers are the faction that says this is
-intolerable, and they are also the faction that cannot fix it, because by §15 of
-`docs/TRIP-ENERGY.md` the transport to evacuate so much as a million of them does not
-exist. **Their ideology is not hypocrisy. It is a promise made by people who have
-already broken it once.**
-
-**[DECIDED] Which is why the war is the same war.** §4's scarcity is not a new problem.
-It is the problem that killed Earth, arriving a second time between people who now have
-no shared planet to fall back on — and both factions know it, which is why neither will
-say it out loud.
 
 ---
 
