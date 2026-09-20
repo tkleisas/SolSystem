@@ -11,18 +11,29 @@ internal readonly struct Command
     /// <summary>Throttle, 0 to 1. Values above 1 are clamped.</summary>
     internal readonly Fix128 Throttle;
 
-    internal Command(Fix128Vec thrustDirection, Fix128 throttle)
+    /// <summary>
+    /// Requested angular velocity, radians per second about each axis.
+    /// </summary>
+    /// <remarks>
+    /// Clamped by the hull's turn-rate ceiling. Turning costs almost no energy — a hundred
+    /// tonne hull needs 10² J to spin up — so this is limited by what a crew can work
+    /// through, not by propellant.
+    /// </remarks>
+    internal readonly Fix128Vec AngularVelocity;
+
+    internal Command(Fix128Vec thrustDirection, Fix128 throttle, Fix128Vec angularVelocity)
     {
         ThrustDirection = thrustDirection;
         Throttle = throttle;
+        AngularVelocity = angularVelocity;
     }
 
     /// <summary>Engines off.</summary>
-    internal static readonly Command Coast = new(Fix128Vec.Zero, Fix128.Zero);
+    internal static readonly Command Coast = new(Fix128Vec.Zero, Fix128.Zero, Fix128Vec.Zero);
 
     /// <summary>Any direction with the given throttle.</summary>
     internal static Command WithThrottle(Fix128 throttle) =>
-        new(new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero), throttle);
+        new(new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero), throttle, Fix128Vec.Zero);
 }
 
 /// <summary>
@@ -64,13 +75,36 @@ internal struct Ship
     /// <summary>The engine.</summary>
     internal Engine Engine;
 
+    /// <summary>
+    /// Orientation and rotation.
+    /// </summary>
+    /// <remarks>
+    /// The main engine pushes along the nose, so <b>thrust follows attitude</b>: to brake
+    /// the ship must turn around, and while turned it cannot correct laterally. That is the
+    /// whole difficulty of docking, and it is why attitude is simulated rather than assumed.
+    /// </remarks>
+    internal Attitude Attitude;
+
     internal Ship(Fix128Vec position, Fix128Vec velocity, Fix128 dryMass, Fix128 propellant, Engine engine)
+        : this(position, velocity, dryMass, propellant, engine,
+               new Attitude(Fix128Vec.Zero, Fix128Vec.Zero))
+    {
+    }
+
+    internal Ship(
+        Fix128Vec position,
+        Fix128Vec velocity,
+        Fix128 dryMass,
+        Fix128 propellant,
+        Engine engine,
+        Attitude attitude)
     {
         Position = position;
         Velocity = velocity;
         Propellant = propellant;
         Mass = dryMass + propellant;
         Engine = engine;
+        Attitude = attitude;
     }
 
     /// <summary>Mass with the tanks empty, tonnes.</summary>
@@ -139,37 +173,51 @@ internal struct Ship
         Propellant -= consumed;
         Mass -= consumed;
 
+        // Attitude first, so this tick's thrust uses this tick's nose direction.
+        Attitude.AngularVelocity = Attitude.ClampAngularVelocity(
+            command.AngularVelocity, Attitude.CrewedMaxTurnRate);
+        Attitude.Step(dt);
+
+        // The main engine fires along the NOSE. A command direction is therefore interpreted
+        // as "point here and burn", which is what a pilot actually does: the throttle and the
+        // helm are one control. The lateral component is discarded by the dot product, so
+        // commanding a direction the ship is not yet facing simply gives no thrust.
+        Fix128Vec nose = Attitude.Forward;
+
         Fix128Vec thrustAcceleration = Fix128Vec.Zero;
         if (consumed > Fix128.Zero
             && Mass > Fix128.Zero
             && !command.ThrustDirection.Equals(Fix128Vec.Zero))
         {
-            Fix128Vec direction = command.ThrustDirection.Normalized();
+            Fix128Vec desired = command.ThrustDirection.Normalized();
 
-            // kN / t is exactly m/s², which is the frame's unit — no conversion at all.
-            Fix128 accelerationMetres = Engine.ThrustKilonewtons / Mass;
-
-            // The hull's ceiling, not the engine's: a drive capable of more than the
-            // structure or the crew can take is throttled back to what the hull allows.
-            // This is what keeps a crewed ship inside 0.1-1 g and lets a shell, which has
-            // no flesh to squash, use the drive's full 10-100 g.
-            Fix128 ceilingMetres = Engine.MaxAccelerationInMetresPerSecondSquared;
-            if (accelerationMetres > ceilingMetres)
+            // Only the component along the nose produces thrust. Commanding a direction the
+            // ship is not yet facing gives a reduced burn rather than a turn, which is what
+            // makes the helm and the throttle one control instead of two.
+            Fix128 alignment = Dot(nose, desired);
+            if (alignment > Fix128.Zero)
             {
-                accelerationMetres = ceilingMetres;
-            }
+                // kN / t is exactly m/s², which is the frame's unit — no conversion at all.
+                Fix128 accelerationMetres = Engine.ThrustKilonewtons / Mass;
 
-            thrustAcceleration = direction * accelerationMetres;
+                // The hull's ceiling, not the engine's: a drive capable of more than the
+                // structure or the crew can take is throttled back to what the hull allows.
+                // This keeps a crewed ship inside 0.1-1 g and lets a shell, which has no
+                // flesh to squash, use the drive's full 10-100 g.
+                Fix128 ceilingMetres = Engine.MaxAccelerationInMetresPerSecondSquared;
+                if (accelerationMetres > ceilingMetres)
+                {
+                    accelerationMetres = ceilingMetres;
+                }
+
+                thrustAcceleration = nose * (accelerationMetres * alignment);
+            }
         }
 
         Fix128Vec acceleration = Gravity(sources, Position) + thrustAcceleration;
 
         Fix128 halfDt = dt * Fix128.Half;
         Fix128Vec positionDelta = Velocity * dt + acceleration * (halfDt * dt);
-        if (System.Environment.GetEnvironmentVariable("SHIP_TRACE") == "1")
-        {
-            System.Console.WriteLine($"    [step] r={Position.Length.ToDouble():F9} v={Velocity.Length.ToDouble()*1e6:F6} a={acceleration.X.ToDouble():G10} dv={Velocity.Y.ToDouble()*1e6:F6} dp={positionDelta.Length.ToDouble():G10}");
-        }
         Position += positionDelta;
 
         // Velocity Verlet needs the gravity at the NEW position. Skipping this and reusing
@@ -178,6 +226,10 @@ internal struct Ship
         Fix128Vec newAcceleration = Gravity(sources, Position) + thrustAcceleration;
         Velocity += (acceleration + newAcceleration) * halfDt;
     }
+
+    /// <summary>Unit vector in the same direction as <paramref name="v"/>.</summary>
+    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
+        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 
     /// <summary>Total gravitational acceleration from every source, at a position.</summary>
     private static Fix128Vec Gravity(ReadOnlySpan<GravitySource> sources, Fix128Vec position)

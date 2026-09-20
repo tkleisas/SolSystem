@@ -85,6 +85,48 @@ public class LocalFrameTests
             $"delta-v {actual} m/s, expected {expected} m/s");
     }
 
+    /// <summary>
+    /// The mass budget of the reference crewed hull, at the numbers the docking tests fly.
+    /// </summary>
+    /// <remarks>
+    /// The propulsion module has no state of its own: thrust, exhaust velocity, mass flow and
+    /// delta-v are all derived from two inputs, which is what keeps them from drifting into
+    /// disagreeing with each other. This asserts the derivation end to end, and pins the two
+    /// numbers a designer would actually check — the acceleration sits at the bottom of the
+    /// crewed band, and the tanks hold about fifteen minutes of full-throttle burn.
+    /// </remarks>
+    [Fact]
+    public void TheReferenceHull_SitsAtTheBottomOfTheCrewedBand()
+    {
+        // 98 kN on 99.932 t wet: the docking harness's ship, and 0.1 g by construction.
+        const double thrust = 98.0;
+        const double dry = 90.0;
+        const double propellant = 9.9322;
+
+        Ship ship = MakeShip(thrust, 900.0, dry, propellant);
+
+        double wet = dry + propellant;
+        Assert.Equal(wet, ship.Mass.ToDouble(), 9);
+        Assert.Equal(dry, ship.DryMass.ToDouble(), 9);
+
+        double acceleration = thrust / wet;
+        Assert.True(
+            Math.Abs(acceleration - 0.1 * 9.80665) < 0.002,
+            $"a0 = {acceleration:F4} m/s2, which is not the 0.1 g floor of the crewed band");
+
+        // Burn time falls out of the mass flow rather than being stored: 10.9 t at 0.0111 t/s.
+        double burnSeconds = propellant / ship.Engine.MassFlowTonnesPerSecond.ToDouble();
+        Assert.True(
+            Math.Abs(burnSeconds - 894.5) < 0.5,
+            $"full-throttle endurance {burnSeconds:F1} s");
+
+        // And the rocket equation on top of it.
+        double expected = 900.0 * 9.80665 * Math.Log(wet / dry);
+        Assert.True(
+            Math.Abs(ship.DeltaVRemaining.ToDouble() - expected) / expected < 1e-9,
+            $"delta-v {ship.DeltaVRemaining.ToDouble():F1} m/s, expected {expected:F1} m/s");
+    }
+
     [Fact]
     public void DeltaV_IsZeroWithDryTanks()
     {
@@ -202,7 +244,8 @@ public class LocalFrameTests
         // for the dry mass alone under-thrusts by a factor of 105/100.
         Ship ship = MakeShip(ThrustFor(1.0 / 9.80665, 105), 900, 100, 5);
         var sources = new[] { GravitySource.AtOrigin(Fix128.Zero) };
-        var command = new Command(new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero), Fix128.One);
+        var command = new Command(
+            new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero), Fix128.One, Fix128Vec.Zero);
 
         for (int i = 0; i < 120; i++)
         {

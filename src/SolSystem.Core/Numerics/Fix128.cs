@@ -91,9 +91,15 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
         // The value is Magnitude / 2^64, so the high word is the integer part as-is and
         // only the low word is scaled. Multiplying the high word by 2^64 instead scales
         // everything by 2^128.
-        ulong high = (ulong)(Magnitude >> FractionalBits);
+        //
+        // The whole part must be taken from the FULL magnitude, not by narrowing to a ulong
+        // first. `(ulong)(Magnitude >> 64) << 64` drops the whole part for any value whose
+        // fraction does not fit in 64 bits — which is every whole number, because the whole
+        // part lives in exactly those 64 bits. Narrowing first made 2^64 read as 0, so
+        // sine reported 0 at a quarter turn while the lookup underneath was correct.
+        UInt128 whole = Magnitude >> FractionalBits;
         ulong low = (ulong)Magnitude;
-        double magnitude = high + low / TwoTo64;
+        double magnitude = (double)whole + low / TwoTo64;
         return Negative ? -magnitude : magnitude;
     }
 

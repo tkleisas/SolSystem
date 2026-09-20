@@ -8,7 +8,7 @@ namespace SolSystem.Core.Numerics;
 /// The solar frame's vector type. <see cref="Fix3"/> stays the local frame's, where the
 /// magnitudes are small enough for a Q32.32 value and the arithmetic is narrower.
 /// </remarks>
-internal readonly struct Fix128Vec
+internal readonly struct Fix128Vec : IEquatable<Fix128Vec>
 {
     internal readonly Fix128 X;
     internal readonly Fix128 Y;
@@ -36,6 +36,18 @@ internal readonly struct Fix128Vec
     internal Fix128 LengthSquared => X * X + Y * Y + Z * Z;
 
     internal Fix128 Length => Fix128.Sqrt(LengthSquared);
+
+    internal bool IsZero => X == Fix128.Zero && Y == Fix128.Zero && Z == Fix128.Zero;
+
+    public bool Equals(Fix128Vec other) => X == other.X && Y == other.Y && Z == other.Z;
+
+    public override bool Equals(object? obj) => obj is Fix128Vec other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(X, Y, Z);
+
+    public static bool operator ==(Fix128Vec a, Fix128Vec b) => a.Equals(b);
+
+    public static bool operator !=(Fix128Vec a, Fix128Vec b) => !a.Equals(b);
 
     /// <summary>Unit vector in the same direction.</summary>
     internal Fix128Vec Normalized()
