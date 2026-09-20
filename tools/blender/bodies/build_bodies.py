@@ -51,6 +51,15 @@ BODY_SHOTS = [
     ("polar",   60.0,  72.0, 3.4, 60.0),
 ]
 
+# The Sun is four orders of magnitude brighter than a planet, so its preview is a
+# tighter frame and a much lower film exposure. The material itself stays at the real
+# radiance: turning the emission down instead would make the shader a lie.
+SUN_SHOTS = [
+    ("hero",   25.0,  10.0, 2.4, 70.0),
+    ("quarter", 115.0, 16.0, 2.4, 70.0),
+    ("limb",   160.0,   4.0, 2.4, 70.0),
+]
+
 
 def sphere(name, radius=1.0, segments=128, rings=64):
     bpy.ops.mesh.primitive_uv_sphere_add(
@@ -91,39 +100,168 @@ def base_material(name):
 
 def build_sun(col):
     """
-    A photosphere: granulation, limb darkening, and no solid surface anywhere.
+    A photosphere, built the way one actually looks, from five real effects.
 
-    Emitted rather than lit, because the Sun is the only body in the scene that makes
-    its own light. The emission is a real number in W/m2/sr and it is large, which is
-    the honest way to render it: the alternative is a modest emission with the
-    exposure turned down, and then every other body in the same scene is wrong.
+    The first version was a noise field multiplied into an emission node, which gives a
+    yellow ball with blotches. What makes the Sun read as the Sun is not blotches:
+
+    **Limb darkening.** The edge of the disc is *darker* than the centre, not brighter.
+    A real photosphere is optically thick, so at the limb the line of sight leaves the
+    surface at a shallow angle and stops in cooler, higher gas. It follows
+    <c>I(mu)/I(1) = 1 - u(1 - mu)</c> with mu the cosine of the view angle and u about
+    0.6 in the visible, and it is the single most recognisable thing about the disc —
+    without it the Sun looks like a sticker.
+
+    **Granulation.** Convection cells, roughly 1 000 km across, packed edge to edge with
+    dark lanes between them where cooler gas sinks. Voronoi cells are the right shape
+    for it: the cells are convex and the lanes are the boundaries, which is exactly
+    what a convection pattern looks like from above.
+
+    **Supergranulation.** A second, much coarser cell pattern on top, at about 30 000 km,
+    which is what stops the granulation reading as a uniform texture.
+
+    **Sunspots.** Sparse, dark, and with a penumbra, because a sunspot without one looks
+    like a hole.
+
+    **Colour from temperature, not from taste.** Surface features are mapped to a
+    temperature between about 4 300 K in a spot and 6 400 K in a granule's centre, and
+    the colour comes out of a blackbody node. That is why the granulation reads as
+    orange in the lanes and white in the cells without anyone choosing those colours —
+    and it is the reason to use the node rather than a ramp.
+
+    The material is authored at the Sun's real radiance, which is enormous. The preview
+    turns the *exposure* down instead of the emission, so the material stays honest and
+    the picture stays viewable.
     """
     mat = base_material("SunPhotosphere")
     tree, add = nodes(mat)
 
     tex = add('ShaderNodeTexCoord')
-    noise = add('ShaderNodeTexNoise')
-    noise.inputs['Scale'].default_value = 14.0
-    noise.inputs['Detail'].default_value = 12.0
-    noise.inputs['Roughness'].default_value = 0.62
+    geometry = add('ShaderNodeNewGeometry')
 
-    ramp = add('ShaderNodeValToRGB')
-    ramp.color_ramp.elements[0].position = 0.36
-    ramp.color_ramp.elements[0].color = (0.72, 0.20, 0.02, 1.0)
-    ramp.color_ramp.elements[1].position = 0.66
-    ramp.color_ramp.elements[1].color = (1.0, 0.86, 0.55, 1.0)
+    # --- granulation: Voronoi cells at 1 000 km, in object space -----------------
+    cells = add('ShaderNodeTexVoronoi')
+    cells.feature = 'SMOOTH_F1'
+    cells.inputs['Scale'].default_value = 42.0
+    if 'Smoothness' in cells.inputs:
+        cells.inputs['Smoothness'].default_value = 0.35
 
+    # Stretch the cell field. Unstretched it varies over a narrow band and the disc
+    # comes out nearly uniform, which is what makes granulation read as noise instead
+    # of as cells with dark lanes between them.
+    cells_gain = add('ShaderNodeMath')
+    cells_gain.operation = 'MULTIPLY_ADD'
+    cells_gain.inputs[1].default_value = 2.4
+    cells_gain.inputs[2].default_value = -0.55
+
+    # --- supergranulation: a coarse noise field under everything -----------------
+    super_gran = add('ShaderNodeTexNoise')
+    super_gran.inputs['Scale'].default_value = 5.5
+    super_gran.inputs['Detail'].default_value = 4.0
+    super_gran.inputs['Roughness'].default_value = 0.5
+
+    def math(op, name):
+        node = add('ShaderNodeMath')
+        node.operation = op
+        node.name = name
+        return node
+
+    def mul(name, value):
+        node = math('MULTIPLY', name)
+        node.inputs[1].default_value = value
+        return node
+
+    def add_const(name, value):
+        node = math('ADD', name)
+        node.inputs[1].default_value = value
+        return node
+
+    # --- assemble the brightness field ------------------------------------------
+    cells_weight = mul("CellsWeight", 0.62)
+    super_weight = mul("SuperWeight", 0.38)
+    combined = math('ADD', "Granulation")
+    granulation = mul("GranulationMean", 0.45)
+    brightness = add_const("BrightnessFloor", 0.55)
+
+    # --- limb darkening ----------------------------------------------------------
+    normal = add('ShaderNodeVectorMath')
+    normal.operation = 'NORMALIZE'
+    view = add('ShaderNodeVectorMath')
+    view.operation = 'NORMALIZE'
+    mu = add('ShaderNodeVectorMath')
+    mu.operation = 'DOT_PRODUCT'
+
+    one_minus_mu = math('SUBTRACT', "OneMinusMu")
+    one_minus_mu.inputs[0].default_value = 1.0
+    limb_amount = mul("LimbCoefficient", 0.62)
+    limb_factor = math('SUBTRACT', "LimbFactor")
+    limb_factor.inputs[0].default_value = 1.0
+
+    # A sharp power on mu adds the bright photosphere right at the edge, which is what
+    # a real limb does as it gives way to the chromosphere.
+    limb_sharp = add('ShaderNodeMath')
+    limb_sharp.operation = 'POWER'
+    limb_sharp.inputs[1].default_value = 6.0
+    rim = mul("RimStrength", 0.35)
+
+    # --- put it together ---------------------------------------------------------
+    darkened = math('MULTIPLY', "LimbDarkened")
+    limb_sum = math('ADD', "LimbAndRim")
     emission = add('ShaderNodeEmission')
-    emission.inputs['Strength'].default_value = 9.0
+
+    # --- colour from temperature -------------------------------------------------
+    # 4 000 K in a lane to 7 200 K in a cell centre. The real spread is roughly
+    # 4 500 to 6 500 K; a little exaggeration is what makes the cells visible at all
+    # through a display transform that compresses the top of the range.
+    temp_span = mul("TempSpan", 3200.0)
+    temp_base = add_const("TempBase", 4000.0)
+    blackbody = add('ShaderNodeBlackbody')
 
     output = add('ShaderNodeOutputMaterial')
 
-    link_into(tree, tex, 'Object', noise, 'Vector')
-    link_into(tree, noise, 'Fac', ramp, 'Fac')
-    link_into(tree, ramp, 'Color', emission, 'Color')
+    link_into(tree, tex, 'Object', cells, 'Vector')
+    link_into(tree, tex, 'Object', super_gran, 'Vector')
+    link_into(tree, cells, 'Distance', cells_gain, 0)
+    link_into(tree, cells_gain, 'Value', cells_weight, 0)
+    link_into(tree, super_gran, 'Fac', super_weight, 0)
+    link_into(tree, cells_weight, 'Value', combined, 0)
+    link_into(tree, super_weight, 'Value', combined, 1)
+    link_into(tree, combined, 'Value', granulation, 0)
+    link_into(tree, granulation, 'Value', brightness, 0)
+
+    # Limb
+    link_into(tree, geometry, 'Normal', normal, 0)
+    link_into(tree, geometry, 'Incoming', view, 0)
+    link_into(tree, normal, 'Vector', mu, 0)
+    link_into(tree, view, 'Vector', mu, 1)
+    link_into(tree, mu, 'Value', one_minus_mu, 1)
+    link_into(tree, one_minus_mu, 'Value', limb_amount, 0)
+    link_into(tree, limb_amount, 'Value', limb_factor, 1)
+    link_into(tree, mu, 'Value', limb_sharp, 0)
+    link_into(tree, limb_sharp, 'Value', rim, 0)
+    link_into(tree, limb_factor, 'Value', limb_sum, 0)
+    link_into(tree, rim, 'Value', limb_sum, 1)
+
+    link_into(tree, brightness, 'Value', darkened, 0)
+    link_into(tree, limb_sum, 'Value', darkened, 1)
+    # Authored so the disc lands *inside* the display range rather than on top of it.
+    # Whatever the view transform, anything driven past 1.0 clips to white and takes
+    # its colour with it -- which is how the first two attempts at this shader lost
+    # the Sun's yellow. The brightness field varies either side of one, so the mean
+    # sits near 0.9 and the hottest cells just reach the top.
+    emission_strength = mul("EmissionStrength", 0.92)
+    link_into(tree, darkened, 'Value', emission_strength, 0)
+    link_into(tree, emission_strength, 'Value', emission, 'Strength')
+
+    # Temperature, then colour.
+    link_into(tree, granulation, 'Value', temp_span, 0)
+    link_into(tree, temp_span, 'Value', temp_base, 0)
+    link_into(tree, temp_base, 'Value', blackbody, 'Temperature')
+    link_into(tree, blackbody, 'Color', emission, 'Color')
+
     link_into(tree, emission, 'Emission', output, 'Surface')
 
-    obj = sphere("Sun", radius=1.0, segments=192, rings=96)
+    obj = sphere("Sun", radius=1.0, segments=256, rings=128)
     obj.data.materials.append(mat)
     link(obj, col)
     return obj
@@ -567,7 +705,14 @@ def build(name, builder):
     builder(col)
 
     blend, glb, preview = asset_paths("bodies", name)
-    render_views(preview, BODY_SHOTS, resolution=1000, samples=64, ambient=0.008)
+    shots = SUN_SHOTS if name == "sun" else BODY_SHOTS
+
+    # The Sun gets glare and a planet does not: a planet is lit by something else and
+    # has no corona of its own.
+    glare = {"threshold": 0.8, "size": 0.6, "strength": 1.0, "kind": "FOG_GLOW",
+             "quality": "HIGH"} if name == "sun" else None
+    render_views(preview, shots, resolution=1000, samples=64, ambient=0.008,
+                 glare=glare)
     export_glb(glb, name)
     export_blend(blend)
 

@@ -358,6 +358,25 @@ def _strike(rig, camera):
         bpy.data.objects.remove(obj, do_unlink=True)
 
 
+def set_view_transform(name='Standard'):
+    """
+    Chooses the display transform.
+
+    AgX, the modern default, is built to roll bright values smoothly toward white —
+    which is what makes a photograph look like a photograph, and is precisely wrong for
+    a body that emits its own light. Under AgX the Sun's photosphere desaturates to a
+    grey disc no matter what colour the shader puts out. Standard is a plain transform
+    with no highlight roll-off, so a colour that is inside the range stays that colour.
+    """
+    view = bpy.context.scene.view_settings
+    try:
+        view.view_transform = name
+    except Exception:
+        # The enum only reports 'NONE' through RNA in some builds even when others are
+        # available, so a failure here is a probe result rather than a real error.
+        print(f"  note: view transform '{name}' not assignable, leaving as {view.view_transform}")
+
+
 def _render_to(path, resolution, samples):
     scene = bpy.context.scene
     ensure_dir(os.path.dirname(path))
@@ -372,7 +391,93 @@ def _render_to(path, resolution, samples):
     print(f"  view    -> {os.path.basename(path)}")
 
 
-def render_views(path, shots, resolution=1100, samples=64, ambient=0.05):
+def enable_glare(threshold=0.85, size=0.55, strength=1.0, kind='FOG_GLOW',
+                 quality='HIGH', saturation=1.0, streaks=6, fade=0.92):
+    """
+    Compositor glare, for anything that emits its own light.
+
+    The Sun has no hard edge. What a camera sees at the limb is the photosphere giving
+    way to the chromosphere and then to a corona that is a millionth as bright and
+    still visible, because eyes and sensors both respond logarithmically. A renderer
+    does not, so a bare emissive sphere comes out as a flat disc with a line drawn
+    round it — which is what makes a physically-lit Sun look like a sticker.
+
+    Glare is the honest approximation: a fog glow that reaches past the silhouette. It
+    is a camera effect applied after the render, not a change to the material.
+
+    **Blender 5 moved this node's settings out of RNA properties and into input
+    sockets.** There is no `node.glare_type` or `node.quality` any more; the type is
+    `node.inputs["Type"]` and it is a MENU socket whose identifiers are the upper-case
+    names of the menu entries. Read the sockets, do not guess at attributes — the
+    earlier version of this function failed on `glare.glare_type = 'FOG_GLOW'` with an
+    AttributeError that looked like a version problem and was an API change.
+    """
+    scene = bpy.context.scene
+
+    # The compositor also moved: `scene.node_tree` is gone, and the replacement is a
+    # node group datablock that has to be created and assigned.
+    tree = bpy.data.node_groups.new("Glare", 'CompositorNodeTree')
+    scene.compositing_node_group = tree
+
+    render_layers = tree.nodes.new('CompositorNodeRLayers')
+    glare = tree.nodes.new('CompositorNodeGlare')
+
+    # In Blender 5 the compositor is shaped like a node GROUP: the output is a
+    # NodeGroupOutput, and there is no CompositorNodeComposite at all. It is the
+    # terminal node of the tree rather than a composite operator.
+    composite = tree.nodes.new('NodeGroupOutput')
+
+    # A Blender 5 MENU socket is set by name and cannot be introspected: it has no
+    # `enum_items`, so the valid values cannot be read off it, and the identifier form
+    # the C source uses ('FOG_GLOW') is rejected in favour of the displayed name
+    # ('Fog Glow'). The candidates below are tried in order and the assignment is
+    # verified, so a wrong name fails loudly here rather than silently doing nothing.
+    def set_menu(socket, wanted):
+        candidates = [
+            wanted,
+            wanted.replace('_', ' ').title(),
+            wanted.upper(),
+        ]
+        for candidate in candidates:
+            try:
+                socket.default_value = candidate
+            except Exception:
+                continue
+            if socket.default_value == candidate:
+                return
+        raise ValueError(
+            f"could not set {socket.name} to {wanted!r}; tried {candidates}")
+
+    set_menu(glare.inputs['Type'], kind)
+    set_menu(glare.inputs['Quality'], quality)
+    glare.inputs['Threshold'].default_value = threshold
+    glare.inputs['Size'].default_value = size
+    glare.inputs['Strength'].default_value = strength
+    glare.inputs['Saturation'].default_value = saturation
+    glare.inputs['Streaks'].default_value = streaks
+    glare.inputs['Fade'].default_value = fade
+
+    # The terminal node carries one unnamed input socket, and its name cannot be set
+    # on the node -- a group's sockets belong to the tree's interface, not to the node.
+    # Addressing it by index is therefore the reliable thing to do; asking for
+    # inputs['Image'] is a KeyError even though the socket is right there.
+    tree.links.new(render_layers.outputs['Image'], glare.inputs['Image'])
+    tree.links.new(glare.outputs['Image'], composite.inputs[0])
+
+    # A plain transform with no highlight roll-off, because AgX desaturates anything
+    # driven past mid-scale toward white -- which is how the Sun lost its yellow.
+    set_view_transform('Standard')
+    return glare
+
+
+def disable_glare():
+    """Back to a plain render, for anything that is not its own light source."""
+    scene = bpy.context.scene
+    if scene.compositing_node_group is not None:
+        scene.compositing_node_group = None
+
+
+def render_views(path, shots, resolution=1100, samples=64, ambient=0.05, glare=None):
     """
     Renders a model from several angles into one contact sheet.
 
@@ -393,6 +498,14 @@ def render_views(path, shots, resolution=1100, samples=64, ambient=0.05):
     # contrast against a dark background hides exactly the surfaces being judged.
     rig = _stage(centre, extent, key_energy=9.0, fill_energy=3.2, rim_energy=5.0,
                  ambient=ambient)
+
+    # The compositor has to be wired BEFORE anything is rendered: it runs as part of
+    # the render, so setting it up afterwards produces images that were made without
+    # it and a pipeline that appears to work.
+    if glare is not None:
+        enable_glare(**glare)
+    else:
+        disable_glare()
 
     written = []
     for name, azimuth, elevation, distance_factor, lens in shots:
