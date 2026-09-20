@@ -437,7 +437,8 @@ visible sink. A resource the player cannot trace is noise, not scarcity.
 |---|---|---|---|
 | **Delta-v** | — | everything | The true currency. Everything else is priced in it. |
 | **Antimatter** | Solar collectors, inner system only | Propulsion, reactors | Slow to make, dangerous to store, catastrophic to lose |
-| **Deuterium / water ice** | Outer system, Jovian moons | Fusion drives, terraforming | The flashpoint |
+| **Deuterium / water ice** | Jovian moons, **Ceres** | Fusion drives, terraforming | The flashpoint — but abundant; see below |
+| **Volatile transport capacity** | Built, slowly | Moving the above | **The clock's throttle.** The ice is not scarce; the drives and reactors to move it are |
 | **Fissiles, rare metals** | Specific deposits | Reactors, industry | No substitute exists; deposits are permanent flashpoints |
 | **Construction capacity** | Built, slowly | Factories, refineries, shade swarms | Impossible to hide, tempting to raid |
 
@@ -457,6 +458,21 @@ side theatre:
 
 Whoever holds the Jovian system rations the other faction's terraforming programme
 *and* its fuel. That is a war with a reason to be fought that is not ideology.
+
+**[DECIDED] But the Jovian moons are the *cheap* source, not the only one.** Ceres
+holds roughly 2.3 × 10²⁰ kg of water ice — about twice Venus' entire 2.7 km ocean — at
+a small fraction of the Jovian Δv, and Europa alone is some thirty-five times the whole
+appetite. So the ice itself is not what is scarce. What is scarce is the **power and
+the drive plant to move it**: delivering that ocean in three centuries needs of order
+2.6 × 10²⁰ W of jet power, five orders of magnitude past the antimatter plant's entire
+collector field (`docs/TRIP-ENERGY.md` §15).
+
+This is a better strategic situation than a fuel shortage, not a worse one. Denying a
+route is not denying the resource, so blockades are about *cost* rather than
+starvation; Ceres is a forward depot, a bargaining chip and an obvious place to fight;
+and the thing worth raiding is the **convoy**, because the convoy is where a faction's
+clock is actually being spent. Attack on terraforming becomes a physical act with a
+measurable delay attached — which is what §4's "nothing regenerates" wanted.
 
 **[DECIDED]** The Illuminus deuterium-cracking plants are on **Mars**. It gives
 Mars a reason to exist beyond being the colony they picked, and it means a strike
