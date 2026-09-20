@@ -131,6 +131,18 @@ internal readonly struct Engine
     internal static readonly Fix128 CrewedExhaustVelocity = Fix128.FromDouble(1_200_000.0);
 
     /// <summary>
+    /// The same figure as a conventional specific impulse, in seconds.
+    /// </summary>
+    /// <remarks>
+    /// <c>vₑ / g₀</c>, which is 122 366 s and not a round number, because <c>g₀</c> is not one.
+    /// Kept as a derived value rather than a second authored constant: the design fixes the
+    /// exhaust velocity, and quoting a rounded specific impulse beside it is how the two drift
+    /// apart. A test asserts they agree.
+    /// </remarks>
+    internal static readonly Fix128 CrewedSpecificImpulse =
+        Fix128.FromDouble(1_200_000.0 / 9.80665);
+
+    /// <summary>
     /// The crewed torch's steady acceleration, in m/s².
     /// </summary>
     /// <remarks>

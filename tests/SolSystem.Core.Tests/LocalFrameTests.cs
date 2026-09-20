@@ -89,45 +89,82 @@ public class LocalFrameTests
     }
 
     /// <summary>
-    /// The mass budget of the reference crewed hull, at the numbers the docking tests fly.
+    /// The reference crewed torch, at the numbers the design gives it.
     /// </summary>
     /// <remarks>
-    /// The propulsion module has no state of its own: thrust, exhaust velocity, mass flow and
-    /// delta-v are all derived from two inputs, which is what keeps them from drifting into
-    /// disagreeing with each other. This asserts the derivation end to end, and pins the two
-    /// numbers a designer would actually check — the acceleration sits at the bottom of the
-    /// crewed band, and the tanks hold about fifteen minutes of full-throttle burn.
+    /// 100 t wet at four milligee with 1200 km/s of exhaust velocity, which is the Workers'
+    /// torch from `docs/TRIP-ENERGY.md` §16. Every figure here is derived rather than chosen:
+    /// the thrust follows from the acceleration, the mass flow from the thrust and the exhaust
+    /// velocity, the endurance from the tank, and the delta-v from the rocket equation. That is
+    /// the point of the test — the propulsion module stores two numbers and derives the rest,
+    /// and this is the assertion that the derivation is the one the design names.
     /// </remarks>
     [Fact]
-    public void TheReferenceHull_SitsAtTheBottomOfTheCrewedBand()
+    public void TheReferenceTorch_IsTheOneTheDesignNames()
     {
-        // 98 kN on 99.932 t wet: the docking harness's ship, and 0.1 g by construction.
-        const double thrust = 98.0;
-        const double dry = 90.0;
-        const double propellant = 9.9322;
-
-        Ship ship = MakeShip(thrust, 900.0, dry, propellant);
-
+        // 100 t wet is 5 t of propellant on a 95 t hull.
+        const double dry = 95.0;
+        const double propellant = 5.0;
         double wet = dry + propellant;
+
+        // The thrust that makes 100 t accelerate at the torch's steady rate.
+        double thrust = wet * Engine.CrewedAcceleration.ToDouble();
+
+        Ship ship = MakeShip(thrust, Engine.CrewedSpecificImpulse.ToDouble(), dry, propellant);
+
         Assert.Equal(wet, ship.Mass.ToDouble(), 9);
         Assert.Equal(dry, ship.DryMass.ToDouble(), 9);
 
+        // Exhaust velocity is Isp times g0, and it is the design's 1200 km/s.
+        Assert.Equal(
+            Engine.CrewedExhaustVelocity.ToDouble(),
+            ship.Engine.ExhaustVelocityMetresPerSecond.ToDouble(),
+            0);
+
+        // Which puts the hull's own acceleration exactly on the torch's ceiling.
         double acceleration = thrust / wet;
-        Assert.True(
-            Math.Abs(acceleration - 0.1 * 9.80665) < 0.002,
-            $"a0 = {acceleration:F4} m/s2, which is not the 0.1 g floor of the crewed band");
+        Assert.Equal(Engine.CrewedAcceleration.ToDouble(), acceleration, 12);
+        Assert.Equal(
+            Engine.CrewedAcceleration.ToDouble(),
+            ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble(),
+            12);
 
-        // Burn time falls out of the mass flow rather than being stored: 10.9 t at 0.0111 t/s.
-        double burnSeconds = propellant / ship.Engine.MassFlowTonnesPerSecond.ToDouble();
-        Assert.True(
-            Math.Abs(burnSeconds - 894.5) < 0.5,
-            $"full-throttle endurance {burnSeconds:F1} s");
+        // And four milligee is four thousandths of a g: a milligee drive, not a torch in the
+        // science-fiction sense. The radiator is what sets it.
+        double inG = acceleration / 9.80665;
+        Assert.True(inG < 0.005, $"the reference torch is {inG:G4} g");
 
-        // And the rocket equation on top of it.
-        double expected = 900.0 * 9.80665 * Math.Log(wet / dry);
+        // Mass flow follows from thrust over exhaust velocity: 3.92 kN at 1200 km/s is
+        // 3.27 grams a second, so five tonnes of propellant is eighteen days of full throttle.
+        double massFlow = ship.Engine.MassFlowTonnesPerSecond.ToDouble();
+        // Compared as a ratio, because the value is 3.2667e-6 t/s and an absolute tolerance
+        // that would catch a real error is finer than the fixed-point grid at that scale.
+        double expectedFlow = thrust / ship.Engine.ExhaustVelocityMetresPerSecond.ToDouble();
+        Assert.True(
+            Math.Abs(massFlow - expectedFlow) / expectedFlow < 1e-9,
+            $"mass flow is {massFlow:E6} t/s, thrust over exhaust velocity says {expectedFlow:E6}");
+
+        double burnSeconds = propellant / massFlow;
+        Assert.True(
+            Math.Abs(burnSeconds - 1_530_612.0) < 1000.0,
+            $"full-throttle endurance {burnSeconds:N0} s, expected about 1.53 million");
+        Assert.True(
+            Math.Abs(burnSeconds / 86400.0 - 17.7) < 0.1,
+            $"endurance is {burnSeconds / 86400.0:F2} days, and the design says 17.7");
+
+        // And the rocket equation on top of it: 5 t of propellant on a 100 t ship is 61 km/s,
+        // which is a Jupiter crossing into the bargain — the crossing itself costs about
+        // 314 km/s for the outward leg at this acceleration, so the tank is sized for
+        // manoeuvring rather than for the transit.
+        double expected = ship.Engine.ExhaustVelocityMetresPerSecond.ToDouble()
+            * Math.Log(wet / dry);
         Assert.True(
             Math.Abs(ship.DeltaVRemaining.ToDouble() - expected) / expected < 1e-9,
-            $"delta-v {ship.DeltaVRemaining.ToDouble():F1} m/s, expected {expected:F1} m/s");
+            $"delta-v {ship.DeltaVRemaining.ToDouble():N0} m/s, expected {expected:N0} m/s");
+
+        Assert.True(
+            Math.Abs(ship.DeltaVRemaining.ToDouble() - 61_552.0) < 100.0,
+            $"the reference load should hold about 61.5 km/s, holds {ship.DeltaVRemaining.ToDouble():N0}");
     }
 
     [Fact]
