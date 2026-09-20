@@ -447,7 +447,78 @@ which is the thematic gun §1.3 already put on the mantelpiece.
 
 ---
 
-## 9. Assumptions, for anyone who wants to argue
+## 9. The drive plant is the wall, and the two plants are not the same object
+
+There are two power plants in this setting and **only one of them is a real problem.**
+
+**The antimatter plant is stationary**, so its mass is free. At 50 % conversion it needs
+14 600 km² of collector for a tonne a year and can weigh whatever it likes. Nothing about it
+is hard except the conversion efficiency.
+
+**The drive plant has to fly**, so its mass *is* the ship. That is the whole difficulty.
+
+### The relation that settles it
+
+For a ship of total mass `m` accelerating at `a` with exhaust velocity `vₑ`:
+
+```
+F  = m·a                 thrust
+P  = F·vₑ/2              jet power
+Mp = P/SP                plant mass, SP = specific power in W/kg
+```
+
+Substituting:
+
+> **`Mp/m = a·vₑ / (2·SP)`**
+
+**The plant's mass fraction does not depend on ship size at all.** Build a bigger ship and
+the reactor grows with it. The only ways to a higher acceleration are a lower exhaust
+velocity or a better specific power.
+
+| Acceleration | vₑ | SP = 200 kW/kg | SP = 1 000 | SP = 10 000 | SP = 50 000 |
+|---|---|---|---|---|---|
+| 0.003 g | 500 km/s | 3.7 % | 0.7 % | 0.1 % | 0.0 % |
+| 0.010 g | 500 km/s | 12.3 % | 2.5 % | 0.2 % | 0.0 % |
+| 0.030 g | 500 km/s | 36.8 % | 7.4 % | 0.7 % | 0.1 % |
+| **0.100 g** | 500 km/s | **122.6 %** | **24.5 %** | 2.5 % | 0.5 % |
+| 0.300 g | 500 km/s | 367.7 % | 73.5 % | 7.4 % | 1.5 % |
+| 1.000 g | 500 km/s | 1 225.8 % | 245.2 % | 24.5 % | 4.9 % |
+
+*(plant as a fraction of the ship; above 100 % means the reactor alone outweighs the ship)*
+
+For a 0.1 g ship at vₑ = 500 km/s the plant must be under a quarter of the ship, which needs
+**SP ≥ 981 kW/kg.**
+
+### What that means for the setting
+
+| Assumption | Value | Verdict |
+|---|---|---|
+| NERVA flew at | ~200 kW/kg | 0.03 g is the ceiling |
+| Best fission concept | ~1 000 kW/kg | 0.1 g, and the reactor is a quarter of the ship |
+| Fusion, normally assumed | 10 000–100 000 kW/kg | 0.1–1 g comfortable |
+
+So:
+
+1. **`Mp/m` is size-independent, so a bigger ship does not accelerate harder.** The only
+   route to speed is a better reactor. There is no "build it large enough" escape.
+2. **0.1 g is reachable; 1 g is not.** At 1 g even 10 000 kW/kg leaves the reactor at a
+   quarter of the ship, before payload, structure, propellant or tankage. **The design's
+   0.1–1 g crewed band is therefore realistic at the bottom and aspirational at the top** —
+   and the top of the band should be understood as a capability only the best hulls have.
+3. **Fast ships are scarce for a reactor reason, not a fuel reason.** The antimatter is
+   manufacturable, the collector field is a civil engineering project, and the propellant is
+   a rounding error. The reactor is the bottleneck, and the reactor is a technology, not a
+   resource.
+4. **That makes the Workers' 50 % converter necessary but not sufficient.** They can make
+   fuel nobody else can make; they still have to build a drive nobody else can build. The
+   Illuminus' five-times-better hulls are therefore aimed at exactly the right thing.
+
+**[OPEN] Drive specific power for each faction.** It is now the single number that decides
+who has fast ships, and it is independent of the antimatter question entirely.
+
+---
+
+## 10. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the

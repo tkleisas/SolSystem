@@ -330,6 +330,22 @@ accelerates to the midpoint and decelerates — Mars in days, Jupiter in weeks �
 rather than coasting for months. The design does not have a "long slow crossing"
 mode for powered ships.
 
+**[DECIDED] The drive plant is the wall, and it is a different object from the
+antimatter plant.** The antimatter plant is stationary, so its mass is free. The
+drive plant has to fly, so its mass is the ship. For a ship of mass `m` at
+acceleration `a` with exhaust velocity `vₑ`, the plant's mass fraction is
+**`Mp/m = a·vₑ/(2·SP)`** — independent of ship size, so there is no "build it
+larger" escape. At 0.1 g and vₑ = 500 km/s the plant must be under a quarter of
+the ship, needing **SP ≥ 981 kW/kg**. NERVA flew at ~200; the best fission concept
+is ~1 000; fusion is normally assumed at 10 000–100 000. So **0.1 g is reachable
+and 1 g is not** — the crewed band's top end is aspirational and belongs to the
+best hulls only.
+
+Fast ships are therefore scarce for a **reactor** reason, not a fuel reason. The
+Workers' 50 % converter is necessary but not sufficient: they can make fuel nobody
+else can make, and still have to build a drive nobody else can build — which is
+exactly what the Illuminus' five-times-better hulls are aimed at.
+
 **[DECIDED] The binding constraint is the power plant's specific power, not
 propellant.** Working it through (`docs/TRIP-ENERGY.md` §6): acceleration is
 `a = 2·SP/vₑ`, independent of ship size, so trip time is set by the plant's
@@ -729,7 +745,8 @@ staged state machine.
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
 | 12 | ~~Antimatter production efficiency~~ | **Closed: 50 %.** See §3 and `docs/TRIP-ENERGY.md` §8 |
 | 15 | Antimatter containment loss rate and the safe stockpile ceiling | Whether depots are tempo-limited or quantity-limited |
-| 13 | Exhaust velocities and plant specific power for each drive | Trip time is `2·√(d/a)`, propellant is `exp(Δv/vₑ)`, and `a = 2·SP/vₑ` ties them together — nothing can be balanced without all three |
+| 13 | Exhaust velocity for each drive | Propellant mass is `exp(Δv/vₑ)` — nothing can be balanced without it |
+| 16 | **Drive specific power for each faction** (`docs/TRIP-ENERGY.md` §9) | Who has fast ships. Independent of the antimatter question, and `Mp/m = a·vₑ/(2·SP)` |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |
 
