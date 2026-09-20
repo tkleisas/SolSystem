@@ -1,0 +1,65 @@
+SolSystem — Phase 0 numerics spike
+==================================
+
+Solar frame representation — Q64.64, unit = kilometre
+-----------------------------------------------------
+  Integer range        ±9.223E+18 km
+  In AU                ±6.165E+10
+  Fractional LSB       5.421E-20 km = 5.421E-14 mm
+  Relative precision at 1 AU   3.624E-28
+
+  The term that forces the width — r^2 at 1 AU:
+    r^2                2.23795E+16 km^2
+    fits a Q32.32 long?  no — it overflows by 1.04E+07x
+
+  The term §6.2 originally flagged — solar acceleration at 1 AU:
+    a                  5.93008E-06 km/s^2
+    (fixed point keeps constant ABSOLUTE precision, so a small value keeps
+     more relative precision — the reverse of the floating-point intuition)
+
+Earth orbit, dt = 1 h
+---------------------
+  Ticks                    8,766
+  Orbit radius  Fix128     149,597,870.170 km   (169.708 m from 1 AU)
+  Orbit radius  double     149,597,869.809 km   (-191.188 m from 1 AU)
+  Radius difference        360.9 m
+  Energy drift  Fix128     1.524E-12
+  Energy drift  double     6.277E-15
+  Position difference      1.288E+06 m
+  Cost  Fix128             15,627 ns/step
+  Cost  double            132 ns/step
+
+Earth orbit, dt = 2 h
+---------------------
+  Ticks                    4,383
+  Orbit radius  Fix128     149,597,869.507 km   (-493.488 m from 1 AU)
+  Orbit radius  double     149,597,869.809 km   (-190.846 m from 1 AU)
+  Radius difference        302.6 m
+  Energy drift  Fix128     1.317E-12
+  Energy drift  double     1.281E-16
+  Position difference      1.279E+06 m
+  Cost  Fix128             18,774 ns/step
+  Cost  double            127 ns/step
+
+Growth of the fixed/double difference
+-------------------------------------
+      tick     error (m)   error per tick (m)
+     2,000     1.27E+05         63.52
+     4,000    5.679E+05           142
+     6,000    1.077E+06         179.5
+     8,000    1.282E+06         160.3
+     8,500    1.288E+06         151.5
+
+Interpretation
+--------------
+  Error-per-tick trend     0.9645 (late/early) — steady — the difference grows linearly, i.e. a constant rounding bias
+  Final difference         1.288E+06 m after a year
+  Energy drift  Fix128     1.524E-12
+  Energy drift  double     6.277E-15
+  Doubling dt moved the difference 0.99x
+
+  VERDICT: PASS
+  The Q64.64 solar frame holds a one-year orbit to 1.37E-06 relative
+  error, with energy conserved to one part in 10^12. That is six orders of
+  magnitude below anything the simulation can act on. Option A is sound: the
+  constraint is the WIDTH of the type, which Fix128 provides and Fix64 cannot.

@@ -1,0 +1,35 @@
+# Build output
+bin/
+obj/
+
+# The NuGet HTTP cache and global packages folder are redirected into artifacts/ by
+# NuGet.config so that a restore never needs to write outside the workspace. Neither
+# belongs in the repository.
+artifacts/nuget-http-cache/
+artifacts/nuget-packages/
+
+# Spike transcripts are kept: docs/SPIKE-NUMERICS.md cites artifacts/spike-numerics.txt
+# as the evidence behind the numeric decision, so it is a deliverable rather than an
+# intermediate.
+
+# Test and coverage output
+TestResults/
+*.trx
+*.coverage
+coverage*.xml
+
+# Editors
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Publish output
+publish/
+*.nupkg

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SolSystem.Core/SolSystem.Core.csproj" />
+    <Project Path="src/SolSystem.Spike/SolSystem.Spike.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SolSystem.Core.Tests/SolSystem.Core.Tests.csproj" />
+  </Folder>
+</Solution>
