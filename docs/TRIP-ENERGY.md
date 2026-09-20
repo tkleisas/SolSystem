@@ -518,7 +518,113 @@ who has fast ships, and it is independent of the antimatter question entirely.
 
 ---
 
-## 10. Assumptions, for anyone who wants to argue
+## 10. The plant is in the clouds, and it is built from the atmosphere
+
+The antimatter plant is not on Venus's surface. It is in the **cloud deck**, and its
+collectors are manufactured from the CO₂ they float in. That changes what the whole
+terraforming programme is.
+
+### The cloud deck is the only habitable place on Venus
+
+| Altitude | Pressure | Temperature | |
+|---|---|---|---|
+| 50 km | 0.75 bar | 348 K (+75 °C) | airship altitude |
+| **55 km** | **0.53 bar** | **300 K (+27 °C)** | **breathing mask, not a pressure suit** |
+| 60 km | 0.24 bar | 263 K (−10 °C) | airship altitude |
+| surface | **92 bar** | **737 K (+464 °C)** | nothing lands there and stays |
+
+At 55 km a person needs a breathing mask and ordinary clothes. **That is where the
+Workers live and work**, and it is why the colony is in the clouds rather than on the
+ground. It also means the antimatter plant, the processing plants and the settlement are
+the same object.
+
+### The atmosphere is not a constraint on building — it is inexhaustible for building
+
+Venus's atmosphere is **4.77 × 10²⁰ kg**, ninety-three times Earth's. The carbon within it
+is **1.26 × 10²⁰ kg**.
+
+| Target | Collector mass | Fraction of Venus's carbon |
+|---|---|---|
+| Antimatter plant, 1 t/yr (14 600 km²) | 7.3 × 10⁹ kg | 6 × 10⁻¹¹ |
+| Antimatter plant, 100 t/yr | 7.3 × 10¹¹ kg | 6 × 10⁻⁹ |
+| Shade swarm blocking 2 % of the disc | 4.6 × 10¹² kg | 4 × 10⁻⁸ |
+
+**The collectors are a rounding error against the atmosphere they are made from.** At
+0.5 kg/m² a 14 600 km² array is 1.5 × 10⁻¹¹ of the atmospheric mass — the surface pressure
+would drop from 92 bar by 0.0000000014 bar.
+
+So the swarm is **self-supplying**: the atmosphere is the feedstock, and the product is the
+machine that dismantles the atmosphere. There is no material shortage at any point, and the
+question "is there enough carbon to build the collectors" has an overwhelming yes.
+
+### But the collectors cannot be the carbon sink
+
+The obvious next thought is that the swarm *is* the terraforming — build enough panels and
+the atmosphere goes away. It does not work, and the number is decisive:
+
+To reach Earth-like pressure, virtually all 4.73 × 10²⁰ kg of CO₂ must go. Made into
+0.5 kg/m² panels that is **2.5 × 10¹⁴ km²** — **546 000 times Venus's entire surface area.**
+That is not a swarm, it is a shell hundreds of thousands of layers deep.
+
+**The collectors are a bootstrap, not a solution.** They supply the power and shade; they
+cannot absorb the carbon.
+
+### What actually removes the carbon
+
+Not splitting it. Breaking CO₂ into carbon and oxygen means breaking two C=O bonds at
+1 598 kJ/mol, which is **1.3 × 10⁸ J per kg of carbon**:
+
+| | |
+|---|---|
+| Energy to split the atmosphere | 1.72 × 10²⁸ J |
+| Sunlight falling on Venus | 1.20 × 10¹⁸ W |
+| Time using *all* of it | **452 years** |
+| At a realistic 10 % of it | **4 500 years** |
+
+The cheap route is **mineral carbonation** — reacting the CO₂ with calcium silicates in
+Venus's basaltic crust to make calcite and quartz:
+
+```
+CO2 + CaSiO3 -> CaCO3 + SiO2
+```
+
+which is **exothermic**. It releases heat rather than needing it, so the constraint stops
+being energy entirely and becomes **rock throughput**:
+
+| Target timescale | Silicate rock per day | Volume per day |
+|---|---|---|
+| 100 years | 2.3 × 10¹⁶ kg | 7 800 km³/day |
+| 300 years | 7.5 × 10¹⁵ kg | 2 600 km³/day |
+| 1 000 years | 2.3 × 10¹⁵ kg | 780 km³/day |
+| 5 000 years | 4.5 × 10¹⁴ kg | 156 km³/day |
+
+**A three-century terraforming of Venus means moving a mountain range every single day.**
+That is the honest industrial scale of the project, and it is why the Workers are defined by
+production technology rather than by weapons.
+
+### What this does to the setting
+
+1. **The plant, the settlement and the first terraforming stage are one thing.** The cloud
+   cities are the antimatter works, and the panels they make are the first step of the
+   terraforming. That is a much stronger design than three separate systems.
+2. **The terraforming clock is an industrial throughput problem.** It is paced by mining and
+   manufacturing, which means it is a thing the player can *watch advance* and a thing worth
+   attacking. The Illuminus cannot out-build it; they can only slow it.
+3. **Two useful products from one process.** The panels shade Venus toward habitability at
+   the same time as they power the antimatter works, so the cooling and the industry are the
+   same project.
+4. **Venus's carbon has a market: Mars.** The Illuminus need volatiles and a thicker
+   atmosphere; Venus has a surplus of exactly the carbon Mars lacks. That makes the two
+   terraformings *complementary* rather than merely parallel — which is a far more
+   interesting war, because the rational move is trade and the war is what happens instead.
+5. **Sequestering is the long pole, not building.** Construction can expand exponentially
+   from a small seed because the feedstock is everywhere. Rock processing cannot: it is
+   linear in machines, and machines cost material and time. **The bottleneck is the crusher
+   fleet, not the solar array.**
+
+---
+
+## 11. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the

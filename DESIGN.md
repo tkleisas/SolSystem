@@ -248,6 +248,31 @@ and should feel like one.
 abundant in water ice, which makes the outer system a *real* supply rather than a
 contrivance. He-3 would have made the fuel chain a plot device.
 
+**[DECIDED] The Workers live and work in the Venus cloud deck, and the
+antimatter plant is built from the atmosphere it floats in.** At 55 km the pressure
+is 0.53 bar and the temperature 27 °C — a breathing mask, not a pressure suit. The
+surface is 92 bar and 464 °C, where nothing lands and stays. So the colony, the
+processing plants and the antimatter works are the same object.
+
+**[DECIDED] The swarm manufactures itself from the atmosphere, and that is
+inexhaustible.** Venus's atmosphere is 4.77 × 10²⁰ kg, 93× Earth's, containing
+1.26 × 10²⁰ kg of carbon. A 14 600 km² collector array is 1.5 × 10⁻¹¹ of that.
+There is no material constraint on building at any scale the game reaches.
+
+**[DECIDED] The collectors are a bootstrap, not the carbon sink.** Making the whole
+atmosphere into panels at 0.5 kg/m² would need 546 000× Venus's surface area. The
+carbon comes out by **mineral carbonation** — CO₂ plus crustal calcium silicates to
+calcite and quartz, which is exothermic, so the constraint is **rock throughput and
+not energy**. A three-century terraforming means moving ~2 600 km³ of rock a day.
+**[DECIDED] The terraforming clock is therefore an industrial throughput problem**,
+which is a thing the player can watch advance and a thing worth attacking. The
+Illuminus cannot out-build it; they can only slow it.
+
+**[DECIDED] Venus's carbon has a market: Mars.** The Illuminus need volatiles and a
+thicker atmosphere; Venus has a surplus of exactly what Mars lacks. The two
+terraformings are complementary, which makes the war more interesting rather than
+less — the rational move is trade, and the war is what happens instead.
+
 **[DECIDED] The Workers' converters run at 50 %.** Half the collected sunlight
 becomes antimatter rest mass — half the theoretical ceiling of 100 %, and an
 extraordinary result rather than a forbidden one. It needs solar-pumped gamma-ray
@@ -745,6 +770,7 @@ staged state machine.
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
 | 12 | ~~Antimatter production efficiency~~ | **Closed: 50 %.** See §3 and `docs/TRIP-ENERGY.md` §8 |
 | 15 | Antimatter containment loss rate and the safe stockpile ceiling | Whether depots are tempo-limited or quantity-limited |
+| 17 | Terraforming timescale target (100 / 300 / 1 000 years) | Sets the rock throughput, which sets how much of the economy is mining |
 | 13 | Exhaust velocity for each drive | Propellant mass is `exp(Δv/vₑ)` — nothing can be balanced without it |
 | 16 | **Drive specific power for each faction** (`docs/TRIP-ENERGY.md` §9) | Who has fast ships. Independent of the antimatter question, and `Mp/m = a·vₑ/(2·SP)` |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
