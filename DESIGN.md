@@ -267,6 +267,25 @@ That sharpens the Jovian logic rather than changing it: the Illuminus hold the
 deuterium and the Workers hold the antimatter, so a decisive strike on either is
 decisive for the other.
 
+**[DECIDED] The antimatter plant is a collector-and-radiator complex at Venus
+orbit, and it glows.** Worked in `docs/TRIP-ENERGY.md` §7. Venus gives 1.92×
+Earth's flux — a 0.78 GW square kilometre — but the binding constraint is not the
+collector. At 1 % production efficiency a tonne of antimatter a year needs 570 TW
+of collection (28× humanity's total energy use) in 728 000 km² of array, and
+**99 % of that power is waste heat**, needing 10 000 km² of radiator at 1 000 K.
+The plant is mostly radiator, and 565 TW is visible from the outer system: the
+Illuminus always know roughly how much antimatter the Workers are making.
+
+Going inward does not fix it. At 0.2 AU flux is 25× Earth's, but a passive panel
+sits at 881 K before doing anything, and radiator area *grows* inward because
+there is more waste heat to dump. Venus orbit is the compromise: 463 K, a
+survivable temperature, and a planet the Workers already hold.
+
+**[DECIDED] The Workers' antimatter advantage is converter technology, not
+sunlight.** Venus is worth only 1.92× Earth for the same structure. What matters is
+whether their converters run at 10⁻² or 10⁻⁴. Their real advantage is that nobody
+else has a working converter at all.
+
 **[OPEN] Antimatter production efficiency is the most load-bearing number in the
 setting.** At the real 10⁻⁹ there is no game at all; at 10⁻² a Mars trip a year needs
 about 70 000 km² of collector — a megastructure the size of a country, which is
@@ -680,7 +699,7 @@ staged state machine.
 | 8 | Does shell transfer exist for the player, or only for the NPC elite? (§1.3) | Whether an Illuminus player can die — **closed: they can** |
 | 9 | Does Earth's neutrality survive a cheap Illuminus raid? (§1.3) | Diplomatic layer |
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
-| 12 | **Antimatter production efficiency** (§3, `docs/TRIP-ENERGY.md`) | Whether an antimatter economy is possible, and the size of the collector megastructure |
+| 12 | **Antimatter production efficiency** (§3, §7, `docs/TRIP-ENERGY.md`) | Whether an antimatter economy is possible; the size of the collector *and* the radiator |
 | 13 | Exhaust velocities and plant specific power for each drive | Trip time is `2·√(d/a)`, propellant is `exp(Δv/vₑ)`, and `a = 2·SP/vₑ` ties them together — nothing can be balanced without all three |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |

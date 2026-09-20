@@ -256,7 +256,101 @@ full of bright moving things and hiding is something you do, not something you h
 
 ---
 
-## 7. Assumptions, for anyone who wants to argue
+## 7. Where the antimatter comes from: the plant at Venus
+
+The design says the Workers make antimatter near the Sun. What does that cost in power, and
+how big is the plant?
+
+### Sunlight at Venus
+
+| Orbit | Flux | vs Earth | Per km² at 30 % end-to-end |
+|---|---|---|---|
+| Mercury 0.387 AU | 9 126 W/m² | 6.7× | 2.74 GW |
+| **Venus 0.723 AU** | **2 613 W/m²** | **1.92×** | **0.78 GW** |
+| Earth 1.000 AU | 1 367 W/m² | 1.00× | 0.41 GW |
+| Mars 1.524 AU | 589 W/m² | 0.43× | 0.18 GW |
+| Jupiter 5.204 AU | 51 W/m² | 0.04× | 0.02 GW |
+
+A square kilometre at Venus makes **0.78 GW**, or 2.5 × 10¹⁶ J in a year.
+
+### Power required per tonne of antimatter
+
+Antimatter costs `2mc²` = 1.8 × 10¹⁷ J/kg to *make* at 100 % efficiency. Real accelerators
+run at about 10⁻⁹, so the real figure is 1.8 × 10²⁶ J/kg.
+
+| Production efficiency | Power for 1 tonne/yr | Collector area at Venus | For scale |
+|---|---|---|---|
+| 100 % | 5.7 TW | 7 300 km² | 5 % of Greece |
+| 10 % | 57 TW | 73 000 km² | half of Greece |
+| **1 %** | **570 TW** | **728 000 km²** | **5.5× Greece** |
+| 0.1 % | 5 700 TW | 7 300 000 km² | 1.6 % of Venus's surface |
+| 10⁻⁴ | 57 000 TW | 73 000 000 km² | 16 % of Venus's surface |
+| 10⁻⁹ | 5.7 × 10⁶ TW | 7.3 × 10⁹ km² | 16 000× Venus's surface |
+
+For context, humanity's total primary energy use is about **20 TW**. A one-tonne-a-year
+antimatter plant at 1 % production efficiency draws **28× the entire industrial output of
+Earth**, and at 10⁻⁹ it is absurd — which is the same conclusion as §4, now with the
+collector geometry attached.
+
+### The bottleneck is not the collector
+
+At Venus, a terawatt of collection takes only **1 276 km²** of array. Sunlight is not scarce
+there. What decides everything is the **production efficiency**, because it decides how much
+of that terawatt becomes antimatter and how much becomes heat.
+
+### The waste heat is as big as the plant
+
+At 1 % conversion, **99 % of the collected power is dumped as heat**. For the one-tonne plant
+that is 565 TW, and radiating it is not a detail:
+
+| Radiator temperature | Flux | Area needed |
+|---|---|---|
+| 800 K | 23 kW/m² | 24 300 km² |
+| 1 000 K | 57 kW/m² | 9 960 km² |
+| 1 500 K | 287 kW/m² | 1 970 km² |
+| 2 000 K | 907 kW/m² | 622 km² |
+
+At 1 000 K the radiator is **comparable to the collector**. An antimatter plant is not a
+solar farm with a factory attached — it is a solar farm that is **mostly radiator**, glowing
+in the dark, and that is a thing you can see from Earth.
+
+### "Near the Sun" has a floor, and it is thermal
+
+The temptation is to go inward, because flux rises as `1/r²`:
+
+| Orbit | Flux vs Earth | Collector for 1 t/yr at 1 % | Black-panel equilibrium temperature |
+|---|---|---|---|
+| 0.20 AU | 25.0× | 55 600 km² | **881 K (608 °C)** |
+| 0.30 AU | 11.1× | 125 000 km² | — |
+| Mercury 0.387 AU | 6.7× | 208 000 km² | 633 K (360 °C) |
+| Venus 0.723 AU | 1.9× | 728 000 km² | 463 K (190 °C) |
+| Earth 1.000 AU | 1.0× | 1 391 000 km² | 394 K (121 °C) |
+
+At 0.2 AU a passive panel sits at **881 K** before it has done anything. That is why
+"near the Sun" is not "as close as you like": the array has to survive its own
+illumination, and radiator area *grows* as the plant moves inward because there is more
+waste heat to dump.
+
+**Venus orbit is a reasonable compromise** — 1.9× Earth's flux, a survivable 463 K, and a
+planet already claimed by the Workers with an atmosphere to hide behind.
+
+### What this does for the setting
+
+1. **The plant is a place, and a legible one.** At 1 % efficiency it is a million square
+   kilometres of collector and radiator — big enough to find, blockade and destroy, small
+   enough to be a countable asset rather than a background fact.
+2. **The Workers' advantage is technology, not sunlight.** Venus gives 1.92× Earth for the
+   same steel. That is a 2× saving on structure — useful, not decisive. What actually
+   matters is whether their converters are at 10⁻² or 10⁻⁴, and that is a technology number,
+   not an orbital-mechanics one. Their real advantage is that **nobody else has a working
+   converter at all**.
+3. **It glows.** 565 TW of waste heat at any radiator temperature is a beacon. The Workers'
+   antimatter production is visible from the outer system, which means the Illuminus always
+   know roughly how much they are making — and the Workers know they know.
+
+---
+
+## 8. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the
