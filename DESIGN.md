@@ -23,15 +23,32 @@ The war is not about ideology, though both sides will tell you it is. It is abou
 
 ### 1.1 The clock
 
-Earth's habitability is in accelerating decline. This is not an asteroid or a
-single catastrophe — it is the slow return on a bill nobody alive incurred and
-nobody alive can pay off. Earth is neutral because it is too busy dying to fight,
-and its orbital infrastructure is the last functioning thing it owns.
+**[DECIDED] The game opens in 2185.** Earth's habitability is in accelerating
+decline, and it is two things at once rather than one.
+
+The first is the slow return on a bill nobody alive incurred and nobody alive can
+pay off: the climate and resource crisis of the 2020s–2050s, which is what drove
+humanity off the planet in the first place — not as evacuation, but as industry,
+science and claim-jumping. The second is **the Exchange of 2090**, a limited nuclear
+war that killed nine in ten humans and left the biosphere poisoned for a century
+after. The off-world settlements were founded *before* it, by people who chose to
+leave, and then watched.
+
+Earth is neutral because it is too busy dying to fight, and its orbital
+infrastructure is the last functioning thing it owns. It is also neutral because it
+is powerless: nine hundred million people with no launch capacity and no fleet do
+not get a vote. See `docs/SETTING.md` §5 for the dates and §5.1 for the arithmetic.
 
 **[DECIDED] Earth's decline is the loss condition.** If neither terraforming
 project reaches its survival threshold, everyone dies. There is no "you win
 anyway." This is the pressure that makes the strategic layer mean something, and
 it is identical for both factions and for the player.
+
+**[DECIDED] And the people watching it die are the ones who left.** Around 900
+million survivors are still on Earth and declining; the whole off-world population
+is about 95 million. So neither faction is saving "humanity" in the sense of most
+of it — they are a splinter with a story about saving everyone, watching the
+majority they left behind. Both know this. Neither says it.
 
 **[OPEN]** The exact decline curve, and whether the player can slow it. A player
 who can meaningfully help Earth has a third playstyle; a player who cannot
@@ -906,7 +923,7 @@ staged state machine.
 | # | Question | Gates |
 |---|---|---|
 | 1 | ~~Numerics: all-int64, or split with doubles in action?~~ (§6.2) | **Closed: fixed point everywhere, Q64.64 in both frames** — the two frames differ in *unit*, not in width. The narrower Q32.32 local frame was built and then measured out of existence (§6.2, `docs/SPIKE-NUMERICS.md`). **Superseded the original answer**, which was Q32.32 for the local frame |
-| 2 | Can the player slow Earth's decline? (§1.1) | Whether a third playstyle exists |
+| 2 | Can the player slow Earth's decline? (§1.1) | Whether a third playstyle exists. Now sharper: the decline has two parts — the pre-war crisis and the Exchange's aftermath — and they may not be equally tractable |
 | 3 | Is adaptation irreversible, and how is that felt rather than punished? (§1.2) | Character systems |
 | 4 | Terraforming stage lists and survival threshold (§5) | Win condition |
 | 5 | May the player pause during an engagement? (§7) | Determinism guarantees |

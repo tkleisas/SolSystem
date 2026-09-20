@@ -181,19 +181,128 @@ study it. Both conclude it means *their* plan is the one that works.
 
 ## 5. Timeline
 
-**[DEFERRED]** Exact dates are not needed yet, but the shape is:
+**[DECIDED] The game opens in 2185.** Everything below is dated to that, and the two
+constraints that fix the rest are the Exchange and the divergence.
 
-1. **Deep past.** Three living worlds. Martian life reaches complexity and then a
-   technological civilisation; Venusian life persists in the clouds.
-2. **The Martian end.** Prolonged, foreseen, unstoppable. Everything they built is gone
-   except the sealed facility.
-3. **Human expansion.** Earth reaches the belt, then Mars, then the Jovian system.
-4. **The discovery of the hives.** First the phosphine, then the colonies. A century of
-   argument about what they are.
-5. **The divergence.** Mars-adapted and Venus-adapted populations separate biologically over
-   generations. The Illuminus and the Workers become distinct peoples with a common
-   ancestry, and stop being able to live on each other's worlds.
-6. **The south polar door.** The Illuminus open it. Whatever happens next is the game.
+| Year | Event |
+|---|---|
+| — | **Deep past.** Three living worlds. Martian life reaches complexity and then a technological civilisation; Venusian life persists in the clouds. |
+| — | **The Martian end.** Prolonged, foreseen, unstoppable. Everything they built is gone except the sealed facility. |
+| 1990–2040 | **Human expansion.** Earth reaches the belt, then Mars. The first closed habitats. The Jovian system is mapped and claimed, not settled. |
+| 2062 | **Mars is settled to stay.** The population stops being a crew and starts being a people. |
+| 2071 | **First Venus cloud city.** At 55 km the pressure is 0.53 bar and the temperature 27 °C, which turns out to be the easiest place in the solar system to keep humans alive outside Earth. |
+| 2081 | **The hives are found.** First the phosphine, then the colonies. The argument about what they are has been running for a century by the time the game starts. |
+| **2090** | **The Exchange.** A limited nuclear war that kills nine in ten humans. See §5.1. |
+| 2090–2120 | **The long silence.** Earth is quarantined by its own collapse rather than by policy. The off-world settlements lose their industrial base and most of their people. |
+| 2120–2185 | **The divergence.** Mars-adapted and Venus-adapted populations separate biologically over three to four generations, and stop being able to live on each other's worlds. |
+| **2185** | **The south polar door.** The Illuminus open it. Whatever happens next is the game. |
+
+### 5.1 The Exchange
+
+**[DECIDED] Ninety per cent of humanity died.** The number is not flavour, it is the
+arithmetic the whole setting rests on, so it is written down with its parts:
+
+| | Before, 2090 | After |
+|---|---|---|
+| Earth | 10.6 billion | 1.06 billion |
+| Off-world — belt, Mars, orbital habitats, Jovian stations | 400 million | 68 million |
+| **Total** | **11.0 billion** | **1.1 billion** |
+
+The direct exchange killed a fraction of that. Most of it was what came after: a
+decade of nuclear winter collapsing agriculture worldwide, and then the collapse of
+everything that keeps a technological civilisation alive — medicine, spare parts,
+refrigeration, the supply chains that move food from where it grows to where people
+are. **Earth died of the war. The settlements died of losing Earth**, which they
+depended on for equipment they could not yet make and could not do without.
+
+> **The off-world population lost 83 % and not one warhead was aimed at it.** That is
+> the shape of the catastrophe: the people who thought they had escaped were the ones
+> who starved when the place they had escaped from stopped answering.
+
+**[DECIDED] Some had already left.** The expansion of the 2030s–2050s was not
+evacuation and never pretended to be; it was industry, science and claim-jumping. But
+it means the off-world settlements were *founded before the exchange*, by people who
+chose to go, which is why they exist at all and why they carry the question with them:
+**we left, and then we watched.**
+
+**By 2185 the off-world population is about 95 million** — 80 million Workers, 2
+million Illuminus, 13 million elsewhere. That is 0.5 % a year of growth from 68 million
+over ninety-five years, which is what recovering from a catastrophe looks like rather
+than a heroic figure. **Earth's survivors number around 900 million and are declining**,
+so the people watching Earth die are a small splinter of humanity who left, and the
+people dying are the vast majority who could not.
+
+### 5.2 Who started it — the open wound
+
+**[DECIDED] Nobody in 2185 knows, and the question cannot be closed.** This is a plot
+point rather than a mystery to be solved, and it works because of one fact: **the
+exchange destroyed both homelands.** Today's population descends from the bombed and
+from the bombers, mixed, because there is no longer any difference between them. So the
+question "who started it" is not a question about other people. It is unanswerable *and*
+unavoidable, and every faction has built a story that happens to serve it.
+
+**[DECIDED] The dominant off-world account blames Earth.** The pre-war settlements were
+taxed, licenced and held to a launch monopoly by the states that had built them, and the
+settlements had become worth more than their founders. The story runs: Earth's biosphere
+was failing, Earth demanded the belt's output outright to pay for a rescue it had no plan
+to perform, and when the settlements refused, Earth moved to take what it needed. **This
+is the Workers' account**, and it is popular with anyone who has ever been governed from
+somewhere they have never seen.
+
+**[DECIDED] The dominant Earth-side account blames the settlements.** The settlements
+had the resources and the leverage, and they used it — holding prices, withholding
+supply, and finally declaring independence at the exact moment Earth could least afford
+it. The story runs: a handful of people who had escaped the gravity well decided the
+people still under it could pay. **This is the Illuminus' account**, and it is popular
+with anyone who has been left behind.
+
+**Both accounts contain things that are true.** The settlements were squeezed and they
+did withhold. The launch monopoly was real and was used. Neither account requires any
+evidence, which is the point: a century of records burned in an afternoon, and the
+survivors were not thinking about archives.
+
+> **What neither account wants to say** is that the escalation was not controlled by
+> whoever decided to start it. Somebody launched first, believing a limited strike would
+> force a negotiation, and the negotiation never came, because the systems built to
+> guarantee retaliation had been built to work when nobody was left to give the order.
+> Both stories are about a *decision*, because a decision can be blamed on a person.
+> The truth is closer to nobody deciding anything after the first afternoon.
+
+**[OPEN]** Whether the game ever confirms the real sequence. It is usable three ways
+and the choice is a tone decision: **never resolved** (both factions stay right and the
+player has to live with it), **resolved in the sealed facility** (the Martians watched
+the whole thing and recorded it, which makes the campaign's spine carry the answer), or
+**resolved as a lie** (a document surfaces, one faction publishes it, and it is a
+forgery — the reaction to it is the story rather than the document).
+
+### 5.3 What it does to the setting
+
+**[DECIDED] Earth is neutral because it is powerless, not because it is virtuous.**
+Nine hundred million people on a dying planet with no launch capacity and no fleet do
+not get a vote. The factions' respect for Earth's neutrality is real and is also a
+courtesy they can withdraw at any time, which is exactly §1.3's "Earth becomes a live
+battlefield" waiting to happen.
+
+**[DECIDED] The cull is the Exchange at small scale.** Illuminus society votes,
+ceremonially and in public, on which of its own minds to destroy. They did not invent
+this. They are a hundred years downstream of a catastrophe in which a small number of
+people decided which of everyone else would live, and they have built a government that
+does it on a schedule. **They are not repeating the Exchange out of malice; they are
+repeating it because it is the only model of hard decisions they inherited.**
+
+**[DECIDED] The Workers' founding promise is the one they cannot keep.** Their
+egalitarianism comes out of the habitats, where air and water were shared because they
+had to be, and their position is that nobody gets left behind. Earth is nine hundred
+million people who were left behind. The Workers are the faction that says this is
+intolerable, and they are also the faction that cannot fix it, because by §15 of
+`docs/TRIP-ENERGY.md` the transport to evacuate so much as a million of them does not
+exist. **Their ideology is not hypocrisy. It is a promise made by people who have
+already broken it once.**
+
+**[DECIDED] Which is why the war is the same war.** §4's scarcity is not a new problem.
+It is the problem that killed Earth, arriving a second time between people who now have
+no shared planet to fall back on — and both factions know it, which is why neither will
+say it out loud.
 
 ---
 
@@ -207,3 +316,5 @@ study it. Both conclude it means *their* plan is the one that works.
 | D | Do the hives respond to the terraforming? | Whether Venus is engineering or war |
 | E | Did the Martians upload, and did it work? | The Illuminus' entire project |
 | F | Is Earth's decline related to either? | Whether the three worlds are one story or three |
+| G | Does the game ever confirm who started the Exchange? | Tone: a permanent wound, a campaign answer, or a lie (§5.2) |
+| H | What does the game say about the 900 million left on Earth? | Whether the loss condition is a countdown or a conscience |
