@@ -624,7 +624,62 @@ production technology rather than by weapons.
 
 ---
 
-## 11. Assumptions, for anyone who wants to argue
+## 11. Can you actually make enough antimatter? Yes — at a price
+
+The short answer: **the antimatter was never the hard part, and a nation-scale collector
+field makes plenty.** Whether it is "enough" depends entirely on what you are trying to fly.
+
+At 50 % conversion, making one kilogram of antimatter costs **3.6 × 10¹⁷ J** of collected
+energy — 1.8 × 10¹⁷ J becomes the antimatter and the other half is lost.
+
+### What different plant sizes buy
+
+| Plant | Power | Collector at Venus | vs Greece | What it fuels |
+|---|---|---|---|---|
+| 1 t/yr | 11.4 TW | 14 600 km² | 0.11× | one 500 t transit every 106 years |
+| 10 t/yr | 114 TW | 146 000 km² | 1.1× | a courier service |
+| **100 t/yr** | **1 141 TW** | **1 455 000 km²** | **11×** | **a strategic capability** |
+| 1 000 t/yr | 11 407 TW | 14 553 000 km² | 110× | a war at unmatched tempo |
+
+Greece is 132 000 km²; Venus's surface is 4.60 × 10⁸ km².
+
+### The design point that works: couriers, not capital ships
+
+Antimatter cost scales with ship mass, so **small and fast is the efficient use**:
+
+| Ship | Antimatter per one-way Mars crossing | Crossings per 100 t/yr |
+|---|---|---|
+| 50 t | 10.6 t | 9.4 |
+| **100 t** | **21.3 t** | **4.7** |
+| 500 t | 106.4 t | 0.9 |
+
+**A 100 t/yr plant flies a 100 t courier to Mars about five times a year.** A 1 000 t/yr
+plant flies it forty-seven times a year — that is a fleet, and a fleet nobody else can match.
+
+### So the answer is yes, and it changes what the war is about
+
+**A collector field about twice the area of Greece makes enough antimatter for roughly fifty
+courier crossings a year.** That is a hard industrial project, but it is a *nation*-scale
+project, not a solar-system-scale one. Venus's surface could hold ten thousand of them.
+
+Which means:
+
+1. **The binding constraint is the collector field and the drive reactors, never the fuel.**
+   This is the third time the same conclusion has come out from a different direction, and it
+   should now be treated as settled.
+2. **Antimatter abundance is a choice about tempo, not a scarcity.** How much speed the
+   Workers buy is a budget decision — how much of their civilisation to spend on crossing
+   time rather than on the terraforming. Those two compete for the same collector area, the
+   same carbon, and the same yards.
+3. **[OPEN] That competition is the strategic heart of the Workers' campaign.** Every
+   square kilometre of collector turned over to antimatter is a square kilometre not
+   shading Venus or grinding rock. **The fleet and the terraforming are the same budget**,
+   and the player decides the split. No other mechanic in the design captures the faction's
+   dilemma so cleanly.
+
+---
+
+## 12. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the

@@ -273,6 +273,29 @@ thicker atmosphere; Venus has a surplus of exactly what Mars lacks. The two
 terraformings are complementary, which makes the war more interesting rather than
 less — the rational move is trade, and the war is what happens instead.
 
+**[DECIDED] There is enough antimatter, and the fleet competes with the
+terraforming for the same budget.** A collector field about twice the area of Greece
+makes enough for roughly fifty 100 t courier crossings a year
+(`docs/TRIP-ENERGY.md` §11). So the constraint is never the fuel. Every square
+kilometre of collector turned over to antimatter is a square kilometre not shading
+Venus or grinding rock — **the fleet and the terraforming draw on the same
+industrial base, and the player decides the split.** That competition is the
+strategic heart of the Workers' campaign.
+
+**[DECIDED] Mars was inhabited, and the inhabitants are gone.**
+`docs/SETTING.md` §2. Fossils, cut stone, and one sealed engineered facility under
+the south polar deposits. They knew they were dying and they tried to leave; nothing
+of them has ever been found anywhere else. **The Illuminus are excavating it** —
+and their entire project, mind transfer and the abandonment of the body, is a
+re-derivation of what the Martians already attempted and did not survive.
+
+**[DECIDED] Venus has its own biosphere, of a different chemistry: carbon–sulfur,
+in the cloud deck.** `docs/SETTING.md` §3. Hive colonies kilometres across, metabolisms
+measured in years. The Workers intend to dissolve the atmosphere they live in.
+**Their official position is that a slow chemical colony is not a mind** — which is
+the same argument the Illuminus make about bodies. Both factions have decided that
+something alive does not count as a person.
+
 **[DECIDED] The Workers' converters run at 50 %.** Half the collected sunlight
 becomes antimatter rest mass — half the theoretical ceiling of 100 %, and an
 extraordinary result rather than a forbidden one. It needs solar-pumped gamma-ray
@@ -771,6 +794,9 @@ staged state machine.
 | 12 | ~~Antimatter production efficiency~~ | **Closed: 50 %.** See §3 and `docs/TRIP-ENERGY.md` §8 |
 | 15 | Antimatter containment loss rate and the safe stockpile ceiling | Whether depots are tempo-limited or quantity-limited |
 | 17 | Terraforming timescale target (100 / 300 / 1 000 years) | Sets the rock throughput, which sets how much of the economy is mining |
+| 18 | The split between fleet and terraforming in the Workers' budget | The faction's central strategic decision |
+| 19 | What is in the Martian south polar facility (`docs/SETTING.md` §6) | The campaign's spine |
+| 20 | Are the Venusian hives intelligent, and do they respond? | Whether terraforming is engineering or war |
 | 13 | Exhaust velocity for each drive | Propellant mass is `exp(Δv/vₑ)` — nothing can be balanced without it |
 | 16 | **Drive specific power for each faction** (`docs/TRIP-ENERGY.md` §9) | Who has fast ships. Independent of the antimatter question, and `Mp/m = a·vₑ/(2·SP)` |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |

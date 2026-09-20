@@ -28,6 +28,9 @@ The short version of the world:
 - **The Jovian moons are the war**, because both terraforming programmes need the same
   water ice, and the Illuminus need the same ice for fuel.
 
+The history and biology — three living worlds, the dead Martian civilisation, the Venusian
+cloud hives — are in **`docs/SETTING.md`**.
+
 The propellant and energy budgets behind that — what a trip costs in delta-v, fuel mass,
 and the energy to *make* the fuel — are worked through in `docs/TRIP-ENERGY.md`. The
 headline: antimatter beats deuterium 500× on energy density and loses by 10¹⁸ on production
