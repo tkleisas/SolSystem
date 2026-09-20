@@ -169,10 +169,104 @@ that it cannot drift.
 
 ---
 
-## 6. Assumptions, for anyone who wants to argue
+## 6. Correction: Hohmann is the wrong model for a torch ship
 
-- Hohmann transfers between circular coplanar orbits; no Oberth effect, no gravity assists,
-  no low-energy transfers, no aerobraking.
+Sections 1–2 assume a **minimum-energy Hohmann transfer**, which is optimal for a
+low-thrust ship and badly wrong for a fusion torch or an antimatter drive. A ship that can
+burn continuously does not coast for months; it accelerates to the midpoint, turns over,
+and decelerates. That is a **brachistochrone**, and it is days to weeks rather than months.
+
+### The times
+
+`t = 2·sqrt(d/a)` and `Δv = 2·sqrt(a·d)` for a flip-and-burn between rest and rest, at the
+closest-approach distance:
+
+| Acceleration | Earth → Mars | Earth → Venus | Earth → Jupiter |
+|---|---|---|---|
+| 0.001 g | 65 d / 55 km/s | 48 d / 40 km/s | 185 d / 157 km/s |
+| 0.01 g | 21 d / 175 km/s | 15 d / 127 km/s | 59 d / 497 km/s |
+| **0.1 g** | **6.5 d / 554 km/s** | **4.8 d / 403 km/s** | **18.5 d / 1 571 km/s** |
+| 1.0 g | 2.1 d / 1 753 km/s | 1.5 d / 1 274 km/s | 5.9 d / 4 967 km/s |
+
+*(time / delta-v)*
+
+So the setting's fast transits are real. But note the two scaling laws, which are the
+reason this is a design decision rather than a free improvement:
+
+- **`t ∝ 1/√a`** — halving the acceleration costs only 41 % more time.
+- **`Δv ∝ √a`** — halving the acceleration saves only 29 % of the delta-v.
+
+**Trip time is cheap; delta-v is not.** A 0.1 g Mars run needs **76× the Hohmann delta-v**.
+Only high exhaust velocity makes that affordable, and high exhaust velocity has its own
+price.
+
+### The real constraint is the power plant, not the propellant
+
+Thrust, mass flow, jet power and plant mass are one coupled system:
+
+```
+F = m·a          mdot = F/vₑ          P = F·vₑ/2          M_plant = P / SP
+```
+
+where `SP` is the plant's **specific power** in W/kg. Eliminating thrust gives the
+governing relation:
+
+> **`a = 2·SP / vₑ`**
+
+Acceleration — and therefore trip time — depends only on the plant's specific power and the
+exhaust velocity. **Not on ship size.** That single equation is the design space.
+
+It also shows the trap: raising `vₑ` to cut propellant raises the power needed *linearly*,
+which loads plant mass, which is dry mass, which raises the mass ratio again. The two
+effects fight, and there is an optimum.
+
+### A worked case: Mars in about five days
+
+100 t payload, structure 10 % of dry mass, arrival at rest:
+
+| vₑ | Minimum plant specific power | Plant mass | Propellant | Launch mass | Payload fraction |
+|---|---|---|---|---|---|
+| 100 km/s | 31 300 kW/kg | 80 t | 50 700 t | 51 100 t | 0.2 % |
+| 200 km/s | 3 900 kW/kg | 80 t | 3 100 t | 3 200 t | 3.1 % |
+| 300 km/s | 2 300 kW/kg | 80 t | 1 190 t | 1 270 t | 7.9 % |
+| **600 km/s** | **1 850 kW/kg** | **80 t** | **325 t** | **500 t** | **20 %** |
+| 1 000 km/s | 2 100 kW/kg | 80 t | 170 t | 350 t | 29 % |
+
+**The sweet spot is around vₑ = 600 km/s**, and the number to look at is the second
+column: **1 850 kW/kg**. For scale, the best fission concepts reach about 1 000 kW/kg and
+fusion plants are usually assumed at 10 000–30 000 kW/kg. So a five-day Mars transit needs
+a power plant roughly **twice as good as the best fission ever proposed, and five to fifteen
+times *worse* than a fusion plant is normally assumed to be.**
+
+That is the whole answer: **a fusion torch doing days-to-weeks transits is not
+propellant-limited, it is a specific-power problem** — and the required specific power is
+well inside what fusion should manage. Where this bites is not the crossing but the ends:
+departing from low orbit and arriving into one still costs the same 9–10 km/s, and that is
+where a torch's mass ratio is actually spent.
+
+### Waste heat, and why a torch cannot hide
+
+A 100 GW plant at 90 % efficiency still radiates 10 GW. At 1 500 K that needs about
+**0.035 km²** of radiator — a 190 m square, on a 500 t ship — and it glows.
+
+That is a *good* property for this design. The combat section says a fusion torch under
+power is visible at enormous range and that stealth is running cold behind a body. Days-long
+brachistochrone transits mean ships are under power for most of a crossing, so the sky is
+full of bright moving things and hiding is something you do, not something you have.
+
+---
+
+## 7. Assumptions, for anyone who wants to argue
+
+- **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
+  coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the
+  cheapest *shape* for a given acceleration but ignores the departure and arrival costs
+  from low orbit. A real transit is neither: it is a spiral out, a fast leg, and a spiral
+  in. No Oberth effect, no gravity assists, no aerobraking.
+- Plant mass is charged against dry mass, but the *drive* — magnets, shielding, structure
+  to carry the thrust — is not costed separately.
+- The plant's specific power is the free parameter in section 6. Nothing here says a
+  1 850 kW/kg plant is buildable; it says what one would have to be.
 - Plane change applied at the destination and not optimised; a split plane change across
   both burns would be cheaper.
 - 15 % flat margin on the ideal figure.

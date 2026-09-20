@@ -278,6 +278,26 @@ economy is balanced.
 very long way away. Stealth is running cold and letting a body occlude you — not a
 cloak.
 
+**[DECIDED] Transits are brachistochrones, not Hohmann transfers.** A torch ship
+accelerates to the midpoint and decelerates — Mars in days, Jupiter in weeks —
+rather than coasting for months. The design does not have a "long slow crossing"
+mode for powered ships.
+
+**[DECIDED] The binding constraint is the power plant's specific power, not
+propellant.** Working it through (`docs/TRIP-ENERGY.md` §6): acceleration is
+`a = 2·SP/vₑ`, independent of ship size, so trip time is set by the plant's
+watts-per-kilogram and the exhaust velocity alone. A five-day Mars transit needs
+about **1 850 kW/kg** — twice the best fission concept ever proposed, and five to
+fifteen times *worse* than a fusion plant is normally assumed to be. So fast
+transits are squarely inside fusion's envelope, and propellant is never the
+problem: about 325 t for a 500 t ship.
+
+**[DECIDED] A torch cannot hide, and that is deliberate.** A 100 GW plant
+radiates about 10 GW of waste heat even at 90 % efficiency, needing ~0.035 km² of
+1 500 K radiator — a 190 m square that glows. Combined with brachistochrone
+transits, ships are under power for most of a crossing, so the sky is full of
+bright moving things and stealth is something you *do*, not something you *have*.
+
 ---
 
 ## 4. Scarcity — the actual game
@@ -661,7 +681,8 @@ staged state machine.
 | 9 | Does Earth's neutrality survive a cheap Illuminus raid? (§1.3) | Diplomatic layer |
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
 | 12 | **Antimatter production efficiency** (§3, `docs/TRIP-ENERGY.md`) | Whether an antimatter economy is possible, and the size of the collector megastructure |
-| 13 | Exhaust velocities for each drive | Propellant mass is exponential in Δv/vₑ — nothing can be balanced without them |
+| 13 | Exhaust velocities and plant specific power for each drive | Trip time is `2·√(d/a)`, propellant is `exp(Δv/vₑ)`, and `a = 2·SP/vₑ` ties them together — nothing can be balanced without all three |
+| 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |
 
 ---
