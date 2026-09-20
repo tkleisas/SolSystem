@@ -8,8 +8,9 @@ Earth is neutral and dying. Two factions descended from Earth stock — the **Il
 the **Workers** — are racing to make a second home before Earth stops being one. The war is
 not about ideology, though both sides will tell you it is. It is about who gets to breathe.
 
-**Status: Phase 0, numeric foundation.** There is no game yet. The simulation core and its
-numeric types are built, tested, and measured; the client does not exist.
+**Status: Phase 0, numeric foundation.** There is no game yet. The simulation core — the
+numeric types, the trigonometry, and the Keplerian propagator — is built, tested and
+measured; the client does not exist.
 
 ## The design
 
@@ -42,7 +43,13 @@ Two *widths*, not one type at two scales, and the reason is worth knowing: gravi
 billions of kilometres *and* an acceleration down to nanometres per second squared at the
 same time — more than 64 bits of dynamic range by construction.
 
-The measurement behind the decision, and the six bugs the work surfaced, are in
+Bodies travel on **Keplerian rails**: given the elements and a time, the position is solved
+for directly rather than integrated, so the cost is the same at any distance and no error
+accumulates over centuries. A one-year Earth orbit closes on itself to 0.000000 km, and
+the analytic invariants — radius, specific energy, angular momentum, orbital plane — hold
+to one part in 10⁷.
+
+The measurement behind the numeric decision, and the nine bugs the work surfaced, are in
 **`docs/SPIKE-NUMERICS.md`**. The headline: Q64.64 holds a one-year Earth orbit to 1.4 × 10⁻⁶
 relative error with energy conserved to one part in 10¹².
 
@@ -55,7 +62,7 @@ Requires the .NET 10 SDK.
 
 ```sh
 dotnet build -c Release
-dotnet test  -c Release        # 119 tests
+dotnet test  -c Release        # 144 tests
 dotnet run   -c Release --project src/SolSystem.Spike
 ```
 
@@ -66,7 +73,7 @@ restore never needs to write outside the repository.
 
 | Project | Purpose |
 |---|---|
-| `src/SolSystem.Core` | Fixed-point maths, integer trigonometry, orbits. No graphics, no floating point. |
+| `src/SolSystem.Core` | Fixed-point maths, integer trigonometry, Keplerian orbits. No graphics, no floating point. |
 | `src/SolSystem.Spike` | The Phase 0 numerics experiment. Not shipped; it is the evidence. |
 | `tests/SolSystem.Core.Tests` | Checked against independent references, not hand-computed values. |
 | `docs/` | The spike report. |

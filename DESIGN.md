@@ -559,7 +559,8 @@ rescues it.**
 - [x] Numeric decision (6.2) made and verified by spike
 - [x] Fixed-point cores: `Fix64` Q32.32 and `Fix128` Q64.64, with tests
 - [x] Integer trig — `sin`, `cos`, `atan2` on turn-based angles
-- [ ] One body, two stations, real Keplerian orbits
+- [x] Keplerian propagator: elements, anomaly solver, frame rotation
+- [ ] One body, two stations, real ephemerides
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
 - [ ] Docking that is a skill and not a button
