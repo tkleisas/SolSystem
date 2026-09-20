@@ -28,6 +28,12 @@ The short version of the world:
 - **The Jovian moons are the war**, because both terraforming programmes need the same
   water ice, and the Illuminus need the same ice for fuel.
 
+The propellant and energy budgets behind that — what a trip costs in delta-v, fuel mass,
+and the energy to *make* the fuel — are worked through in `docs/TRIP-ENERGY.md`. The
+headline: antimatter beats deuterium 500× on energy density and loses by 10¹⁸ on production
+cost, so antimatter is a strategic fuel rather than a general one, and the collector fields
+that make it are the size of a country.
+
 ## The numeric foundation
 
 This is what exists today, and it is the part with the least room for error.

@@ -247,6 +247,33 @@ and should feel like one.
 abundant in water ice, which makes the outer system a *real* supply rather than a
 contrivance. He-3 would have made the fuel chain a plot device.
 
+**[DECIDED] Antimatter is for the military and the flagship; the civilian economy
+runs on fusion.** Derived in `docs/TRIP-ENERGY.md` and not a stylistic choice.
+Antimatter beats deuterium by 500× on energy density but loses by roughly 10¹⁸ on
+*production cost*, because it is manufactured rather than mined. A single Mars trip
+on an antimatter drive needs 1 237 kg of it against 1.1 kg of deuterium for the same
+trip on a fusion torch — and at the real accelerator efficiency of 10⁻⁹, a square
+kilometre of collector at 0.2 AU yields two nanograms a year.
+
+So the two fuels are not interchangeable and the tiers are:
+
+| Tier | Resource | Paces |
+|---|---|---|
+| Bulk | **Deuterium**, mined from water ice | The civilian economy and terraforming |
+| Strategic | **Antimatter**, made near the Sun | The war |
+| Bottleneck | **Collector area** | Antimatter |
+
+That sharpens the Jovian logic rather than changing it: the Illuminus hold the
+deuterium and the Workers hold the antimatter, so a decisive strike on either is
+decisive for the other.
+
+**[OPEN] Antimatter production efficiency is the most load-bearing number in the
+setting.** At the real 10⁻⁹ there is no game at all; at 10⁻² a Mars trip a year needs
+about 70 000 km² of collector — a megastructure the size of a country, which is
+either the best thing in the setting or the worst. At 10⁻¹ it is 7 000 km². This
+must be fixed explicitly, with its collector-area consequence attached, before any
+economy is balanced.
+
 **[DECIDED] Fusion drives are luminous.** A torch under combat power is visible a
 very long way away. Stealth is running cold and letting a body occlude you — not a
 cloak.
@@ -633,6 +660,8 @@ staged state machine.
 | 8 | Does shell transfer exist for the player, or only for the NPC elite? (§1.3) | Whether an Illuminus player can die — **closed: they can** |
 | 9 | Does Earth's neutrality survive a cheap Illuminus raid? (§1.3) | Diplomatic layer |
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
+| 12 | **Antimatter production efficiency** (§3, `docs/TRIP-ENERGY.md`) | Whether an antimatter economy is possible, and the size of the collector megastructure |
+| 13 | Exhaust velocities for each drive | Propellant mass is exponential in Δv/vₑ — nothing can be balanced without them |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |
 
 ---
