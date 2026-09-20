@@ -101,6 +101,9 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
 
     internal static readonly Fix128 One = new((UInt128)1 << FractionalBits, false);
 
+    /// <summary>One half.</summary>
+    internal static readonly Fix128 Half = new((UInt128)1 << (FractionalBits - 1), false);
+
     // ---------------------------------------------------------------- arithmetic
 
     public static Fix128 operator +(Fix128 a, Fix128 b)
@@ -176,6 +179,48 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
     }
 
     internal Fix128 Abs() => new(Magnitude, false);
+
+    /// <summary>
+    /// Natural logarithm, for the rocket equation.
+    /// </summary>
+    /// <remarks>
+    /// The same atanh series as the local frame's other logarithm: split into
+    /// <c>2^exponent · m</c> with m in [1, 2), then
+    /// <c>2·(t + t³/3 + t⁵/5 + …)</c> with <c>t = (m-1)/(m+1)</c>.
+    /// </remarks>
+    internal static Fix128 Log(Fix128 x)
+    {
+        if (x.Magnitude == UInt128.Zero || x.Negative)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x), "Log is defined only for positive Fix128 values.");
+        }
+
+        ulong high = (ulong)(x.Magnitude >> 64);
+        int bits = high != 0
+            ? 128 - System.Numerics.BitOperations.LeadingZeroCount(high)
+            : 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)x.Magnitude);
+        int exponent = bits - FractionalBits;
+
+        Fix128 m = exponent >= 0
+            ? FromRaw(x.Magnitude >> exponent)
+            : FromRaw(x.Magnitude << -exponent);
+
+        Fix128 t = (m - One) / (m + One);
+        Fix128 tSquared = t * t;
+        Fix128 term = t;
+        Fix128 sum = t;
+
+        for (int n = 3; n <= 27; n += 2)
+        {
+            term = term * tSquared;
+            sum += term / FromWhole(n);
+        }
+
+        return sum * FromWhole(2) + FromWhole(exponent) * Ln2;
+    }
+
+    /// <summary>Natural logarithm of 2 at Q64.64.</summary>
+    private static readonly Fix128 Ln2 = FromRaw((UInt128)12_786_308_645_202_655_232UL);
 
     // ---------------------------------------------------------------- comparison
 

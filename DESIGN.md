@@ -344,7 +344,20 @@ at all, and it is what makes the whole thing testable by one person.
 | Frame | Type | Unit | Reach | Grid | For |
 |---|---|---|---|---|---|
 | **Solar** | `Fix128`, Q64.64 | kilometre | ±9.2 × 10¹⁸ km ≈ 6 × 10¹⁰ AU | 5.4 × 10⁻²⁰ km | Bodies, transfers, the strategic map |
-| **Local** | `Fix64`, Q32.32 | megametre | ±2.1 × 10⁹ Mm ≈ 14.4 AU | 233 nm | Ships, stations, docking, combat |
+| **Local** | `Fix128`, Q64.64 | **metre** | ±9.2 × 10¹⁸ m | **5.4 × 10⁻²⁰ m** | Ships, stations, docking, combat |
+
+**The local frame was originally given a narrower Q32.32 type, and building it proved that
+impossible.** Gravity needs `r²`, and a Q32.32 value cannot exceed 2.147 × 10⁹, so:
+
+- in **metres**, any position past about 46 km overflows `|r|²` — a low Earth orbit is 150
+  times beyond that, and the overflow is silent;
+- in **megametres** the squares fit, but Earth's surface gravity becomes 8.13 × 10⁻⁶ with
+  16 bits of significand, and the position increment over a 120 Hz tick is **two raw
+  units**. An orbit integrated that way is almost entirely rounding: measured energy and
+  angular momentum drifted by 0.8 % in a single low Earth revolution.
+
+So both frames are Q64.64 and only the unit differs. The cost is ~700 ns per gravity
+evaluation, about 17 ms of CPU per second for two hundred ships at 120 Hz.
 
 **Two widths, because a Q32.32 `long` cannot propagate a planetary orbit at all.**
 Gravity needs `r²`. At 1 AU that is 2.24 × 10¹⁶ km², and a Q32.32 value tops out at
@@ -560,7 +573,10 @@ rescues it.**
 - [x] Fixed-point cores: `Fix64` Q32.32 and `Fix128` Q64.64, with tests
 - [x] Integer trig — `sin`, `cos`, `atan2` on turn-based angles
 - [x] Keplerian propagator: elements, anomaly solver, frame rotation
+- [x] Local frame: finite propellant, mass-coupled thrust, 120 Hz tick
+- [x] Hull acceleration bands: 0.1–1 g crewed, 10–100 g mechanical
 - [ ] One body, two stations, real ephemerides
+- [ ] Docking that is a skill rather than a button
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
 - [ ] Docking that is a skill and not a button

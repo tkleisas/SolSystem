@@ -34,14 +34,22 @@ This is what exists today, and it is the part with the least room for error.
 
 | | |
 |---|---|
-| **Solar frame** | `Fix128`, Q64.64, unit = kilometre. Reach ±6 × 10¹⁰ AU, grid 5.4 × 10⁻²⁰ km |
-| **Local frame** | `Fix64`, Q32.32, unit = megametre. Reach ±14.4 AU, grid 233 nm |
+| **Solar frame** | Q64.64, unit = kilometre. Reach ±6 × 10¹⁰ AU, grid 5.4 × 10⁻²⁰ km |
+| **Local frame** | Q64.64, unit = metre. Reach ±9.2 × 10¹⁸ m, grid 5.4 × 10⁻²⁰ m |
 
-Two *widths*, not one type at two scales, and the reason is worth knowing: gravity needs
-`r²`, and at 1 AU that is 2.24 × 10¹⁶ km², which overflows a Q32.32 `long` by a factor of
-10⁷. No choice of unit rescues that, because the solar frame needs a coordinate out to
-billions of kilometres *and* an acceleration down to nanometres per second squared at the
-same time — more than 64 bits of dynamic range by construction.
+**One numeric type, two units.** `Fix128` is Q64.64 throughout; what changes between the
+frames is only what a unit means.
+
+The design originally gave the local frame a narrower Q32.32 type, and measurement killed
+that idea twice over. In metres a Q32.32 square cannot exceed 2.147 × 10⁹, so a position
+past about 46 km overflows `|r|²` — and a low Earth orbit is 150 times beyond that, failing
+*silently*. In megametres the squares fit but Earth's surface gravity becomes 8.13 × 10⁻⁶,
+leaving 16 bits of significand, and the position increment over a 120 Hz tick comes to
+**two raw units**: an orbit integrated that way is almost entirely rounding, and the
+measured energy and angular momentum drifted by 0.8 % in a single revolution.
+
+Q64.64 in metres has neither problem. The cost is about 700 ns per gravity evaluation, or
+roughly 17 ms of CPU per second for two hundred ships at 120 Hz.
 
 Bodies travel on **Keplerian rails**: given the elements and a time, the position is solved
 for directly rather than integrated, so the cost is the same at any distance and no error
@@ -62,7 +70,7 @@ Requires the .NET 10 SDK.
 
 ```sh
 dotnet build -c Release
-dotnet test  -c Release        # 144 tests
+dotnet test  -c Release        # 163 tests
 dotnet run   -c Release --project src/SolSystem.Spike
 ```
 

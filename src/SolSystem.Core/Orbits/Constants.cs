@@ -31,13 +31,19 @@ internal static class Constants
     internal const long StrategicTickSeconds = 3600;
 
     // ------------------------------------------------------------------ local frame
-    // Megametres, for the Q32.32 type. These are the units a ship manoeuvres in.
+    // Metres, for the Q64.64 type. These are the units a ship manoeuvres in.
 
-    /// <summary>GM of the Earth: 398 600.4418 Mm^3/s^2.</summary>
-    internal static readonly Fix64 EarthGm = Fix64.FromRaw(1_711_975_861_702_151);
+    /// <summary>
+    /// GM of the Earth for the local frame, in m³/s²: 3.986004418 × 10¹⁴, Q64.64.
+    /// </summary>
+    /// <remarks>
+    /// The local frame is Q64.64 in metres, so its gravitational parameter is the SI value
+    /// unchanged and <c>GM/r²</c> yields m/s² with no conversion anywhere.
+    /// </remarks>
+    internal static readonly Fix128 EarthGmLocal = Fix128.FromDouble(3.986004418e14);
 
-    /// <summary>GM of Mars: 42 828.37 Mm^3/s^2.</summary>
-    internal static readonly Fix64 MarsGm = Fix64.FromRaw(183_946_448_490_988);
+    /// <summary>GM of Mars for the local frame, in m³/s²: 4.282837 × 10¹³, Q64.64.</summary>
+    internal static readonly Fix128 MarsGmLocal = Fix128.FromDouble(4.282837e13);
 
     // ------------------------------------------------------------------ solar frame
     // Kilometres, for the Q64.64 type. These are the units an orbit is propagated in.

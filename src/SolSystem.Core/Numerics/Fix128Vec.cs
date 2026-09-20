@@ -37,5 +37,17 @@ internal readonly struct Fix128Vec
 
     internal Fix128 Length => Fix128.Sqrt(LengthSquared);
 
+    /// <summary>Unit vector in the same direction.</summary>
+    internal Fix128Vec Normalized()
+    {
+        Fix128 length = Length;
+        if (length == Fix128.Zero)
+        {
+            throw new InvalidOperationException("Cannot normalise a zero vector.");
+        }
+
+        return new Fix128Vec(X / length, Y / length, Z / length);
+    }
+
     public override string ToString() => $"({X}, {Y}, {Z})";
 }

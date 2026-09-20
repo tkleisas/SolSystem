@@ -51,10 +51,25 @@ internal readonly struct Fix64 : IEquatable<Fix64>, IComparable<Fix64>
 
     internal readonly long Raw;
 
+    /// <summary>True when the value is exactly zero.</summary>
+    internal bool IsZero => Raw == 0;
+
     private Fix64(long raw) => Raw = raw;
 
     /// <summary>Wraps a raw 2^-32 unit count. The only way to build a value without scaling.</summary>
     internal static Fix64 FromRaw(long raw) => new(raw);
+
+    /// <summary>
+    /// Converts a physical value in the frame's own unit.
+    /// </summary>
+    /// <remarks>
+    /// Use this for measured constants, and <see cref="FromRaw"/> only when a raw bit
+    /// pattern is genuinely what is meant. <c>FromRaw(1_711_975_862)</c> is the value
+    /// 0.3986, not 3.986 × 10⁻⁴: the raw count is the value <b>times</b> 2³², and reaching
+    /// for the raw constructor with a physical number in hand gets the scale wrong by
+    /// 2³² in one direction or by a factor of ten in the other.
+    /// </remarks>
+    internal static Fix64 FromValue(double value) => FromDouble(value);
 
     /// <summary>Converts a whole number of megametres.</summary>
     internal static Fix64 FromMm(long mm)
@@ -84,6 +99,9 @@ internal readonly struct Fix64 : IEquatable<Fix64>, IComparable<Fix64>
     internal static readonly Fix64 Two = new(OneRaw << 1);
     internal static readonly Fix64 MaxValue = new(MaxRaw);
     internal static readonly Fix64 MinValue = new(MinRaw);
+
+    /// <summary>Natural logarithm of 2, at the width the logarithm's tail needs.</summary>
+    private static readonly Fix64 Ln2 = FromRaw(2_977_044_472);
 
     // ---------------------------------------------------------------- arithmetic
 
@@ -188,6 +206,59 @@ internal readonly struct Fix64 : IEquatable<Fix64>, IComparable<Fix64>
     public static Fix64 Max(Fix64 a, Fix64 b) => a.Raw > b.Raw ? a : b;
 
     // ---------------------------------------------------------------- conversion
+
+    /// <summary>
+    /// Natural logarithm.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Needed for the rocket equation: the delta-v a ship has left is
+    /// <c>Isp·g₀·ln(mass / dryMass)</c>. There is no way to express that without a
+    /// logarithm, and the design prices everything in delta-v, so this is load-bearing
+    /// rather than a convenience.
+    /// </para>
+    /// <para>
+    /// Computed by splitting the value into <c>2^k · m</c> with <c>m</c> in [1, 2), then
+    /// <c>ln(m)</c> from the atanh series
+    /// <c>2·(t + t³/3 + t⁵/5 + …)</c> with <c>t = (m-1)/(m+1)</c> ≤ 1/3. That converges
+    /// quickly at this width and needs no table.
+    /// </para>
+    /// </remarks>
+    internal static Fix64 Log(Fix64 x)
+    {
+        if (x.Raw <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x), "Log is defined only for positive Fix64 values.");
+        }
+
+        // Split x into 2^exponent · m with m in [1, 2).
+        //
+        // `k` is the index of raw's top bit, which is the value's binary exponent PLUS
+        // FractionalBits — raw is x scaled by 2^32. Using k as the exponent directly
+        // multiplies the result by 2^32, so ln(1) comes out as 32·ln2 rather than 0 and
+        // every logarithm is wrong by that constant.
+        int k = 63 - System.Numerics.BitOperations.LeadingZeroCount((ulong)x.Raw);
+        int exponent = k - FractionalBits;
+        Fix64 m = exponent >= 0
+            ? FromRaw(x.Raw >> exponent)
+            : FromRaw(x.Raw << -exponent);
+
+        Fix64 t = (m - One) / (m + One);
+        Fix64 tSquared = t * t;
+        Fix64 term = t;
+        Fix64 sum = t;
+
+        // Fourteen odd terms is ample: each carries another factor of 1/9. The divisors
+        // must be the INTEGERS 3, 5, 7 …, which is FromDouble(n) — NOT FromMm(n), which
+        // scales by 2^32 and would divide each term by n·2^32.
+        for (int n = 3; n <= 27; n += 2)
+        {
+            term = term * tSquared;
+            sum += term / FromDouble(n);
+        }
+
+        return sum * Two + FromDouble(exponent) * Ln2;
+    }
 
     /// <summary>
     /// Rounds a <see cref="double"/> to the nearest representable value. For test

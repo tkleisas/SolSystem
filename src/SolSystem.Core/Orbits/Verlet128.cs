@@ -88,6 +88,13 @@ internal static class Verlet128
     }
 
     /// <summary>Specific orbital energy: v²/2 - GM/r.</summary>
+    internal static Fix128 SpecificEnergy(Fix128Vec position, Fix128Vec velocity, Fix128 gm)
+    {
+        Fix128 r = position.Length;
+        return velocity.LengthSquared * Fix128.Half - gm / r;
+    }
+
+
     internal static Fix128 SpecificEnergy(SolarState state, Fix128 gravitationalParameter)
     {
         Fix128 vSquared = state.Velocity.LengthSquared;
