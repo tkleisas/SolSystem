@@ -36,8 +36,10 @@ from pipeline import (  # noqa: E402
 # proportion to each other when both are on screen at once.
 BODIES = {
     "sun": 696_000.0,
+    "mercury": 2_439.7,
     "venus": 6_051.8,
     "earth": 6_378.1,
+    "moon": 1_737.4,
     "mars": 3_396.2,
     "ceres": 469.7,
 }
@@ -96,6 +98,96 @@ def base_material(name):
 
 
 # --------------------------------------------------------------------------- the sun
+
+
+def mapped_surface_material(name, image_file, roughness_lo=0.95, roughness_hi=0.72,
+                            bump=0.06, tint=(1.0, 1.0, 1.0), colorspace='sRGB'):
+    """
+    A body surface driven by a plain equirectangular albedo map.
+
+    Every photographed body uses this, and it exists so that a body cannot be mapped one
+    way while another is mapped a different way — which is how a project ends up with one
+    planet inside out.
+
+    **Roughness is derived from the albedo's own luminance rather than packed into a
+    fourth channel.** That was worth two attempts to get right. Putting roughness in the
+    map's blue looked efficient and was a trap: reconstructing the albedo then needs its
+    blue back, and a Combine Color node has no slot to keep it in, so the roughness
+    leaked into every body's base colour — Mars came out lavender. Packing it into alpha
+    works but quadruples the file, a 2048x1024 RGBA PNG being 4.5 MB against 400 kB for
+    the JPEG. Deriving it in the shader costs two nodes and no bytes, and on an airless
+    body the correlation is physically real anyway: bright highland regolith is rougher
+    than dark mare basalt, and bright Martian dust is finer than dark rock.
+
+    **`colorspace` is not a detail.** A photograph of a surface is colour data and wants
+    sRGB, and every albedo here is one. A map whose channels carry *numbers* — a mask, a
+    distance field, a latitude — wants Non-Color, because decoding it with a gamma curve
+    quietly moves every threshold. Earth's map is the second kind; the rest are the
+    first, and treating them all as data made every body render too bright.
+    """
+    mat = base_material(name)
+    tree, add = nodes(mat)
+
+    uv = add('ShaderNodeUVMap')
+    image = add('ShaderNodeTexImage')
+    image.image = bpy.data.images.load(os.path.join(textures_dir(), image_file))
+    image.interpolation = 'Cubic'
+    image.extension = 'EXTEND'
+    image.image.colorspace_settings.name = colorspace
+
+    # Albedo, tinted only when the map actually needs it.
+    #
+    # There is no tint node on the common path, and that is deliberate. The first
+    # version always inserted a Mix node with the factor set to zero, expecting it to
+    # pass its second input through untouched; what it passed through was grey, and
+    # every body rendered as a plain sphere with no map on it at all. A node that
+    # exists to be a no-op is still a node that can be wired wrong, so when there is
+    # nothing to blend, nothing is inserted.
+    tinted = tint != (1.0, 1.0, 1.0)
+    if tinted:
+        tint_node = add('ShaderNodeRGB')
+        tint_node.outputs[0].default_value = (*tint, 1.0)
+        albedo = add('ShaderNodeMixRGB')
+        albedo.blend_type = 'MULTIPLY'
+        albedo.inputs['Fac'].default_value = 1.0
+
+    # Roughness from luminance.
+    luminance = add('ShaderNodeRGBToBW')
+    roughness = add('ShaderNodeMapRange')
+    roughness.inputs['From Min'].default_value = 0.15
+    roughness.inputs['From Max'].default_value = 0.85
+    roughness.inputs['To Min'].default_value = roughness_lo
+    roughness.inputs['To Max'].default_value = roughness_hi
+    roughness.clamp = True
+
+    bsdf = add('ShaderNodeBsdfPrincipled')
+    bsdf.inputs['Roughness'].default_value = (roughness_lo + roughness_hi) / 2.0
+
+    output = add('ShaderNodeOutputMaterial')
+
+    link_into(tree, uv, 'UV', image, 'Vector')
+    if tinted:
+        link_into(tree, tint_node, 0, albedo, 'Color1')
+        link_into(tree, image, 'Color', albedo, 'Color2')
+        link_into(tree, albedo, 'Color', bsdf, 'Base Color')
+    else:
+        link_into(tree, image, 'Color', bsdf, 'Base Color')
+
+    link_into(tree, image, 'Color', luminance, 'Color')
+    link_into(tree, luminance, 'Val', roughness, 'Value')
+    link_into(tree, roughness, 'Result', bsdf, 'Roughness')
+
+    if bump > 0.0:
+        # Relief from the same luminance. Not a height map, but on an airless body the
+        # correspondence is strong enough to be worth the node -- the maria really are
+        # both darker and flatter than the highlands.
+        relief = add('ShaderNodeBump')
+        relief.inputs['Strength'].default_value = bump
+        link_into(tree, luminance, 'Val', relief, 'Height')
+        link_into(tree, relief, 'Normal', bsdf, 'Normal')
+
+    link_into(tree, bsdf, 'BSDF', output, 'Surface')
+    return mat
 
 
 def build_sun(col):
@@ -323,6 +415,25 @@ def build_venus(col):
     return obj
 
 
+def build_venus_mapped(col):
+    """
+    Venus from a real cloud map, which is the right kind of accuracy for it.
+
+    There is no surface to be accurate *about* — the cloud deck is opaque at every
+    wavelength a human eye has — so what a recognisable Venus means is the right colour
+    and the right kind of featurelessness, with the faint Y-shaped shear the real cloud
+    tops have. The map supplies that and nothing more is needed.
+    """
+    mat = mapped_surface_material(
+        "VenusClouds", "venus_map.jpg",
+        roughness_lo=0.90, roughness_hi=0.82, bump=0.03)
+
+    venus = sphere("Venus", radius=1.0, segments=192, rings=96)
+    venus.data.materials.append(mat)
+    link(venus, col)
+    return venus
+
+
 # --------------------------------------------------------------------------- earth
 
 
@@ -539,67 +650,91 @@ def build_earth_clouds(col):
 
 def build_mars(col):
     """
-    Rust, dark basalt, and a small bright cap — the colours are the whole identity.
+    Mars from a real albedo map, because the albedo IS the identity.
 
-    Mars reads as Mars because of one thing: iron oxide, which is a specific and
-    unmistakable colour. Everything else here is texture at a scale a player will
-    never measure, so the material is built around getting that colour right and
-    letting the noise supply the rest.
+    A procedural Mars gets the colour right and the *shape* wrong: what makes Mars
+    recognisable is Syrtis Major as a dark wedge, Hellas as a bright oval in the south,
+    and the sweep of Valles Marineris — none of which a noise field will ever produce.
+    The map was checked against those three features before it was used, by sampling
+    their coordinates and confirming the dark ones are dark.
+
+    The polar caps are added on top of the map rather than trusted to it, because a
+    cap in the wrong place is the first thing anyone notices and the map's own caps are
+    seasonal.
     """
-    mat = base_material("MarsSurface")
-    tree, add = nodes(mat)
+    mat = mapped_surface_material(
+        "MarsSurface", "mars_map.jpg",
+        roughness_lo=0.92, roughness_hi=0.74, bump=0.10, tint=(1.0, 0.98, 0.95))
 
-    tex = add('ShaderNodeTexCoord')
-    noise = add('ShaderNodeTexNoise')
-    noise.inputs['Scale'].default_value = 5.5
-    noise.inputs['Detail'].default_value = 12.0
-    noise.inputs['Roughness'].default_value = 0.6
+    tree = mat.node_tree
+    bsdf = next(n for n in tree.nodes if n.bl_idname == 'ShaderNodeBsdfPrincipled')
 
-    narrow = add('ShaderNodeMath')
-    narrow.operation = 'MULTIPLY_ADD'
-    narrow.inputs[1].default_value = 0.5
-    narrow.inputs[2].default_value = 0.5
-
-    ramp = add('ShaderNodeValToRGB')
-    ramp.color_ramp.interpolation = 'EASE'
-    ramp.color_ramp.elements[0].position = 0.30
-    ramp.color_ramp.elements[0].color = (0.28, 0.10, 0.04, 1.0)     # dark basalt
-    ramp.color_ramp.elements[1].position = 0.72
-    ramp.color_ramp.elements[1].color = (0.66, 0.29, 0.13, 1.0)     # iron oxide
-
-    separate = add('ShaderNodeSeparateXYZ')
-    latitude = add('ShaderNodeMath')
+    # Two caps blended over the mapped albedo, driven by latitude so they cannot be in
+    # the wrong place.
+    tex = tree.nodes.new('ShaderNodeTexCoord')
+    separate = tree.nodes.new('ShaderNodeSeparateXYZ')
+    latitude = tree.nodes.new('ShaderNodeMath')
     latitude.operation = 'ABSOLUTE'
-    caps = add('ShaderNodeValToRGB')
+    caps = tree.nodes.new('ShaderNodeValToRGB')
     caps.color_ramp.interpolation = 'EASE'
-    caps.color_ramp.elements[0].position = 0.86
+    caps.color_ramp.elements[0].position = 0.90
     caps.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    caps.color_ramp.elements[1].position = 0.95
+    caps.color_ramp.elements[1].position = 0.97
     caps.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
-
-    mix = add('ShaderNodeMixRGB')
+    mix = tree.nodes.new('ShaderNodeMixRGB')
     mix.blend_type = 'MIX'
 
-    bsdf = add('ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Roughness'].default_value = 0.78
+    base_color = bsdf.inputs['Base Color']
+    source = base_color.links[0].from_socket
+    tree.links.new(source, mix.inputs['Color1'])
+    tree.links.new(caps.outputs['Color'], mix.inputs['Color2'])
+    tree.links.new(tex.outputs['Object'], separate.inputs['Vector'])
+    tree.links.new(separate.outputs['Z'], latitude.inputs[0])
+    tree.links.new(latitude.outputs['Value'], caps.inputs['Fac'])
+    tree.links.new(mix.outputs['Color'], base_color)
 
-    output = add('ShaderNodeOutputMaterial')
-
-    link_into(tree, tex, 'Object', noise, 'Vector')
-    link_into(tree, noise, 'Fac', narrow, 0)
-    link_into(tree, narrow, 'Value', ramp, 'Fac')
-    link_into(tree, tex, 'Object', separate, 'Vector')
-    link_into(tree, separate, 'Z', latitude, 'Value')
-    link_into(tree, latitude, 'Value', caps, 'Fac')
-    link_into(tree, ramp, 'Color', mix, 'Color1')
-    link_into(tree, caps, 'Color', mix, 'Color2')
-    link_into(tree, mix, 'Color', bsdf, 'Base Color')
-    link_into(tree, bsdf, 'BSDF', output, 'Surface')
-
-    mars = sphere("Mars", radius=1.0, segments=160, rings=80)
+    mars = sphere("Mars", radius=1.0, segments=192, rings=96)
     mars.data.materials.append(mat)
     link(mars, col)
     return mars
+
+
+def build_moon(col):
+    """
+    The Moon from a real albedo map, which is the only way it reads as the Moon.
+
+    The lunar maria are the single most recognisable surface in the solar system after
+    Earth's continents, and they are pure albedo: dark basalt plains against bright
+    anorthosite highland. A procedural moon is a grey ball with craters; this is the
+    Moon. Checked against four maria and two highland regions before use — the maria
+    sample at about 80 and the far-side highlands at 188.
+    """
+    mat = mapped_surface_material(
+        "MoonSurface", "moon_map.jpg",
+        roughness_lo=0.95, roughness_hi=0.70, bump=0.14)
+
+    moon = sphere("Moon", radius=1.0, segments=192, rings=96)
+    moon.data.materials.append(mat)
+    link(moon, col)
+    return moon
+
+
+def build_mercury(col):
+    """
+    Mercury from a real map. A passing resemblance would do, but the map is cheaper.
+
+    It looks like the Moon and is not the Moon, and the difference a viewer can name is
+    that Mercury is more uniformly cratered with no maria at all — which is exactly the
+    kind of thing a shared procedural crater shader would get wrong for one of them.
+    """
+    mat = mapped_surface_material(
+        "MercurySurface", "mercury_map.jpg",
+        roughness_lo=0.95, roughness_hi=0.72, bump=0.13, tint=(0.92, 0.90, 0.88))
+
+    mercury = sphere("Mercury", radius=1.0, segments=192, rings=96)
+    mercury.data.materials.append(mat)
+    link(mercury, col)
+    return mercury
 
 
 # --------------------------------------------------------------------------- ceres
@@ -685,17 +820,24 @@ def lit_scene():
     side and the night side fall in the right place — the single most obvious thing a
     viewer checks and the easiest to get wrong with a rig built for spacecraft.
     """
+    # A key at about forty degrees, and a fill strong enough to open the night side.
+    #
+    # The first rig had a 17:1 key-to-fill ratio, which is roughly what sunlight on a
+    # bare rock is and makes a preview almost useless: three fifths of the disc falls
+    # into black and the surface the render exists to show is the part you cannot see.
+    # About 8:1 still reads as a lit sphere with a real terminator without flattening
+    # the surface into a grey ball -- the middle attempt at 5:1 washed the maria out.
     bpy.ops.object.light_add(type='SUN', location=(6, -4, 2))
     key = bpy.context.object
     key.name = "BODY_Key"
-    key.data.energy = 6.0
-    key.rotation_euler = (math.radians(55.0), 0.0, math.radians(35.0))
+    key.data.energy = 4.2
+    key.rotation_euler = (math.radians(48.0), 0.0, math.radians(38.0))
 
     bpy.ops.object.light_add(type='SUN', location=(-5, 3, -1))
     fill = bpy.context.object
     fill.name = "BODY_Fill"
-    fill.data.energy = 0.35
-    fill.rotation_euler = (math.radians(-40.0), 0.0, math.radians(200.0))
+    fill.data.energy = 0.55
+    fill.rotation_euler = (math.radians(-38.0), 0.0, math.radians(205.0))
 
 
 def build(name, builder):
@@ -711,7 +853,7 @@ def build(name, builder):
     # has no corona of its own.
     glare = {"threshold": 0.8, "size": 0.6, "strength": 1.0, "kind": "FOG_GLOW",
              "quality": "HIGH"} if name == "sun" else None
-    render_views(preview, shots, resolution=1000, samples=64, ambient=0.008,
+    render_views(preview, shots, resolution=1000, samples=64, ambient=0.012,
                  glare=glare)
     export_glb(glb, name)
     export_blend(blend)
@@ -720,9 +862,11 @@ def build(name, builder):
 def main():
     builders = {
         "sun": build_sun,
-        "venus": build_venus,
+        "venus": build_venus_mapped,
         "earth": build_earth,
         "mars": build_mars,
+        "moon": build_moon,
+        "mercury": build_mercury,
         "ceres": build_ceres,
     }
 

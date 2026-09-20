@@ -552,8 +552,14 @@ def make_contact_sheet(path, images):
     if not loaded:
         return
 
-    columns = 3 if len(loaded) > 4 else 2
-    rows = math.ceil(len(loaded) / columns)
+    # The grid is chosen to leave as few empty cells as possible rather than by a
+    # hard-coded column count: three images want a single row of three, not a 2x2 with
+    # a black quadrant in it, and six want 3x2 exactly.
+    count = len(loaded)
+    columns = min(
+        range(1, count + 1),
+        key=lambda c: (math.ceil(count / c) * c - count, abs(c - math.ceil(count / c))))
+    rows = math.ceil(count / columns)
     cell_w, cell_h = loaded[0][1].size
     width, height = cell_w * columns, cell_h * rows
 
