@@ -854,8 +854,9 @@ rescues it.**
       planet is checked against an independent evaluation of the same elements, and the
       propagator and the ephemeris are checked against each other over a quarter year.
       Still missing: the Moon, which needs geocentric rather than heliocentric elements
-- [ ] One body, two stations — `SolarSystem` places a point in a body's local frame and
-      gives it the body's orbital velocity; the stations themselves are not built
+- [x] **One body, two stations** — `Station` orbits a body in its local frame, carries a
+      docking port, and is placed by `SolarSystem`. A station left alone holds its orbit to
+      zero drift over a full revolution, which is the symplectic integrator earning its keep
 - [ ] Docking that is a skill rather than a button
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
