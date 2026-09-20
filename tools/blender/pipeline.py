@@ -632,6 +632,12 @@ def render_orthographic(path, axis='x', resolution=1000, samples=48, margin=1.12
         bpy.data.objects.remove(obj, do_unlink=True)
 
 
+def textures_dir():
+    """Where the shipped image maps live, alongside the models rather than the tools."""
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(root, "art", "textures")
+
+
 def asset_paths(category, name):
     """The three files every asset produces, in one place so they stay together."""
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
