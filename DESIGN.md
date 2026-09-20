@@ -229,7 +229,8 @@ around it. Antimatter is bottled sunlight; fusion is not.
 | | Workers | Illuminus |
 |---|---|---|
 | Drive | Antimatter | Fusion torch |
-| Fuel made | Only near the Sun | Anywhere with ice and a reactor |
+| Fuel made | Only near the Sun, at 50 % conversion | Anywhere with ice and a reactor |
+| Speed | **Equal or better**, if they can spare the antimatter | No longer a monopoly |
 | Strategic shape | Fuel **logistics network** | Fuel **self-sufficient**, hardware-starved |
 | Failure mode | Cut the lane, the fleet becomes statues | Cut the chain, the fleet is merely smaller |
 | Signature | Depends on load | **Radiators glow like a small star** |
@@ -246,6 +247,33 @@ and should feel like one.
 **[DECIDED] Fusion fuel is deuterium, not helium-3.** Deuterium is genuinely
 abundant in water ice, which makes the outer system a *real* supply rather than a
 contrivance. He-3 would have made the fuel chain a plot device.
+
+**[DECIDED] The Workers' converters run at 50 %.** Half the collected sunlight
+becomes antimatter rest mass — half the theoretical ceiling of 100 %, and an
+extraordinary result rather than a forbidden one. It needs solar-pumped gamma-ray
+lasing and photoproduction at near-ideal yield, because pair production requires
+photons above 1.022 MeV and sunlight peaks near 2 eV. **This is the Workers'
+defining technology**, and the thing the Illuminus most want to steal.
+
+**[DECIDED] At 50 %, the plant stops mattering and the ships become the limit.** A
+tonne of antimatter a year costs 11.4 TW and 14 600 km² of collector, with only
+5.7 TW of waste heat — a large industrial site, not a megastructure. But a 500 t
+ship making a fast Mars transit needs **106 t for one trip**, so a collector field
+the size of Greece fuels a crossing every eleven years. Ten million square
+kilometres — 2 % of Venus's surface — supports six or seven a year. The
+antimatter is manufacturable; the *ships* are the scarce thing.
+
+**[DECIDED] Antimatter is for couriers and warships; fusion carries everything
+bulk.** Cost scales with ship mass, so a 100 t courier needs 21 t a trip against
+the 500 t ship's 106 t. For a fixed budget the tonnage moved is identical — what
+changes is how many hulls fly and how often.
+
+**[DECIDED] The bottleneck is what is held in store, not what can be made.**
+Antimatter needs active magnetic containment drawing power continuously, so it
+cannot be stockpiled cheaply, and a containment failure is a bomb: 8 kg is
+29 megatons. Logistics are just-in-time and **the depot is the most valuable and
+most fragile object anyone owns**, which makes *tempo* the contested resource
+rather than quantity.
 
 **[DECIDED] Antimatter is for the military and the flagship; the civilian economy
 runs on fusion.** Derived in `docs/TRIP-ENERGY.md` and not a stylistic choice.
@@ -699,7 +727,8 @@ staged state machine.
 | 8 | Does shell transfer exist for the player, or only for the NPC elite? (§1.3) | Whether an Illuminus player can die — **closed: they can** |
 | 9 | Does Earth's neutrality survive a cheap Illuminus raid? (§1.3) | Diplomatic layer |
 | 10 | The cull's cadence and severity; can the player vote, or only be a candidate? (§1.4) | Illuminus internal politics |
-| 12 | **Antimatter production efficiency** (§3, §7, `docs/TRIP-ENERGY.md`) | Whether an antimatter economy is possible; the size of the collector *and* the radiator |
+| 12 | ~~Antimatter production efficiency~~ | **Closed: 50 %.** See §3 and `docs/TRIP-ENERGY.md` §8 |
+| 15 | Antimatter containment loss rate and the safe stockpile ceiling | Whether depots are tempo-limited or quantity-limited |
 | 13 | Exhaust velocities and plant specific power for each drive | Trip time is `2·√(d/a)`, propellant is `exp(Δv/vₑ)`, and `a = 2·SP/vₑ` ties them together — nothing can be balanced without all three |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |

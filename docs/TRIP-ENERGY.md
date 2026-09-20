@@ -350,7 +350,104 @@ planet already claimed by the Workers with an atmosphere to hide behind.
 
 ---
 
-## 8. Assumptions, for anyone who wants to argue
+## 8. If the Workers reach 50 % conversion
+
+The design asks what happens if their converters run at **50 %** — half of the collected
+sunlight becoming antimatter rest mass. It transforms the picture, but not into the one you
+might expect.
+
+### Everything about the plant gets easier
+
+| | At 1 % | **At 50 %** | Improvement |
+|---|---|---|---|
+| Power for 1 t/yr | 570 TW | **11.4 TW** | 50× |
+| Collector at Venus | 728 000 km² | **14 600 km²** | 50× |
+| Waste heat | 565 TW | **5.7 TW** | 50× |
+| Radiator at 1 000 K | 9 960 km² | **101 km²** | 50× |
+
+**The plant stops being a megastructure.** 14 600 km² is a large industrial site — a fifth
+of Greece — not a planet-sized undertaking. And with 50 % of the power leaving as antimatter
+rather than heat, **the radiator stops mattering**: 101 km² is a detail rather than the
+dominant structure.
+
+Per square kilometre of collector at Venus, 50 % conversion yields **69 kg of antimatter a
+year**.
+
+### But the ships eat it faster than the plant makes it
+
+This is the part that decides the design. A **500 t ship** making a fast Mars transit —
+0.1 g, arriving at rest, vₑ = 500 km/s — needs **106 t of antimatter for one trip**.
+
+| Collector field | Power | Antimatter/yr | 500 t ship transits/yr |
+|---|---|---|---|
+| Greece (132 000 km²) | 103 TW | 9.1 t | **0.09** |
+| 10⁶ km² (7.6× Greece) | 784 TW | 69 t | **0.65** |
+| 10⁷ km² (76× Greece) | 7 838 TW | 687 t | **6.5** |
+
+**A collector field the size of Greece fuels one fast crossing every eleven years.** Even a
+field of ten million square kilometres — nearly 2 % of Venus's surface — supports six or
+seven a year. The plant is no longer the impossible part; the *ships* are.
+
+### So antimatter is for couriers, not for cargo
+
+The antimatter cost scales with ship mass, so a **100 t courier** costs 21 t a trip against
+the 500 t ship's 106 t. For a fixed antimatter budget the tonnage moved is the same either
+way; what changes is how many hulls you can fly and how often.
+
+That lands exactly on the tiering the design already has, now for a hard reason:
+
+| Role | Drive | Why |
+|---|---|---|
+| Bulk cargo, colony supply, terraforming freight | **Fusion** | Deuterium is mined, not manufactured. Energy is the cheap part; reaction mass is not. |
+| Couriers, warships, priority transits | **Antimatter** | The only way to move a small mass *fast*, and fast is what a warship is for |
+
+**50 % conversion makes antimatter a real strategic capability rather than a fantasy fuel.**
+It does not make it a general-purpose one.
+
+### What it does to the war
+
+1. **The Illuminus lose their speed advantage.** Until now the asymmetry was Workers =
+   numbers, Illuminus = speed and quality. If the Workers can fuel fast ships, the Illuminus
+   have better hulls and nothing else. Their doctrine has to become *not being found*.
+2. **The Illuminus lose the fuel argument too.** The design gave them deuterium
+   self-sufficiency as their counterweight to the Workers' antimatter. If the Workers can
+   make antimatter at 50 %, deuterium is the cheap fuel for the *bulk* economy and stops
+   being a strategic lever.
+3. **Antimatter becomes tradeable.** At 1 % production it is a war asset and nothing else.
+   At 50 % the Workers can sell it — to Earth, to the scoundrel, even to the Illuminus. That
+   is a diplomatic instrument, and it makes them the indispensable party rather than merely
+   the besieged one.
+4. **The bottleneck moves to the antimatter in store.** Antimatter needs active magnetic
+   containment and vacuum, drawing power continuously, so it cannot be stockpiled cheaply —
+   and a containment failure is a bomb. At 50 % the temptation is to hold large stocks, and
+   large stocks are the most dangerous objects in the solar system:
+
+   | Stock held | If containment fails |
+   |---|---|
+   | 1 kg | 3.6 megatons |
+   | 8 kg | 29 megatons |
+   | 83 kg | 286 megatons |
+
+   **Antimatter logistics are just-in-time, and the depot is the single most valuable and
+   most fragile thing anyone owns.** That is a much better strategic engine than a simple
+   fuel shortage, because it makes *tempo* the contested resource rather than quantity.
+
+### Is 50 % physically defensible?
+
+It is extraordinary but not forbidden. The theoretical ceiling is 100 % — all the collected
+energy becoming antimatter rest mass — so 50 % is half the maximum. What makes it hard is
+that pair production needs photons above **1.022 MeV** (gamma rays), and sunlight peaks near
+**2 eV**. The energy must be re-concentrated into gammas first, and that step is where the
+losses live today.
+
+A plant doing it at 50 % end to end would need solar-pumped gamma-ray lasing and
+photoproduction on a high-Z target at near-ideal yield. That is exactly the kind of thing
+worth calling **the Workers' defining technology** and worth the Illuminus trying to steal —
+which is the thematic gun §1.3 already put on the mantelpiece.
+
+---
+
+## 9. Assumptions, for anyone who wants to argue
 
 - **Both models are idealised.** Section 1–2 are Hohmann transfers between circular
   coplanar orbits; section 6 is a brachistochrone between rest and rest, which is the
