@@ -1,0 +1,75 @@
+probe: scale.probe
+tick: 0.0083333333333333332 s
+stations: Anchorage, Meridian
+
+> body mercury
+  position  (-19460980.613990627, -66913981.136100605, -3679931.0510644102) km
+  distance  0.466474635 AU, speed 38.882087 km/s
+> sundistance
+  mercury is 0.466474635 AU from the Sun
+> body venus
+  position  (-107458597.29243945, -4892846.9384690737, 6135850.0679359995) km
+  distance  0.720229404 AU, speed 35.171575 km/s
+> sundistance
+  venus is 0.720229404 AU from the Sun
+> body earth
+  position  (-26504441.61531106, 144693227.46125251, -38.663464067646046) km
+  distance  0.983307435 AU, speed 30.286295 km/s
+> sundistance
+  earth is 0.983307435 AU from the Sun
+> body mars
+  position  (208040933.90379688, -2003274.6844934251, -5155331.0014472818) km
+  distance  1.391159115 AU, speed 26.328498 km/s
+> sundistance
+  mars is 1.391159115 AU from the Sun
+> body jupiter
+  position  (598140298.96693122, 440672079.99360573, -15216768.47878876) km
+  distance  4.967306073 AU, speed 13.669209 km/s
+> sundistance
+  jupiter is 4.967306073 AU from the Sun
+> body saturn
+  position  (959638100.29275107, 979217915.05976927, -55223571.194788024) km
+  distance  9.172322057 AU, speed 10.021736 km/s
+> sundistance
+  saturn is 9.172322057 AU from the Sun
+> body uranus
+  position  (2158018979.8789182, -2055122548.9982843, -35609247.964264914) km
+  distance  19.921687574 AU, speed 6.547881 km/s
+> sundistance
+  uranus is 19.921687574 AU from the Sun
+> body neptune
+  position  (2513956734.2816062, -3738856178.1147676, 19059248.949305095) km
+  distance  30.117301189 AU, speed 5.426474 km/s
+> sundistance
+  neptune is 30.117301189 AU from the Sun
+> body moon
+  position  (-26797668.987148944, 144423705.27054206, 35511.579454190141) km
+  distance  0.981891058 AU, speed 29.811450 km/s
+> sundistance
+  moon is 0.981891058 AU from the Sun
+> body mercury
+  position  (-19460980.613990627, -66913981.136100605, -3679931.0510644102) km
+  distance  0.466474635 AU, speed 38.882087 km/s
+> sundistance
+  mercury is 0.466474635 AU from the Sun
+> expect "Mercury is inside 0.5 AU" sun 0.5 less
+  ok        Mercury is inside 0.5 AU
+            sun = 0.46647463540007594, expected less 0.5
+> body earth
+  position  (-26504441.61531106, 144693227.46125251, -38.663464067646046) km
+  distance  0.983307435 AU, speed 30.286295 km/s
+> sundistance
+  earth is 0.983307435 AU from the Sun
+> expect "the Earth is inside 1.05 AU" sun 1.05 less
+  ok        the Earth is inside 1.05 AU
+            sun = 0.98330743485404271, expected less 1.05
+> body neptune
+  position  (2513956734.2816062, -3738856178.1147676, 19059248.949305095) km
+  distance  30.117301189 AU, speed 5.426474 km/s
+> sundistance
+  neptune is 30.117301189 AU from the Sun
+> expect "Neptune is beyond 29 AU" sun 29.0 more
+  ok        Neptune is beyond 29 AU
+            sun = 30.117301188866826, expected more 29
+
+probe: 27 commands, 0 errors, 0 checks failed

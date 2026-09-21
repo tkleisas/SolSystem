@@ -30,6 +30,9 @@ internal sealed class ProbeWorld
     private readonly SolarSystem _system = new();
     private readonly Dictionary<string, Station> _stations = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The guidance law, kept across ticks. Its phase latch is the whole point.</summary>
+    private Approach _approach;
+
     internal ProbeWorld()
     {
         // Two stations around the Earth, as far apart in kind as two stations can be: a low
@@ -40,8 +43,7 @@ internal sealed class ProbeWorld
         // method shadows a type of the same name inside the class that declares it.
         Add("Meridian", SolSystem.Core.Orbits.Station.InCircularOrbit(
             Ephemeris.Body.Earth, "Meridian", F(6_778_100.0),
-            new Fix128Vec(Fix128.Zero, Fix128.Zero, F(20.0)),
-            new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero)));
+            Fix128Vec.Zero, new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero)));
 
         Add("Anchorage", SolSystem.Core.Orbits.Station.InCircularOrbit(
             Ephemeris.Body.Earth, "Anchorage", F(42_164_000.0),
@@ -227,123 +229,23 @@ internal sealed class ProbeWorld
     /// </remarks>
     private void Fly(ref Ship ship, Station home)
     {
-        DockingPort port = home.Port;
-        Fix128Vec inward = -port.Axis;
+        // The law lives in the core now. The probe used to carry its own copy, and that copy
+        // was written four times because a probe is the worst place to develop a controller:
+        // every fix had to be re-derived without tests. What is left here is the frame
+        // decision, which is the probe's business, and nothing else.
+        Command command = _approach.Next(ship, home.Port, Fix128Vec.Zero);
+        Phase = (int)_approach.Phase;
 
-        Fix128Vec offset = ship.Position - port.Position;
-        double rangeM = offset.Length.ToDouble();
-        double closingM = Dot(ship.Velocity, inward).ToDouble();
-
-        // What the engine can actually do, and what the station is already doing to the ship.
-        double accel = ship.Engine.ThrustKilonewtons.ToDouble() / ship.Mass.ToDouble();
-        double ceiling = ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble();
-        accel = Math.Min(accel, ceiling);
-
-        // Nothing to cancel: the approach is flown in the station's own frame, so the host's
-        // pull is already accounted for by both of them falling together. See GravitySources.
-        double gravityAlong = 0.0;
-
-        // The closing law, and it is deliberately not a proportional one.
-        //
-        // A proportional law asks for an acceleration proportional to the speed error, which
-        // means that once the ship is at its target speed it asks for *zero* — and a ship
-        // under zero thrust in a held frame coasts at whatever speed it had. The first version
-        // of this settled at 0.98 m/s with an alignment of 0.899, one thousandth below the
-        // throttle gate, and stayed there for a hundred thousand ticks: throttle shut,
-        // attitude held, arriving never.
-        //
-        // What a pilot does instead is accelerate until the remaining distance equals the
-        // distance needed to stop, then brake. Three times the stopping distance is the
-        // margin, because the theoretical figure assumes full thrust pointed exactly
-        // retrograde from the first instant and this ship has to turn round to brake at all.
-        // Braking means pointing the engine the *other* way, and at the crewed rate of six
-        // degrees a second that is thirty seconds of coming about during which no thrust is
-        // possible. So the trigger is not "when the stopping distance runs out" — it is "when
-        // the stopping distance plus the distance covered while turning round runs out". The
-        // first version knew only the first half, flipped the ship at 464 m doing 6.3 m/s,
-        // coasted outward for the whole thirty seconds of the turn, and ended up eighteen
-        // kilometres away with the brake still not lit.
-        double turnSeconds = Math.PI / (6.0 * Math.PI / 180.0);
-        double accelAlong = accel;
-        double stopping = closingM * closingM / (2.0 * accelAlong);
-        double flipDistance = closingM * turnSeconds;
-
-        if (Phase == 0 && (stopping + flipDistance >= rangeM || rangeM <= 3.0))
+        if (Debug && Ticks % 24000 == 0)
         {
-            Phase = 1;
-        }
-        else if (Phase == 1 && closingM <= 0.05)
-        {
-            Phase = 2;
+            DockingReport report = Docking.Evaluate(ship, home.Port, Fix128Vec.Zero);
+            Console.WriteLine($"  [pilot] t={Ticks,7} phase={_approach.Phase,-8} "
+                + $"range={report.Range.ToDouble(),10:F2} closing={report.ClosingSpeed.ToDouble(),9:F4} "
+                + $"thr={command.Throttle.ToDouble():F3} prop={ship.Propellant.ToDouble():F6}");
         }
 
-        double alongAccel;
-        if (Phase == 0)
-        {
-            alongAccel = accelAlong;
-        }
-        else if (Phase == 1)
-        {
-            alongAccel = -accelAlong;
-        }
-        else
-        {
-            // Terminal: hold a slow creep and let the latches do the rest.
-            alongAccel = Math.Clamp((0.05 - closingM) * 0.5, -accelAlong, accelAlong);
-        }
-
-        // A little of the lateral error too, or the ship drifts off the corridor. Small
-        // enough not to swing the nose: the throttle gate holds the engine shut below 0.9
-        // alignment, so a correction that tilts the nose more than about twenty-five degrees
-        // off the corridor locks the throttle out entirely.
-        Fix128Vec lateral = offset - port.Axis * Dot(offset, port.Axis);
-        double lateralSpeed = lateral.IsZero
-            ? 0.0
-            : Dot(ship.Velocity, lateral.Normalized()).ToDouble();
-        double lateralAccel = Math.Clamp(-lateralSpeed / 4.0, -accel * 0.1, accel * 0.1);
-
-        double wantedAlong = alongAccel - gravityAlong;
-        var wantedVector = new Fix128Vec(
-            inward.X * Fix128.FromDouble(wantedAlong),
-            inward.Y * Fix128.FromDouble(wantedAlong),
-            inward.Z * Fix128.FromDouble(wantedAlong));
-
-        if (!lateral.IsZero && Math.Abs(lateralAccel) > 1e-9)
-        {
-            Fix128Vec lateralDirection = lateral.Normalized();
-            wantedVector += new Fix128Vec(
-                lateralDirection.X * Fix128.FromDouble(lateralAccel),
-                lateralDirection.Y * Fix128.FromDouble(lateralAccel),
-                lateralDirection.Z * Fix128.FromDouble(lateralAccel));
-        }
-
-        Fix128Vec turn = TurnTowards(ship.Attitude, wantedVector);
-        double alignment = Dot(ship.Attitude.Forward, wantedVector.Normalized()).ToDouble();
-
-        // Throttle is how much of the drive the required acceleration needs, with the
-        // alignment as a gate so the engine does not fire while the ship is still coming
-        // about. It is not an error term: the error is already in the direction.
-        double needed = wantedVector.Length.ToDouble();
-        Fix128 throttle = alignment > 0.9
-            ? Fix128.FromDouble(Math.Clamp(needed / accel, 0.0, 1.0))
-            : Fix128.Zero;
-
-        if (Debug && Ticks % 1200 == 0)
-        {
-            Console.WriteLine($"  [pilot] t={Ticks,5} range={rangeM,9:F1} closing={closingM,8:F3} "
-                + $"phase={Phase} aAlong={alongAccel,7:F4} gAlong={gravityAlong,8:F4} "
-                + $"need={needed,7:F4} align={alignment,6:F3} throttle={throttle.ToDouble(),5:F3} "
-                + $"wv=({wantedVector.X.ToDouble(),8:F4},{wantedVector.Y.ToDouble(),8:F4}) "
-                + $"nose=({ship.Attitude.Forward.X.ToDouble(),7:F4},{ship.Attitude.Forward.Y.ToDouble(),7:F4}) "
-                + $"turnZ={turn.Z.ToDouble(),9:F4} "
-                + $"v=({ship.Velocity.X.ToDouble(),9:F3},{ship.Velocity.Y.ToDouble(),9:F3})");
-        }
-
-        ship.Step(GravitySources, F(TickSeconds), new Command(wantedVector, throttle, turn));
+        ship.Step(GravitySources, F(TickSeconds), command);
     }
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 
     /// <summary>
     /// Holds the stations still in their own frame instead of propagating their orbits.

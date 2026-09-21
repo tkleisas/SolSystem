@@ -17,7 +17,7 @@ stations: Anchorage, Meridian
 > days 0.128
   0.128000 days = 1,327,104 ticks, world at tick 1327104 (0.128000 days from J2000)
 > station Meridian
-  offset    (6768125.2942027524, -367586.19666129944, 0) m from the host
+  offset    (6778100, 0, 0) m from the host
   altitude  6778.100 km, speed 7668.579 m/s
 > body moon
   position  (-27119854.202737302, 144354568.72847182, 35405.528727404177) km
@@ -25,10 +25,10 @@ stations: Anchorage, Meridian
 > days 10
   10.000000 days = 103,680,000 ticks, world at tick 105007104 (10.128000 days from J2000)
 > station Meridian
-  offset    (-6191164.0595296677, -2759008.3729305691, 0) m from the host
+  offset    (6778100, 0, 0) m from the host
   altitude  6778.100 km, speed 7668.579 m/s
 > station Anchorage
-  offset    (23526109.207145598, 34990356.97998713, 0) m from the host
+  offset    (42164000, 0, 0) m from the host
   altitude  42164.000 km, speed 3074.666 m/s
 > body earth
   position  (-52009052.180794552, 137620816.47228006, -45.396546363475338) km
@@ -37,6 +37,6 @@ stations: Anchorage, Meridian
   position  (-51635631.239887372, 137523557.68221778, -22790.780574684199) km
   distance  0.981951238 AU, speed 29.763952 km/s
 > hash epoch
-  hash      epoch 6f7c547f2ee46046a8daa02283e15f962fdb78a3f90a0b185cfa3c17f896d715
+  hash      epoch 6ace3e0cf70b7f7c21887e840b65aa49ba415f5b8336ff46f202d58045315557
 
 probe: 13 commands, 0 errors, 0 checks failed

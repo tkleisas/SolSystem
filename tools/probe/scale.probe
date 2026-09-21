@@ -1,20 +1,42 @@
 # Q: are the frames and the ephemeris telling the same story?
 #
-# A probe about scale rather than about flying. Every body's distance from the Sun, every
-# orbital speed, and the ratio between them are one order of magnitude check away from
-# catching a unit error anywhere in the solar frame.
+# A probe about scale rather than about flying. Every body's distance from the Sun, checked
+# against the one number that would catch a unit error anywhere in the solar frame.
+#
+#   dotnet run -c Release --project src/SolSystem.Probe -- \
+#       --probe tools/probe/scale.probe --probe-out artifacts/probe/scale.txt
+#
+# The values here are brackets, not predictions: eight rather than 0.39, because the point is
+# to catch a frame that is wrong by a factor rather than to pin an orbit. The ephemeris itself
+# is checked against an independent evaluation of the same elements in the test suite.
 
 body mercury
+sundistance
 body venus
+sundistance
 body earth
+sundistance
 body mars
+sundistance
 body jupiter
+sundistance
 body saturn
+sundistance
 body uranus
+sundistance
 body neptune
+sundistance
 body moon
+sundistance
 
-expect "Mercury is inside 0.5 AU" range 0.5 less
-advance 1
+body mercury
+sundistance
+expect "Mercury is inside 0.5 AU" sun 0.5 less
+
 body earth
-expect "the Earth is about an AU out" range 1.05 less
+sundistance
+expect "the Earth is inside 1.05 AU" sun 1.05 less
+
+body neptune
+sundistance
+expect "Neptune is beyond 29 AU" sun 29.0 more

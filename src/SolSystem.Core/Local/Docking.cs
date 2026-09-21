@@ -148,11 +148,15 @@ internal static class Docking
         // the axis points away from the port, along the direction arrivals come from.
         Fix128Vec approach = -port.Axis;
 
-        // Relative motion, so a station under thrust is handled correctly. Closing is motion
-        // along the approach direction, so a ship at port + axis·d moving along -axis reads as
-        // a positive closing speed. The sign is easy to invert — the axis is already a
-        // direction pointing away from the port — and inverting it turns every textbook
-        // approach into a departure.
+        // Relative motion, so a station under thrust is handled correctly.
+        //
+        // <b>Closing speed is positive when the ship is approaching</b>, which is what the
+        // field name says and what the checks below require. `approach` already points from the
+        // ship toward the port, so the plain dot product is the whole of it. There is no
+        // negation to apply, and adding one is worse than a sign flip: `Fix128` unary minus
+        // toggles the sign flag without touching the magnitude, so a negated positive became a
+        // negative of the same size — which reads as a ship running away at exactly the speed
+        // it was closing at, and turned every approach into a departure.
         Fix128Vec relativeVelocity = ship.Velocity - portVelocity;
         Fix128 closingSpeed = Dot(relativeVelocity, approach);
 

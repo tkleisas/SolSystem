@@ -11,30 +11,39 @@ stations: Anchorage, Meridian
 > advance 3600
   world at tick 3600 (0.000347 days from J2000)
 > range
-  range     230021.103380 m
+  range     1999.680608 m
 > closing
-  closing   260.077896119 m/s
+  closing   0.154264190 m/s
 > ship
-  position  (6776198.4569997313, 230013.24338944705, 19.988491193344441) m
-  velocity  (-260.07789611907822, 7664.1662968125429, -0.00076718011863849997) m/s
-  mass      99.9322 t (90 t dry, 9.9322 t propellant)
-  nose      (-0.97721833469599806, 0.21223648681124641, 0)
-  delta-v   125618.742854262 m/s
-> advance 12000
-  world at tick 15600 (0.001505 days from J2000)
+  position  (6780099.6806058893, 0.097690314788216798, 0) m
+  velocity  (-0.15426587696689117, 0.034529419589596842, 0) m/s
+  mass      99.9321859533333 t (90 t dry, 9.93218595333333 t propellant)
+  nose      (-1, 2.4313233717987437E-16, 0)
+  delta-v   125618.574179889 m/s
+> advance 250000
+  world at tick 253600 (0.024460 days from J2000)
 > phase
-  phase     0 (closing)
+  phase     2 (terminal)
 > range
-  range     995888.256062 m
+  range     0.901188 m
 > closing
-  closing   1127.004189704 m/s
-> expect "the ship closed inside the capture range" range 2.0 less
-  error: 'expect' expected a number for an expected value, got 'closed'
+  closing   0.045914968 m/s
+> ship
+  position  (6778099.145599178, 0.28659981595799072, 0) m
+  velocity  (0.049266286760508961, 0.002495211508072229, 0) m/s
+  mass      99.9288479760965 t (90 t dry, 9.92884797609649 t propellant)
+  nose      (0.97584448377189636, -0.21846634407148646, 0)
+  delta-v   125578.490601756 m/s
+> expect "the ship reached the capture envelope" range 2.0 less
+  ok        the ship reached the capture envelope
+            range = 0.90118822586798675, expected less 2
 > expect "the ship is slow enough for the latches" closing 0.5 less
-  error: 'expect' expected a number for an expected value, got 'is'
+  ok        the ship is slow enough for the latches
+            closing = 0.04591496819223248, expected less 0.5
 > expect "the ship is in the terminal phase" phase 2 exactly
-  error: 'expect' expected a number for an expected value, got 'is'
+  ok        the ship is in the terminal phase
+            phase = 2, expected exactly 2
 > hash docking
-  hash      docking bb2a5a182baf4dbeee64e994d1e74e3692684e4afac07103145c4bd5c118ca91
+  hash      docking fa9ba4614e3e440c0bbbdb42e542085d9200fb76dffe87fb28c8ff9e12a3049a
 
-probe: 15 commands, 3 errors, 0 checks failed
+probe: 16 commands, 0 errors, 0 checks failed

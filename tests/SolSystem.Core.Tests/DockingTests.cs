@@ -163,6 +163,11 @@ public class DockingTests
 
         Assert.True(report.Docked, report.Reason);
         Assert.True(report.LateralOffset.ToDouble() < 1e-9);
+
+        // Positive means approaching. The sign was inverted here for a long time, and the
+        // whole docking law was built on top of it before anybody noticed: a guidance law that
+        // brakes correctly, arrives in the envelope, and is then told by the envelope that it
+        // is leaving.
         Assert.Equal(0.1, report.ClosingSpeed.ToDouble(), 9);
     }
 
@@ -218,6 +223,11 @@ public class DockingTests
 
         Assert.False(report.Docked);
         Assert.Equal("moving away", report.Reason);
+
+        // And the sign itself, so a future inversion is caught here rather than by a law that
+        // mysteriously cannot arrive.
+        Assert.True(report.ClosingSpeed.ToDouble() < 0.0,
+            $"retreating should read negative, got {report.ClosingSpeed.ToDouble()}");
     }
 
     [Fact]

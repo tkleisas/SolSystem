@@ -45,6 +45,9 @@ internal sealed class ProbeRunner
     private int _errorCount;
     private int _failedChecks;
 
+    /// <summary>The last body named by a <c>body</c> command, for <c>expect … sun</c>.</summary>
+    private string _lastBody = "earth";
+
     internal ProbeRunner(string name) => _name = name;
 
     /// <summary>Errors: commands that could not be carried out.</summary>
@@ -119,6 +122,10 @@ internal sealed class ProbeRunner
                 Body(command);
                 break;
 
+            case "sundistance":
+                SunDistance(command);
+                break;
+
             case "range":
                 Range(command);
                 break;
@@ -146,7 +153,7 @@ internal sealed class ProbeRunner
             default:
                 throw new ProbeException(
                     $"unknown command '{command.Verb}' — advance, days, launch, ship, station, " +
-                    "body, range, closing, phase, hash, emit, expect");
+                    "body, sundistance, range, closing, phase, lateral, hash, emit, expect");
         }
     }
 
@@ -239,9 +246,35 @@ internal sealed class ProbeRunner
             _ => throw new ProbeException($"no body called '{name}'"),
         };
 
+        _lastBody = name;
         double au = state.Position.Length.ToDouble() / 149_597_870.7;
         Emit($"  position  {Vec(state.Position)} km");
         Emit($"  distance  {au:F9} AU, speed {state.Velocity.Length.ToDouble():F6} km/s");
+    }
+
+    /// <summary>The distance from the Sun to the body named by the last <c>body</c> command.</summary>
+    private void SunDistance(ProbeCommand command)
+    {
+        Emit($"  {_lastBody} is {SunDistanceAu():F9} AU from the Sun");
+    }
+
+    private double SunDistanceAu()
+    {
+        Ephemeris.State state = _lastBody.ToLowerInvariant() switch
+        {
+            "moon" => _world.MoonState(),
+            "mercury" => _world.BodyState(Ephemeris.Body.Mercury),
+            "venus" => _world.BodyState(Ephemeris.Body.Venus),
+            "earth" => _world.BodyState(Ephemeris.Body.Earth),
+            "mars" => _world.BodyState(Ephemeris.Body.Mars),
+            "jupiter" => _world.BodyState(Ephemeris.Body.Jupiter),
+            "saturn" => _world.BodyState(Ephemeris.Body.Saturn),
+            "uranus" => _world.BodyState(Ephemeris.Body.Uranus),
+            "neptune" => _world.BodyState(Ephemeris.Body.Neptune),
+            _ => throw new ProbeException($"no body called '{_lastBody}'"),
+        };
+
+        return state.Position.Length.ToDouble() / 149_597_870.7;
     }
 
     private void Range(ProbeCommand command)
@@ -253,9 +286,7 @@ internal sealed class ProbeRunner
 
     private void Closing(ProbeCommand command)
     {
-        (Ship ship, Station home) = RequireShip();
-        double closing = Dot(ship.Velocity, -home.Port.Axis).ToDouble();
-        Emit($"  closing   {closing:F9} m/s");
+        Emit($"  closing   {MeasuredClosing():F9} m/s");
     }
 
     private void Phase(ProbeCommand command)
@@ -347,10 +378,12 @@ internal sealed class ProbeRunner
             "range" => MeasuredRange(),
             "closing" => MeasuredClosing(),
             "phase" => _world.Phase,
+            "lateral" => MeasuredLateral(),
             "ticks" => _world.Ticks,
             "mass" => _world.Ship?.Mass.ToDouble() ?? throw new ProbeException("no ship"),
             "propellant" => _world.Ship?.Propellant.ToDouble() ?? throw new ProbeException("no ship"),
             "speed" => _world.Ship?.Velocity.Length.ToDouble() ?? throw new ProbeException("no ship"),
+            "sun" => SunDistanceAu(),
             _ => throw new ProbeException($"no quantity called '{what}'"),
         };
 
@@ -384,10 +417,34 @@ internal sealed class ProbeRunner
         return (ship.Position - home.Port.Position).Length.ToDouble();
     }
 
+    /// <summary>Distance from the corridor centreline.</summary>
+    private double MeasuredLateral()
+    {
+        (Ship ship, Station home) = RequireShip();
+        Fix128Vec offset = ship.Position - home.Port.Position;
+        Fix128Vec lateral = offset - home.Port.Axis * Dot(offset, home.Port.Axis);
+        return lateral.Length.ToDouble();
+    }
+
+    /// <summary>
+    /// Closing speed toward the port, live. Positive means approaching.
+    /// </summary>
+    /// <remarks>
+    /// Measured toward the port itself rather than along the fixed corridor axis, which is the
+    /// same thing only until the ship overshoots — after that the fixed axis reads a retreat as
+    /// an approach, which is how a probe ends up reporting a ship parked two metres from a port
+    /// as closing at a quarter of a metre a second while it drifts away.
+    /// </remarks>
     private double MeasuredClosing()
     {
         (Ship ship, Station home) = RequireShip();
-        return Dot(ship.Velocity, -home.Port.Axis).ToDouble();
+        Fix128Vec offset = ship.Position - home.Port.Position;
+        if (offset.IsZero)
+        {
+            return 0.0;
+        }
+
+        return Dot(ship.Velocity, -offset.Normalized()).ToDouble();
     }
 
     private (Ship Ship, Station Home) RequireShip()

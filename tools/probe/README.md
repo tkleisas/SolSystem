@@ -20,12 +20,14 @@ worth reading.
 |---|---|
 | `advance <ticks>` | Advances the world one 120 Hz tick at a time |
 | `days <n>` | Advances by a span of days. Use this for anything longer than minutes |
+| `sundistance` | How far the last body named is from the Sun |
 | `launch <station> [standoff m] [closing m/s]` | Puts the ship down a station's corridor |
 | `ship` | Position, velocity, mass, nose, delta-v |
 | `station <name>` | Offset and orbital altitude |
 | `body <name>` | Heliocentric position and speed, for the eight planets and the Moon |
 | `range` | Distance to the ship's home port |
-| `closing` | Closing speed against the port |
+| `closing` | Closing speed toward the port, positive when approaching |
+| `lateral` | Distance from the corridor centreline |
 | `phase` | Which phase of the approach the ship is in |
 | `hash [label]` | SHA-256 of the world's raw state |
 | `emit <text>` | A line in the transcript |
@@ -51,15 +53,17 @@ one-bit drift — which is exactly what a determinism check is for.
 
 | Script | Question | State |
 |---|---|---|
-| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | **The transcript is byte-identical between runs. The pilot does not yet arrive** |
+| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | Passing, and the transcript is byte-identical between runs |
 | `station-keeping.probe` | Does a station hold its orbit, and does the Moon keep its own? | Passing |
 | `scale.probe` | Are the frames and the ephemeris telling the same story? | Passing |
 
-## The docking pilot is not finished, and why
+## The docking pilot, and the eight bugs it took
 
-The `docking.probe` pilot accelerates, judges when to brake, and comes about — and it has been
-the source of eight separate bugs, six of them in the *pilot* and two in the engine it
-exposed. It is recorded here because the failures are more instructive than the successes:
+The law now lives in `SolSystem.Core/Local/Approach.cs` with its own tests. It flew the
+approach four times as a private method in this harness first, which is the wrong place to
+develop a controller — every fix had to be re-derived without tests — and every attempt failed
+differently. The table is worth keeping because the failures are more instructive than the
+success:
 
 | What went wrong | What it actually was |
 |---|---|
@@ -70,17 +74,25 @@ exposed. It is recorded here because the failures are more instructive than the 
 | Ship drifted outward in a held frame | It was given the station's *absolute* orbital velocity |
 | Range grew quadratically with throttle shut | A proportional law asks for zero acceleration at target speed |
 | Locked at 0.899 alignment forever | The lateral blend swung the nose past the throttle gate |
-| *Tumbling on the spot forever* | **`Attitude.Step` folded only past pi, making pi a fixed point** |
+| Ran away at 44 m/s | Past the port, "close faster" and "back away" swap meanings along a fixed axis |
+| Parked 2.3 m outside a 2 m envelope | A fixed creep speed approaches the port asymptotically |
+| **Tumbled on the spot forever** | **Three sign errors and a fold that scaled instead of flipping the axis** |
 
-The last one is a genuine engine bug and is now a test: a ship commanded to reverse used to
-reach exactly half a turn, be rewritten to half a turn by the fold, and never move again. The
-others are the shape of the problem rather than mistakes — docking under a 0.039 m/s² drive
-with a thirty-second reversal is a controller worth building properly, not something to
-improvise in a probe.
+The last row is the one that matters. Three separate faults conspired:
 
-**What is proven and what is not.** The frame arithmetic, the attitude dynamics, the mass
-accounting, the ephemeris, the capture envelope and the determinism of the transcript are all
-tested and passing. What is not is the guidance law that flies the approach end to end.
+* `Attitude.Step` folded a rotation vector past π by **scaling** it back to π. Scaling keeps the
+  axis and changes the rotation — the correct fold is θ > π about an axis becoming 2π − θ
+  about the *opposite* axis. The scaled version pins a reversing ship at the limit forever,
+  because the command advances it past π, the fold hauls it back, and the command is still lit.
+* `Docking.Evaluate`'s closing speed was negated relative to its own documentation, so every
+  approach read as "moving away".
+* `Fix128` unary minus toggles a sign flag and leaves the magnitude alone, so a wrongly-negated
+  rate is the right number with the wrong sign — which no trace of magnitudes will reveal, and
+  which is why three of these took as long as they did.
+
+The probe was carrying three of these faults at once and reporting perfectly consistent numbers.
+That is the argument for the test suite rather than the harness: a probe says what the world
+did, and only a test says what it should have done.
 
 ## What a probe costs
 

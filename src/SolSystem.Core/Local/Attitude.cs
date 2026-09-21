@@ -26,13 +26,6 @@ namespace SolSystem.Core.Local;
 /// </remarks>
 internal struct Attitude
 {
-    /// <summary>
-    /// A hair, for the fold in <see cref="Step"/>. Large enough to survive the fixed-point
-    /// representation and small enough to be unobservable: a millionth of a radian is a
-    /// twentieth of an arc-second.
-    /// </summary>
-    private static readonly Fix128 Epsilon = Fix128.FromDouble(1.0 / 1_048_576.0);
-
     /// <summary>Axis scaled by angle in radians. Zero is "pointing along +x".</summary>
     internal Fix128Vec RotationVector;
 
@@ -82,26 +75,28 @@ internal struct Attitude
         // rotation axis its magnitude is the angle, the addition is exact for small steps.
         RotationVector += AngularVelocity * dt;
 
-        // Keep the magnitude below pi so the axis-angle pair stays unique. Past a half turn
-        // the same rotation has two representations and the axis would flip.
-        //
-        // The fold has to land STRICTLY INSIDE the limit, and that is a real case rather
-        // than a boundary curiosity. A ship told to reverse reaches exactly pi with the
-        // rotation still commanded the same way; the next step wants 2pi; a fold that maps
-        // that to pi puts the ship straight back where it was, and it tumbles on the spot
-        // forever while the pilot waits for an alignment that never comes. Folding to a hair
-        // under the limit instead leaves room for the next step to make progress, and the
-        // turn completes.
-        //
-        // Two versions of this were wrong before that was clear. Folding only when the angle
-        // exceeded the limit made the equality case terminal. Folding when it reached the
-        // limit made every case that hit the limit terminal, because the fold's own output
-        // satisfies the condition that triggered it.
+        // Keep the magnitude inside pi so the axis-angle pair stays unique.
         Fix128 angle = RotationVector.Length;
-        Fix128 limit = Pi * (Fix128.One - Epsilon);
-        if (angle >= limit)
+        if (angle > Pi)
         {
-            RotationVector = RotationVector * (limit / angle);
+            // Fold back into the unique range, and note that folding is not scaling.
+            //
+            // A rotation of theta > pi about an axis is the same rotation as 2pi - theta
+            // about the OPPOSITE axis. Scaling the vector down to pi keeps the axis and
+            // changes the rotation, which is a different thing entirely — and it is a trap
+            // that took three attempts to see, because the scaled version looks like the
+            // obvious way to "keep it under pi" and every value it produces is in range.
+            //
+            // What it does in practice is pin a reversing ship at the limit forever. The
+            // commanded rotation advances the vector past pi; the fold hauls it back to just
+            // under pi; the command is still lit, so the next tick advances it past pi again.
+            // The ship sits at exactly half a turn, nose at -x, and never moves, while the
+            // pilot waits for an alignment that cannot come.
+            //
+            // Half a turn is the degenerate case of this: at exactly pi both axes describe
+            // the same rotation, so nothing is lost by leaving the axis alone there.
+            Fix128 folded = TwoPi - angle;
+            RotationVector = RotationVector * (-(folded / angle));
         }
     }
 
