@@ -14,23 +14,72 @@ was then added underneath it and nobody ran `dotnet run` with no arguments again
 
 ## Controls
 
+### The ship
+
+| Key | What it does exactly |
+|---|---|
+| `W` / `S` | Throttle up / down at **0.8 per second**, so 0 → 100 % takes 1.25 s. A tap is a nudge. |
+| `Z` / `X` | Throttle straight to 100 % / 0 %. |
+| `A` / `D` | Yaw left / right, at the helm's maximum. |
+| `R` / `F` | Pitch up / down. |
+| `Q` / `E` | Roll left / right. |
+| `Up` / `Down` | Time compression: ×60 or ×0.1, from the base rate. Not cumulative. |
+| `Esc` | Quit. |
+
+**The engine fires along the nose.** `W` does not push the ship in the direction it is drifting; it
+pushes it in the direction it is *pointing*. So the throttle and the helm are one control, and going
+anywhere is a two-part decision — where to point, then how hard to burn.
+
+**The helm is six degrees a second, and that is a hard limit.** Every turn key commands the maximum
+and the ship clamps it, so:
+
 | | |
 |---|---|
-| `W` / `S` | throttle up and down |
-| `A` / `D` | yaw |
-| `R` / `F` | pitch |
-| `Q` / `E` | roll |
-| `Z` / `X` | full throttle / cut |
-| `Up` / `Down` | time rate, up to an hour a second |
-| `C` | change camera: chase, orbit, cockpit, port |
-| drag (left button) | look around |
-| wheel | zoom the orbit camera |
-| `Esc` | quit |
+| 90° | 15 s |
+| 180° — a full reversal | **30 s** |
 
-The helm is rate-limited to six degrees a second because that is what a crewed hull can do, and the
-engine fires along the nose because it is bolted to the back of it. Slowing down therefore means
-turning round first, which takes thirty seconds and a kilometre of corridor. The controls do not
-hide that, because that is the game.
+Half a minute of turning, during which the engine is useless because it points the wrong way. That
+is the single most important number on this list: **slowing down means turning round first.**
+
+**Full throttle is four milligee** — 0.0393 m/s², because the drive is limited by what the radiator
+can reject rather than by what the engine could produce:
+
+| After | Speed |
+|---|---|
+| 10 s | 0.39 m/s |
+| 60 s | 2.4 m/s |
+| 1 hour | 0.14 km/s |
+
+That is why the engine plume exists: at these accelerations the ship is *always* moving and it never
+looks like it.
+
+**Propellant**: 4.58 grams a second at full throttle, so the 40 tonnes aboard last **101 days** of
+continuous burn. Delta-v and burn time are on the flight display because they are the same fact said
+two ways.
+
+### The camera
+
+| Input | What it does exactly |
+|---|---|
+| `C` | Cycles chase → orbit → cockpit → port. |
+| Drag (left button) | Looks around: 0.315° per pixel. In cockpit it turns your head; in chase and orbit it swings the camera round the ship. |
+| Wheel | Zooms the **orbit** camera only: ×1.18 a notch, clamped to 25 m – 4 km. |
+| `Up` / `Down` | *(ship controls — they do not move the camera)* |
+
+| Mode | Where it is | What it is for |
+|---|---|---|
+| **Chase** | 130 m behind and 42 m above the hull, aimed 40 m ahead of the nose | flying — the ship is in frame and the direction of travel is in the middle |
+| **Orbit** | 260 m out, aimed *at* the hull | looking at your own ship, and zooming to inspect it |
+| **Cockpit** | 34 m forward of the origin, on the nose, nothing of the ship in view | the only view where the reticle means anything |
+| **Port** | 230 m off the far side of the hull, looking back along the docking corridor | judging an approach |
+
+### Two things the controls do not do
+
+- **No gentle turn.** The keys are on or off, so every rotation is at the six-degree limit. A finer
+  helm is a thing a docking pilot would want and it is not there yet.
+- **Time compression saturates.** The ship steps at a fixed 120 Hz and at most 240 ticks a frame, so
+  above two seconds of simulated time per frame the clock advances faster than the ship flies. At
+  ×60 that needs 30 fps; below it, the sky runs ahead of the hull.
 
 ## Why the camera matters more than it looks
 
