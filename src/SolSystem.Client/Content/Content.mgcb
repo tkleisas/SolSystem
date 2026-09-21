@@ -15,8 +15,8 @@
 /processorParam:TextureFormat=Compressed
 /build:Hud.spritefont
 
-#begin Sun.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:Sun.fx
+#begin Sun.mgfx
+# Compiled ahead of this build by the CompileEffects target (ShadowDuskCLI — no Wine, no
+# Windows SDK). The pipeline's only job with the file is to copy it where the XNB used to be;
+# the client reads it as a file, so there is no XNB wrapper in the path.
+/copy:Sun.mgfx

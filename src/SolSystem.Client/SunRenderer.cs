@@ -50,11 +50,11 @@ internal sealed class SunRenderer : IDisposable
 
     private double _seconds;
 
-    internal SunRenderer(GraphicsDevice device, Microsoft.Xna.Framework.Content.ContentManager content)
+    internal SunRenderer(GraphicsDevice device)
     {
         _device = device;
 
-        _effect = EffectLoader.Load(content, "Sun");
+        _effect = EffectLoader.Load(device, "Sun");
 
         _quad = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, 4,
             BufferUsage.WriteOnly);

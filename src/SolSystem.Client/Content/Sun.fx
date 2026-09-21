@@ -15,8 +15,10 @@
 // Values above one are written deliberately. Nothing clamps them here — the blend is additive, so a
 // bright disc accumulates over its own glow, and the saturating white core is what a star looks
 // like when there is more of it than the display has.
-
-sampler2D Photosphere : register(s0);
+//
+// There is deliberately no texture: the granulation is procedural, and an unused sampler
+// declaration is not just dead weight — `sampler2D` is DX9-era HLSL that the modern compiler
+// (DXC, via ShadowDuskCLI) rejects outright.
 
 float4x4 WorldViewProjection;
 

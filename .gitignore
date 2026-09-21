@@ -2,6 +2,10 @@
 bin/
 obj/
 
+# Compiled shaders: the build regenerates a .mgfx from its .fx (ShadowDuskCLI,
+# CompileEffects target), so the compiled file is an intermediate, not a deliverable.
+*.mgfx
+
 # The NuGet HTTP cache and global packages folder are redirected into artifacts/ by
 # NuGet.config so that a restore never needs to write outside the workspace. Neither
 # belongs in the repository.

@@ -244,7 +244,10 @@ public class ApproachTests
             }
         }
 
-        string path = Environment.GetEnvironmentVariable("APPROACH_CSV") ?? "/tmp/approach.csv";
+        // The temp directory by the platform's own answer rather than a literal /tmp, which
+        // does not exist on a Windows machine and failed the test there before it wrote a byte.
+        string path = Environment.GetEnvironmentVariable("APPROACH_CSV")
+            ?? Path.Combine(Path.GetTempPath(), "approach.csv");
         File.WriteAllText(path, csv.ToString());
         _o.WriteLine($"wrote {path}");
     }

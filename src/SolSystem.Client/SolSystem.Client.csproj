@@ -31,4 +31,22 @@
     <ProjectReference Include="../SolSystem.Core/SolSystem.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    The effect compiles ahead of the content build with ShadowDuskCLI — HLSL through DXC
+    and SPIRV-Cross straight to GLSL, every native binary shipped for every desktop
+    platform — so the shader build needs no Wine and no Windows SDK anywhere (MiVic's
+    solution, ported). The tool comes from the repository's tool manifest, which dotnet
+    finds by walking up from the project directory. The compiled .mgfx lands next to its
+    source and is NOT committed: a build regenerates it when the .fx changes.
+  -->
+  <Target Name="CompileEffects"
+      BeforeTargets="RunContentBuilder"
+      Inputs="Content\Sun.fx"
+      Outputs="Content\Sun.mgfx">
+    <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="false" />
+    <Exec EnvironmentVariables="DOTNET_ROLL_FORWARD=Major"
+        Command="dotnet tool run ShadowDuskCLI -- Content/Sun.fx Content/Sun.mgfx /Profile:OpenGL"
+        WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
 </Project>

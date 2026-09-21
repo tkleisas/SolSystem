@@ -168,7 +168,7 @@ internal sealed class FlightGame : Game
         _bodies = new BodyRenderer(
             GraphicsDevice, Path.Combine(FlightSession.RepositoryRoot(), "art", "textures"));
 
-        _sun = new SunRenderer(GraphicsDevice, Content);
+        _sun = new SunRenderer(GraphicsDevice);
         _hulls = new HullRenderer(GraphicsDevice);
         _plume = new Plume(GraphicsDevice, _sprites);
         _chart = new Chart(GraphicsDevice, _sprites);

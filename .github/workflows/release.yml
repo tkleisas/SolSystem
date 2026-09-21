@@ -18,9 +18,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      # MGFXC compiles the Sun shader through Wine even on a test run.
-      - name: Install Wine, for MonoGame's shader compiler
-        run: sudo apt-get update && sudo apt-get install -y wine64
       - run: dotnet test -c Release
 
   package:
@@ -40,10 +37,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-
-      - name: Install Wine, for MonoGame's shader compiler
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y wine64
 
       # The tag without its v is the assembly version: v0.0.1 -> 0.0.1.
       - name: Publish the client, self-contained

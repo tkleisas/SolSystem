@@ -8,6 +8,13 @@
         "mgcb"
       ],
       "rollForward": false
+    },
+    "shadowdusk.cli": {
+      "version": "0.20.0",
+      "commands": [
+        "ShadowDuskCLI"
+      ],
+      "rollForward": false
     }
   }
 }
