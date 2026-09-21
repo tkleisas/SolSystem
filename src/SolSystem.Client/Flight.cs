@@ -56,6 +56,9 @@ internal sealed class Flight
     /// <summary>The throttle the pilot has set, 0 to 1.</summary>
     internal double Throttle => _throttle;
 
+    /// <summary>Sets the throttle directly, for a render with no keyboard behind it.</summary>
+    internal void SetThrottle(double value) => _throttle = Math.Clamp(value, 0.0, 1.0);
+
     /// <summary>
     /// A crewed hull with a torch, sized to the freighter that was modelled.
     /// </summary>

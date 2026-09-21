@@ -41,7 +41,18 @@ internal sealed class LaunchOptions
     /// <summary>Simulated seconds per real second, interactively.</summary>
     internal double TimeRate { get; private set; } = 1.0;
 
-    /// <summary>Whether the frame should be rendered without opening a visible window.</summary>
+    /// <summary>
+    /// Render exactly one frame and exit.
+    /// </summary>
+    /// <remarks>
+    /// <b>"Headless" and "render one frame" are not the same idea</b>, and conflating them cost the
+    /// <c>--frames</c> option entirely: it was defined as "a shot path was given", so anything with
+    /// <c>--shot</c> rendered frame zero and exited, and <c>--frames 40</c> ran for one frame. The
+    /// tell was a diagnostic that printed the same timestamp for every value of the option.
+    /// </remarks>
+    internal bool OneShot => ShotPath is not null && Frames == 0;
+
+    /// <summary>Whether the loop should run without reading the keyboard or the mouse.</summary>
     internal bool Headless => ShotPath is not null;
 
     /// <summary>Print what each body resolved to. For when a frame looks wrong.</summary>
@@ -68,6 +79,12 @@ internal sealed class LaunchOptions
     /// </remarks>
     internal bool Lineup { get; private set; }
 
+    /// <summary>Which camera to start in, for rendering a view without a mouse.</summary>
+    internal string Camera { get; private set; } = "chase";
+
+    /// <summary>Throttle to start at, 0 to 1. For rendering the plume without a keyboard.</summary>
+    internal double Throttle { get; private set; }
+
     /// <summary>The command line, for when nobody knows what to type.</summary>
     internal const string Usage = """
         SolSystem.Client — fly a ship in the solar system
@@ -85,6 +102,8 @@ internal sealed class LaunchOptions
           --rate <n>           simulated seconds per real second (default 1)
           --verbose            print what each body resolved to
           --frames <n>         run the interactive loop for n frames, then exit
+          --camera <mode>      chase, orbit, cockpit or port (default chase)
+          --throttle <0-1>     start with the engine lit, for rendering the plume
           --lineup             draw every asset at true size, side by side
         """;
 
@@ -130,6 +149,14 @@ internal sealed class LaunchOptions
 
                 case "--rate":
                     options.TimeRate = Number(args, ref i, 0.0, 1.0e6);
+                    break;
+
+                case "--throttle":
+                    options.Throttle = Number(args, ref i, 0.0, 1.0);
+                    break;
+
+                case "--camera":
+                    options.Camera = Require(args, ref i);
                     break;
 
                 case "--lineup":

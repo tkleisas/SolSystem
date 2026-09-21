@@ -784,6 +784,71 @@ the physics asks for rather than at the size that looks good.
 
 ---
 
+## 6.6 Navigation lights — [DECIDED]
+
+**THE CYGNUS CONVENTION.** Red to port, green to starboard, **two white on the dorsal surface**,
+**one yellow on the ventral**. All of them flash.
+
+| Position | Colour | Count | Behaviour |
+|---|---|---|---|
+| Port | Red | one per station along the hull | flashing, ~1 Hz |
+| Starboard | Green | one per station along the hull | flashing, ~1 Hz |
+| **Dorsal** (roof) | **White** | **two** | flashing, ~1 Hz |
+| **Ventral** (floor) | **Yellow** | **one** | flashing, ~1 Hz |
+| Anti-collision | White | dorsal and ventral | strobe, much faster and shorter |
+
+### Why not the maritime scheme
+
+A boat carries red to port, green to starboard and white fore and aft, and that is sufficient
+**because the sea is a plane and gravity keeps every hull in it the right way up**. Neither is true
+here. A spacecraft can be inverted, rolled, or approaching along an axis that has nothing to do with
+yours, and red-and-green alone leaves the single most important question unanswered: *which way is
+that thing's roof pointing*.
+
+### Where the convention comes from
+
+It is real, and it is flown. [ORBITEC developed the first LED navigation system for a
+spacecraft](https://en.wikipedia.org/wiki/Navigation_light) in 2011, and it is on **Cygnus**, the
+cargo vehicle that flies to the ISS:
+
+> The Cygnus displays a flashing red light on the port side of the vessel, a flashing green on the
+> starboard side of the vessel, two flashing white lights on the top and one flashing yellow on the
+> bottom side of the fuselage.
+
+SpaceX's **Dragon** carries red and green plus a white strobe. This project uses the Cygnus scheme
+unaltered.
+
+### The count is the message
+
+Two white above and **one** yellow below, and the asymmetry is the whole mechanism. A pilot who can
+see two lights knows they are looking at the roof; one light means underneath. **That works even
+when the colours do not** — washed out by glare, or seen by the roughly one man in twelve who cannot
+separate red from green. A scheme that depends on colour alone fails for those pilots and this one
+does not.
+
+### Why everything flashes
+
+A steady white lamp at four hundred metres is a star. A flashing one is unambiguously artificial,
+which is the entire job of a navigation light: to be picked out from the sky behind it. The strobes
+are much faster and much shorter than the position lights, which is what makes them read as strobes
+rather than as lamps.
+
+### Implementation
+
+- **The materials are the contract**, not the node names: `IlluminusNavRed`, `IlluminusNavGreen`,
+  `IlluminusNavWhite`, `IlluminusNavYellow`, `IlluminusStrobe`. The lamps are joined into the hull
+  mesh, so one glTF node carries one primitive per material and the individual lamp names are gone.
+  The client keys the flash schedule off the material name for that reason —
+  `SolSystem.Client/NavigationLight.cs`.
+- **The schedule is deterministic**, driven by simulated time rather than the wall clock, so two
+  renders of the same frame are the same image. The headless renderer advances a fixed 1/60 s per
+  frame and `--frames N` therefore renders the exact instant `N/60`.
+- **A new hull must carry all five.** A ship without them is a ship another pilot cannot identify,
+  and the readout on the flight display counts how many are lit so that a missing set is visible
+  rather than silent.
+
+---
+
 ## 7. Time
 
 **[DECIDED] One clock, one tick rate, variable compression.** The simulation ticks

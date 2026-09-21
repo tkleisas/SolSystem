@@ -69,6 +69,22 @@ it lives in the simulation.
 
 Preview charts are in `art/previews/sky/`.
 
+## Navigation lights
+
+Every hull carries the **Cygnus** navigation light set: flashing red to port, flashing green to
+starboard, **two** flashing white dorsal, **one** flashing yellow ventral, plus anti-collision
+strobes. The full convention, its source and its reasoning are in `DESIGN.md` §6.6.
+
+What matters for the pipeline:
+
+  - **The materials are the contract**: `IlluminusNavRed` / `NavGreen` / `NavWhite` / `NavYellow` /
+    `Strobe`. The lamps get joined into the hull mesh, so the glTF has one node and the individual
+    lamp names are lost — the client keys its flash schedule off the *material* name for exactly
+    that reason.
+  - **Two white above, one yellow below.** The count is the message and it survives bad colour
+    vision and glare. Do not "balance" it.
+  - **Everything flashes.** A steady lamp at four hundred metres is a star.
+
 ## `blender/stations/`
 
 ```sh

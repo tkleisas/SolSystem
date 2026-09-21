@@ -168,10 +168,25 @@ internal sealed class SkyRenderer : IDisposable
     /// and a star's angular radius is its linear radius over the shell radius, converted to pixels
     /// through the same <c>tan θ</c>.
     /// </remarks>
-    internal void DrawStars(FlightSession session, float fieldOfViewDegrees)
+    /// <summary>
+    /// Projects every visible star and queues its sprite, as seen by one camera.
+    /// </summary>
+    /// <param name="session">Where the observer is: parallax and aberration need the position.</param>
+    /// <param name="forward">The direction the CAMERA is looking, not the direction the ship faces.</param>
+    /// <param name="up">The camera's up.</param>
+    /// <param name="fieldOfViewDegrees">Vertical field of view.</param>
+    /// <remarks>
+    /// <b>The camera's basis and the ship's are not the same thing, and passing the ship's was a
+    /// bug.</b> A star is projected through the camera that is actually rendering, so when the view
+    /// became a chase camera the stars kept being placed for a camera looking down the ship's nose —
+    /// which is a different direction entirely. The result was a sky with its stars in the wrong
+    /// place: mostly empty, with no way to tell that anything was wrong except that space looked
+    /// unusually dark. The Milky Way, which goes through the view matrix, was correct throughout,
+    /// which is exactly the kind of half-right that takes a while to notice.
+    /// </remarks>
+    internal void DrawStars(FlightSession session, Fix128Vec forward, Fix128Vec up,
+        float fieldOfViewDegrees)
     {
-        Fix128Vec forward = session.Forward;
-        Fix128Vec up = session.Up;
         Fix128Vec right = FlightSession.Cross(forward, up).Normalized();
 
         Vector3 f = Unit(forward);

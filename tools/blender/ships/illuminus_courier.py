@@ -38,7 +38,7 @@ import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
     apply_transform, asset_paths, bevel, box, cylinder, export_blend, export_glb,
     join, lathe, link, material, collection, render_views, reset,
-    ring_of, shade_smooth_by_angle, torus,
+    ring_of, shade_smooth_by_angle, sphere, torus,
 )
 
 NAME = "illuminus_courier"
@@ -114,6 +114,53 @@ def build_materials():
         emission=(0.40, 0.085, 0.03), emission_strength=0.55)
     MATERIALS["nozzle"] = material(
         "IlluminusNozzle", (0.26, 0.27, 0.30), metallic=0.7, roughness=0.32)
+    # ---------------------------------------------------------------- navigation lights
+    #
+    # THE CYGNUS CONVENTION. Written up in full in DESIGN.md section 6.6 — read that
+    # before changing anything here, and carry all five lights onto any new hull.
+    #
+    # A boat carries red to port, green to starboard and white fore and aft, and that is
+    # enough at sea because the sea is a plane and gravity keeps every hull in it the right
+    # way up. Neither is true in space. A spacecraft can be inverted or rolled, and
+    # red-and-green alone leaves the most important question unanswered: which way is that
+    # thing's roof pointing.
+    #
+    # The convention that answers it was developed by ORBITEC for the Cygnus cargo vehicle
+    # in 2011 and is the first LED navigation system flown on a spacecraft. Cygnus carries:
+    #
+    #     PORT        one flashing RED
+    #     STARBOARD   one flashing GREEN
+    #     DORSAL      TWO flashing WHITE
+    #     VENTRAL     ONE flashing YELLOW
+    #
+    # Two white above and one yellow below, and the COUNT is the point. A pilot who can see
+    # two lights knows they are on top of the ship and one means underneath, and that works
+    # even if the colours are washed out or the observer is colour-blind -- which matters,
+    # because about one man in twelve is. SpaceX's Dragon carries the same red and green
+    # plus a white strobe.
+    #
+    # This is the scheme used here, unaltered. A hull 55 m long carries its reds and greens
+    # in pairs so that its LENGTH reads as well as its heading; the two whites and the single
+    # yellow are left exactly as the convention specifies, because the count is the message.
+    MATERIALS["nav_red"] = material(
+        "IlluminusNavRed", (0.55, 0.02, 0.02), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.04, 0.03), emission_strength=1.0)
+    MATERIALS["nav_green"] = material(
+        "IlluminusNavGreen", (0.02, 0.50, 0.06), metallic=0.0, roughness=0.35,
+        emission=(0.05, 1.0, 0.12), emission_strength=1.0)
+    MATERIALS["nav_white"] = material(
+        "IlluminusNavWhite", (0.70, 0.70, 0.68), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.98, 0.92), emission_strength=1.0)
+    MATERIALS["nav_yellow"] = material(
+        "IlluminusNavYellow", (0.62, 0.50, 0.02), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.78, 0.05), emission_strength=1.0)
+
+    # The anti-collision strobe, which Dragon carries alongside its red and green. Much
+    # brighter than the rest and meant to be seen before anything else.
+    MATERIALS["strobe"] = material(
+        "IlluminusStrobe", (0.85, 0.85, 0.85), metallic=0.0, roughness=0.30,
+        emission=(1.0, 1.0, 1.0), emission_strength=1.0)
+
     MATERIALS["glow"] = material(
         "IlluminusPlume", (0.35, 0.62, 0.95), metallic=0.0, roughness=0.4,
         emission=(0.35, 0.62, 0.95), emission_strength=4.0)
@@ -195,6 +242,56 @@ def build_rings(col):
     link(band, col)
     rings.append(band)
     return rings
+
+
+def build_navigation_lights(col):
+    """
+    The navigation lights, to the Cygnus convention. See the note over the materials.
+
+    Each is a dark housing with a lens in it, because an emissive patch with nothing around
+    it reads as a texture error and a lens in a fitting reads as a lamp. They are all named,
+    because the client FLASHES them — every light in the convention flashes, and a steady
+    one is not the convention.
+    """
+    lights = []
+
+    def lamp(name, key, location, radius=0.36):
+        housing = sphere(f"{name}_Housing", radius=radius * 1.6, location=location,
+                         segments=16, rings=8)
+        assign(housing, "dark")
+        link(housing, col)
+
+        lens = sphere(name, radius=radius, location=location, segments=16, rings=8)
+        assign(lens, key)
+        link(lens, col)
+
+        lights.append(housing)
+        lights.append(lens)
+        return lens
+
+    # PORT: red. FORWARD and AFT on the beam, so the hull's length reads as well as its
+    # heading — one light on a 55 m hull says which side you are on and nothing about how
+    # much ship there is.
+    lamp("NavPort", "nav_red", (0.0, -(HULL_RADIUS + 0.4), 33.0))
+    lamp("NavPortAft", "nav_red", (0.0, -(HULL_RADIUS + 0.4), 9.0))
+
+    # STARBOARD: green, the same two stations.
+    lamp("NavStarboard", "nav_green", (0.0, HULL_RADIUS + 0.4, 33.0))
+    lamp("NavStarboardAft", "nav_green", (0.0, HULL_RADIUS + 0.4, 9.0))
+
+    # DORSAL: TWO white. The count is the message, so there are exactly two and they are
+    # both on the roof.
+    lamp("NavDorsalFore", "nav_white", (HULL_RADIUS + 0.4, 0.0, 34.0))
+    lamp("NavDorsalAft", "nav_white", (HULL_RADIUS + 0.4, 0.0, 12.0))
+
+    # VENTRAL: ONE yellow. Not two. That asymmetry with the roof is the whole mechanism.
+    lamp("NavVentral", "nav_yellow", (-(HULL_RADIUS + 0.4), 0.0, 23.0), radius=0.42)
+
+    # The anti-collision strobes, dorsal and ventral, as far apart as the hull allows.
+    lamp("StrobeDorsal", "strobe", (HULL_RADIUS + 0.6, 0.0, 45.0), radius=0.30)
+    lamp("StrobeVentral", "strobe", (-(HULL_RADIUS + 0.6), 0.0, 45.0), radius=0.30)
+
+    return lights
 
 
 def build_windows(col):
@@ -414,9 +511,10 @@ def main():
     skirt = build_engine_bay(col)
     nozzles = build_nozzles(col)
     radiators = build_radiators(col)
+    lights = build_navigation_lights(col)
 
     # Fixed parts into one mesh; the radiators stay separate because they move.
-    hull_parts = join("IlluminusCourier_Hull", [hull] + rings + windows + [skirt])
+    hull_parts = join("IlluminusCourier_Hull", [hull] + rings + windows + [skirt] + lights)
     drive = join("IlluminusCourier_Drive", nozzles)
     panels = join("IlluminusCourier_Radiators", radiators)
 

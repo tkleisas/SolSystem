@@ -67,9 +67,23 @@ internal sealed class FlightGame : Game
     private SpriteBatch _sprites = null!;
     private Texture2D _pixel = null!;
     private SpriteFont _hud = null!;
+    private readonly Camera _camera = new();
+    private Plume _plume = null!;
+    private MouseState _previousMouse;
 
     /// <summary>One navigation tick: 120 Hz, the rate the whole local frame was written for.</summary>
     private const double TickSeconds = 1.0 / 120.0;
+
+    /// <summary>
+    /// The step a headless render advances the clock by, so that frame N is at N/60 of a second.
+    /// </summary>
+    /// <remarks>
+    /// Headless mode skips <see cref="Simulate"/> entirely, which was right for a still frame and
+    /// wrong for anything animated: the navigation lights are on a flash schedule, and with the
+    /// clock pinned at zero every frame showed every light lit. The readout said "5 lit" at frame 2,
+    /// frame 40 and frame 90, which is three measurements of the same instant.
+    /// </remarks>
+    private const double ShotSeconds = 1.0 / 60.0;
 
     private KeyboardState _previousKeys;
     private double _simulatedSeconds;
@@ -118,6 +132,7 @@ internal sealed class FlightGame : Game
 
         _sun = new SunRenderer(GraphicsDevice, Content);
         _hulls = new HullRenderer(GraphicsDevice);
+        _plume = new Plume(GraphicsDevice, _sprites);
 
         string root = FlightSession.RepositoryRoot();
         _courier = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "ships",
@@ -130,8 +145,19 @@ internal sealed class FlightGame : Game
             "workers_freighter.glb"));
 
         Console.WriteLine($"  courier: {Largest(_courier):F0} m, {_courier.Parts.Count} parts");
+        if (_options.Verbose)
+        {
+            foreach (Hull.Part part in _courier.Parts)
+            {
+                Console.WriteLine($"    part {part.Name,-28} material {part.Material.Name,-24} "
+                    + $"emissive {part.Material.EmissiveFactor}");
+            }
+        }
         Console.WriteLine($"  meridian: {Largest(_station):F0} m, {_station.Parts.Count} parts");
         Console.WriteLine($"  freighter: {Largest(_freighter):F0} m, {_freighter.Parts.Count} parts");
+
+
+        _camera.Use(_options.Camera);
 
         // The player's ship starts on the station's docking corridor, co-orbiting with the station.
         //
@@ -151,6 +177,8 @@ internal sealed class FlightGame : Game
             _session.Station.Velocity,
             FacingAlong(-_session.Station.Port.Axis));
 
+        _flight.SetThrottle(_options.Throttle);
+
         // The body report is worth reading when a frame looks wrong, and noise otherwise, so it is
         // asked for rather than volunteered.
         if (_options.Headless && _options.Verbose)
@@ -167,13 +195,23 @@ internal sealed class FlightGame : Game
     protected override void Update(GameTime gameTime)
     {
         KeyboardState keys = Keyboard.GetState();
+        MouseState mouse = Mouse.GetState();
 
-        if (!_options.Headless)
+        if (_options.Headless)
         {
+            // No keyboard, and a fixed step, so that frame N is at N/60 of a second and two renders
+            // of the same frame are the same image.
+            _simulatedSeconds += ShotSeconds;
+            _session.Advance(ShotSeconds);
+        }
+        else
+        {
+            ReadCamera(keys, mouse, gameTime.ElapsedGameTime.TotalSeconds);
             Simulate(gameTime, keys);
         }
 
         _previousKeys = keys;
+        _previousMouse = mouse;
 
         // A bounded interactive run, for checking that the loop a player gets actually runs. It
         // goes through Update and Draw exactly as an unbounded one does; only the exit differs.
@@ -194,6 +232,37 @@ internal sealed class FlightGame : Game
     /// second, and holding the time-rate key runs it up to an hour a second, which is fast enough to
     /// watch the Sun come round.
     /// </remarks>
+    /// <summary>
+    /// The camera's own controls, which are separate from the ship's.
+    /// </summary>
+    /// <remarks>
+    /// Dragging with the left button orbits; the wheel zooms; <c>C</c> changes mode. Holding the
+    /// button rather than using raw mouse movement is deliberate — a space game where looking away
+    /// from the window spins the ship's view is a space game that cannot be paused by looking away
+    /// from it.
+    /// </remarks>
+    private void ReadCamera(KeyboardState keys, MouseState mouse, double seconds)
+    {
+        if (mouse.LeftButton == ButtonState.Pressed
+            && _previousMouse.LeftButton == ButtonState.Pressed)
+        {
+            _camera.Look(mouse.X - _previousMouse.X, mouse.Y - _previousMouse.Y);
+        }
+
+        int notches = mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue;
+        if (notches != 0)
+        {
+            _camera.Zoom(notches / 120f);
+        }
+
+        if (JustPressed(keys, Keys.C))
+        {
+            _camera.Next();
+        }
+
+        _ = seconds;
+    }
+
     private void Simulate(GameTime gameTime, KeyboardState keys)
     {
         double rate = _options.TimeRate;
@@ -245,11 +314,15 @@ internal sealed class FlightGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        // A render target is needed both for the headless shot and for a bounded interactive run
-        // that was asked to save its last frame — the back buffer cannot be read back directly.
+        // A render target is needed both for a one-shot render and for a bounded run that was asked
+        // to save its last frame — the back buffer cannot be read back directly.
+        //
+        // The frame test is an EQUALITY, so the frame is saved exactly once. With `>=` the save
+        // happened on every frame from the trigger onwards, and a run that produced one image wrote
+        // it sixty times a second until it exited.
         RenderTarget2D? target = null;
-        bool saving = _options.Headless
-            || (_options.ShotPath is not null && _options.Frames > 0 && _frame >= _options.Frames - 1);
+        bool saving = _options.OneShot
+            || (_options.ShotPath is not null && _options.Frames > 0 && _frame == _options.Frames - 1);
 
         if (saving)
         {
@@ -279,8 +352,14 @@ internal sealed class FlightGame : Game
         // they can be drawn in this order without depth.
         _sky.DrawShell(view, projection);
 
+        // THE CAMERA IS BUILT ONCE AND USED FOR EVERYTHING. The star projection needs the same
+        // basis the view matrix was made from — the camera's, not the ship's — and building it twice
+        // is how the two drifted apart in the first place.
+        (Matrix nearView, Fix128Vec cameraForward, Fix128Vec cameraUp) =
+            _camera.Build(NoseVector(), DeckVector(), PortOffset());
+
         _sprites.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.AnisotropicClamp);
-        _sky.DrawStars(_session, FieldOfViewDegrees);
+        _sky.DrawStars(_session, cameraForward, cameraUp, FieldOfViewDegrees);
         _sprites.End();
 
         // Then the bodies, so a planet occults the stars behind it and the Earth occults everything.
@@ -322,13 +401,27 @@ internal sealed class FlightGame : Game
         }
         else
         {
-            _hulls.Draw(_courier, ShipTransform(), ChaseCamera(), close, sunDirection);
+            _hulls.Seconds = _simulatedSeconds;
+        _hulls.BeginFrame();
+        _hulls.Draw(_courier, ShipTransform(), nearView, close, sunDirection,
+            EarthDirection(), Earthshine());
 
             // The station, in the same metre-scale pass, positioned relative to the ship. This is the
             // frame that answers the only scale question that matters — whether the thing you are
             // flying looks right beside the thing you are flying to — and it is why the two are drawn
             // together rather than in separate passes at separate scales.
-            _hulls.Draw(_station, StationTransform(), ChaseCamera(), close, sunDirection);
+            // The station's lights are on the station's own clock, which is the same one.
+            _hulls.Draw(_station, StationTransform(), nearView, close, sunDirection,
+                EarthDirection(), Earthshine());
+        }
+
+        // The plume, in the same near pass as the hull, and after it so it draws over the engine
+        // bells rather than behind them.
+        if (!_options.Lineup)
+        {
+            _sprites.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.AnisotropicClamp);
+            _plume.Draw(nearView, close, NoseVector(), _flight.Throttle, 220f);
+            _sprites.End();
         }
 
         DrawHud();
@@ -339,7 +432,8 @@ internal sealed class FlightGame : Game
             Save(target, _options.ShotPath!);
             target.Dispose();
 
-            if (_options.Headless)
+            // A one-shot has nothing left to do; a bounded run does too, once it has its frame.
+            if (_options.ShotPath is not null)
             {
                 Exit();
             }
@@ -495,6 +589,19 @@ internal sealed class FlightGame : Game
         at.Y += Line;
 
         DrawThrottle(at, ink, dim);
+
+        // The controls, on screen, because a player who cannot find the camera has a simulation they
+        // can only watch. The first version of this client had one fixed view and said so nowhere.
+        at.Y += Line * 1.9f;
+        _sprites.DrawString(_hud, $"VIEW       {_camera.Describe()}", at, ink);
+        at.Y += Line;
+        _sprites.DrawString(_hud, "  C view   drag look   wheel zoom", at, dim);
+        at.Y += Line;
+        _sprites.DrawString(_hud, "  W/S throttle   A/D yaw   R/F pitch", at, dim);
+        at.Y += Line;
+        _sprites.DrawString(_hud, "  Q/E roll   Z/X full/cut   UP/DN time", at, dim);
+        at.Y += Line;
+        _sprites.DrawString(_hud, $"NAV LIGHTS {_hulls.LightsLit} lit of the convention", at, dim);
     }
 
     /// <summary>The throttle, as a bar, because a number is the wrong shape for a setting.</summary>
@@ -557,44 +664,45 @@ internal sealed class FlightGame : Game
     /// in hundreds of metres. The hull is fifty metres long, which at this scale is five hundredths
     /// of a unit — small enough that the near plane matters more than the position does.
     /// </remarks>
-    private Matrix ChaseCamera()
-    {
-        Vector3 nose = Unit(_flight.Ship.Attitude.Forward);
-        Vector3 up = Unit(_flight.Ship.Attitude.Rotate(
-            new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
-
-        // A chase camera built from the ship's own up as well as its forward, so that rolling the
-        // hull rolls the view with it. Anchoring it to a world axis instead makes a barrel roll look
-        // like the sky turning, which is disorienting in a way that is hard to attribute.
-        Vector3 eye = (-nose * ChaseDistance) + (up * ChaseLift);
-
-        // Aimed slightly ahead of the hull, which puts the ship low in the frame and the direction
-        // of travel in the middle of it — the same framing a racing game uses, for the same reason.
-        return Matrix.CreateLookAt(eye, nose * ChaseLead, up);
-    }
-
     /// <summary>
     /// Where the player's hull is and which way it points, in render space.
     /// </summary>
     /// <remarks>
-    /// The hull's own axes are its nose, its deck's up and the cross of the two, which is the frame
-    /// the models were built in — so this is the attitude rotated from the ship's frame into the
-    /// world's, and nothing else.
+    /// <para>
+    /// THE MODEL'S AXES ARE NOT THE SIMULATION'S, and this is the matrix that reconciles them. A hull
+    /// is modelled nose-up about Blender's +z, and the glTF exporter turns Blender's z-up into y-up —
+    /// so in the file the ship is long along <b>+Y</b>. The simulation's ship is a rotation vector
+    /// about +x, so its nose is its own +X.
+    /// </para>
+    /// <para>
+    /// The convention, fixed here and written down because every future asset depends on it:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>model <b>+Y</b> is the nose — Blender +z, the direction of travel</description></item>
+    /// <item><description>model <b>+X</b> is dorsal, the ship's up — Blender +x</description></item>
+    /// <item><description>model <b>+Z</b> is to port — Blender −y, because starboard is
+    /// <c>cross(nose, deck)</c> and that lands on Blender +y</description></item>
+    /// </list>
+    /// <para>
+    /// The first version of this put the nose on the model's +X, which is its eleven-metre beam. The
+    /// ship flew <b>sideways</b>: sixty-seven metres of hull presented broadside to the direction of
+    /// travel, and a rotation about its own nose that rolled it rather than turning it.
+    /// </para>
     /// </remarks>
     private Matrix ShipTransform()
     {
         Attitude attitude = _flight.Ship.Attitude;
 
         Vector3 nose = Unit(attitude.Forward);
-        Vector3 up = Unit(attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
-        Vector3 side = Unit(attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.One, Fix128.Zero)));
+        Vector3 deck = Unit(attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
 
-        // The hull sits at the origin of its own pass: the camera goes to it rather than it coming
-        // to the camera, which keeps a fifty-metre ship at a scale a float resolves.
+        // Model +Z is to port, and port is the negative of starboard.
+        Vector3 port = Vector3.Cross(deck, nose);
+
         return new Matrix(
+            deck.X, deck.Y, deck.Z, 0f,
             nose.X, nose.Y, nose.Z, 0f,
-            side.X, side.Y, side.Z, 0f,
-            up.X, up.Y, up.Z, 0f,
+            port.X, port.Y, port.Z, 0f,
             0f, 0f, 0f, 1f);
     }
 
@@ -622,7 +730,7 @@ internal sealed class FlightGame : Game
         Vector3 side = Vector3.Normalize(Vector3.Cross(forward, seed));
         Vector3 up = Vector3.Cross(side, forward);
 
-        Vector3 offset = Unit(_session.Station.Port.Position - _flight.Ship.Position);
+        Vector3 offset = PortOffset();
 
         return new Matrix(
             side.X, side.Y, side.Z, 0f,
@@ -635,16 +743,14 @@ internal sealed class FlightGame : Game
     /// Every asset, at its true size, side by side.
     /// </summary>
     /// <remarks>
-    /// Laid out nose to tail along the view's right axis and all at the same distance from the
-    /// camera, which is the only arrangement in which relative size is readable. The separation is
-    /// half the largest asset, so nothing overlaps and the gaps are obviously gaps.
+    /// Laid out along the view's right axis and all at the same distance from the camera, which is
+    /// the only arrangement in which relative size is readable.
     /// </remarks>
     private void DrawLineup(Matrix projection, Vector3 sunDirection)
     {
-        Vector3 nose = Unit(_flight.Ship.Attitude.Forward);
-        Vector3 up = Unit(_flight.Ship.Attitude.Rotate(
-            new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
-        Vector3 right = Vector3.Normalize(Vector3.Cross(nose, up));
+        Vector3 nose = NoseVector();
+        Vector3 deck = DeckVector();
+        Vector3 right = Vector3.Normalize(Vector3.Cross(nose, deck));
 
         (Hull Hull, string Name)[] assets =
         [
@@ -654,12 +760,10 @@ internal sealed class FlightGame : Game
         ];
 
         // EVERY MODEL IS LONG ALONG ITS OWN +Y, so the lineup rotation is the one that puts the
-        // model's +Y on the screen's right axis — which makes every asset broadside to the camera
-        // and measured along the same direction. None is foreshortened into looking smaller.
-        //
-        // The first version used CreateRotationY(90 degrees), which is a rotation ABOUT y and
-        // therefore leaves y exactly where it was: every asset stayed pointed at the sky and the
-        // whole row rendered edge-on as a set of vertical slivers.
+        // model's +Y on the screen's right axis — which makes every asset broadside to the camera and
+        // measured along the same direction. The first version used CreateRotationY(90 degrees),
+        // which is a rotation ABOUT y and therefore leaves y exactly where it was: every asset stayed
+        // pointed at the sky and the whole row rendered edge-on as a set of vertical slivers.
         Vector3 row0 = -nose;
         Vector3 row1 = right;
         Vector3 row2 = Vector3.Cross(row0, row1);
@@ -673,29 +777,96 @@ internal sealed class FlightGame : Game
         const float Gap = 120f;
         float span = assets.Sum(a => Largest(a.Hull)) + (Gap * (assets.Length - 1));
 
-        // The camera goes far enough back to hold the whole row. Derived from the span rather than
-        // fixed, because the span went from 700 m to 2 800 m when the station was rescaled and a
-        // fixed distance silently framed two thirds of it.
+        // The camera goes far enough back to hold the whole row, derived from the span rather than
+        // fixed: the span went from 700 m to 2 800 m when the station was rescaled, and a fixed
+        // distance silently framed two thirds of it.
         float distance = span * 0.85f;
-
-        // Centred: the row is built outward from the middle so that the largest thing, which is the
-        // one being judged, sits on the axis.
         float at = -span * 0.5f;
+
+        Matrix view = _camera.Build(nose, deck, new Vector3(0f, 0f, -distance)).View;
 
         foreach ((Hull hull, string name) in assets)
         {
             float size = Largest(hull);
             Vector3 centre = (nose * distance) + (right * (at + (size * 0.5f)));
 
-            _hulls.Draw(hull, facing * Matrix.CreateTranslation(centre), ChaseCamera(), projection,
-                sunDirection);
+            _hulls.Draw(hull, facing * Matrix.CreateTranslation(centre), view, projection,
+                sunDirection, Vector3.Zero, 0f);
 
-            Console.WriteLine($"  lineup: {name,-10} {size,7:F0} m wide, centred at {at + (size * 0.5f),8:F0} m");
+            Console.WriteLine(
+                $"  lineup: {name,-10} {size,7:F0} m wide, centred at {at + (size * 0.5f),8:F0} m");
+
             at += size + Gap;
         }
 
         Console.WriteLine($"  lineup: span {span:F0} m, camera at {distance:F0} m");
     }
+
+    /// <summary>
+    /// The direction from the ship to the Earth, in the near pass's frame.
+    /// </summary>
+    /// <remarks>
+    /// The negative of the ship's own position, because the local frame's origin is the centre of the
+    /// Earth. That is the same fact that made the gravity source simple and it makes this simple too.
+    /// </remarks>
+    private Vector3 EarthDirection()
+    {
+        Fix128Vec position = _flight.Ship.Position;
+        if (position.IsZero)
+        {
+            return Vector3.Zero;
+        }
+
+        return -Vector3.Normalize(Unit(position));
+    }
+
+    /// <summary>
+    /// How much light the Earth throws back onto the ship, from 0 to 1.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The Bond albedo of the Earth is 0.306, and the fraction of sky the planet fills is the solid
+    /// angle it subtends over 4π. Close in, the Earth fills nearly a hemisphere and the figure is
+    /// half the albedo; from the Moon it is nothing.
+    /// </para>
+    /// <para>
+    /// <c>sin θ = R / d</c> for the planet's angular radius θ, so the fraction of sky is
+    /// <c>(1 − cos θ)/2</c> and the whole thing is one line. It gives 0.14 at four hundred kilometres
+    /// and 0.0002 at the Moon, which is the right shape and the right magnitudes.
+    /// </para>
+    /// </remarks>
+    private float Earthshine()
+    {
+        const double EarthRadiusKm = 6_378.1;
+        const double BondAlbedo = 0.306;
+
+        double distanceKm = _flight.Ship.Position.Length.ToDouble() / 1000.0;
+        if (distanceKm <= EarthRadiusKm)
+        {
+            return 0f;
+        }
+
+        double sinTheta = EarthRadiusKm / distanceKm;
+        if (sinTheta <= 0.0)
+        {
+            return 0f;
+        }
+
+        double cosTheta = Math.Sqrt(Math.Max(0.0, 1.0 - (sinTheta * sinTheta)));
+        double skyFraction = (1.0 - cosTheta) * 0.5;
+
+        return (float)(BondAlbedo * skyFraction);
+    }
+
+    /// <summary>The hull's nose, as a unit vector in the ecliptic frame.</summary>
+    private Vector3 NoseVector() => Unit(_flight.Ship.Attitude.Forward);
+
+    /// <summary>The hull's roof, as a unit vector in the ecliptic frame.</summary>
+    private Vector3 DeckVector() => Unit(_flight.Ship.Attitude.Rotate(
+        new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
+
+    /// <summary>Where the station's docking port is, in metres, relative to the hull.</summary>
+    private Vector3 PortOffset() => Unit(_session.Station.Port.Position - _flight.Ship.Position);
 
     /// <summary>The longest dimension of a hull, in metres.</summary>
     private static float Largest(Hull hull) =>
@@ -712,7 +883,7 @@ internal sealed class FlightGame : Game
     private static Vector3 Unit(Fix128Vec v) => new(
         (float)v.X.ToDouble(), (float)v.Y.ToDouble(), (float)v.Z.ToDouble());
 
-    private static void Save(Texture2D texture, string path)
+    private void Save(Texture2D texture, string path)
     {
         string full = Path.IsPathRooted(path) ? path : Path.Combine(AppContext.BaseDirectory, path);
         string? directory = Path.GetDirectoryName(full);
@@ -725,6 +896,11 @@ internal sealed class FlightGame : Game
         using FileStream stream = File.Create(full);
         texture.SaveAsPng(stream, texture.Width, texture.Height);
         Console.WriteLine($"wrote {full} ({texture.Width}×{texture.Height})");
+        if (_options.Verbose)
+        {
+            Console.WriteLine($"  frame {_frame} at t = {_simulatedSeconds:F3} s, "
+                + $"nav lights lit {_hulls.LightsLit}");
+        }
     }
 
     protected override void UnloadContent()
@@ -733,6 +909,7 @@ internal sealed class FlightGame : Game
         _bodies.Dispose();
         _sun.Dispose();
         _hulls.Dispose();
+        _plume.Dispose();
         _courier.Dispose();
         _station.Dispose();
         _freighter.Dispose();
