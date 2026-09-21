@@ -911,13 +911,23 @@ transit time rather than being quoted from anywhere, and the test checks it.
 
 **A ship in low orbit cannot point at Mars and leave.** At four milligee the drive's thrust is
 **0.45 %** of the Earth's gravity at the station, so a vertical burn does not lift it; the ship
-falls. What a low-thrust ship does is thrust along its direction of travel and spiral out, which
-costs `(√2 − 1)·v_circular` — **3.18 km/s** from the station, a twentieth of the tanks — and takes
-**22.5 hours** of continuous full thrust.
+falls. What a low-thrust ship does is thrust along its direction of travel and spiral out.
 
-The chart says so, in those words, beside the courses. It is the first thing a new pilot should
-learn about the setting: leaving is not free, and the fast way out is not available from a
-standing start.
+**And the spiral costs two and a half times what an impulsive escape would, because of the Oberth
+effect.** An instantaneous prograde burn adds `v·dv` of specific energy per metre a second, and it
+does it at the highest speed the ship will ever have:
+
+| | Δv from the station | burn time at four milligee |
+|---|---|---|
+| Impulsive — `(√2−1)·v_circ` | **3.18 km/s** | 22.5 h — **14.6 orbits** |
+| Spiral — `v_circ` | **7.67 km/s** | 54.3 h |
+
+**The cheap one cannot be bought with a weak drive.** The impulsive burn would take fourteen and a
+half orbits, so there is no point in the orbit at which to deliver it; thrusting prograde is the
+spiral, and the spiral pays the spiral price. The chart quotes both, and says which applies.
+
+A finite-thrust escape lies between the two. This reports the limits rather than interpolating them,
+because an honest middle needs a low-thrust trajectory optimiser and this is not one.
 
 ### What is not built
 

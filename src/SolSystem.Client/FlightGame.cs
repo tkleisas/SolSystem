@@ -941,18 +941,26 @@ internal sealed class FlightGame : Game
 
             if (ratio < 1.0)
             {
-                (double escapeV, double escapeSeconds) = FlightPlan.Escape(
+                FlightPlan.EscapeCost escape = FlightPlan.Escape(
                     stationGmKm, shipRadiusKm, acceleration);
 
                 _sprites.DrawString(_hud,
                     $"IN A GRAVITY WELL: thrust is {ratio * 100:F1}% of local gravity",
                     at, warn);
                 at.Y += Line;
+
+                // Both prices, because they differ by a factor of two and a half and which one
+                // applies is a property of the drive rather than of the destination.
                 _sprites.DrawString(_hud,
-                    $"  spiral out first: {escapeV / 1000.0:F2} km/s over "
-                    + $"{escapeSeconds / 3600.0:F1} hours of full thrust",
-                    at, warn);
+                    $"  spiral out first: {escape.SpiralDeltaV / 1000.0:F2} km/s over "
+                    + $"{escape.SpiralSeconds / 3600.0:F1} h", at, warn);
                 at.Y += Line;
+
+                _sprites.DrawString(_hud,
+                    $"  (an impulsive escape would be {escape.ImpulsiveDeltaV / 1000.0:F2} km/s, "
+                    + $"but that burn is {escape.Orbits:F0} orbits long)", at, dim);
+                at.Y += Line;
+
                 _sprites.DrawString(_hud,
                     "  a straight-line course cannot be flown from here", at, dim);
                 at.Y += Line * 1.4f;

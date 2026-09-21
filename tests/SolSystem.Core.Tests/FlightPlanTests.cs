@@ -201,4 +201,66 @@ public class FlightPlanTests
         Assert.True(Find(toVenus, "BALLISTIC").DeltaV < Find(toMars, "BALLISTIC").DeltaV);
         Assert.True(Find(toVenus, "DIRECT").Seconds < Find(toMars, "DIRECT").Seconds);
     }
+
+    [Fact]
+    public void TheEscapePrice_DependsOnHowFastTheDriveCanPayIt()
+    {
+        // The Oberth effect, and the reason a low-thrust ship cannot buy the cheap escape.
+        //
+        // At the station the Earth's gravity is 8.68 m/s2 and the drive makes 0.0393, so the ship
+        // cannot climb out by pointing up. It has to thrust along its direction of travel and spiral,
+        // and the spiral costs a full circular velocity rather than the 41 per cent an instantaneous
+        // burn would.
+        const double EarthGmKm = 398_600.4418;
+        const double RadiusKm = 6_778.0;
+        const double Acceleration = 5.5 / 140.0;
+
+        FlightPlan.EscapeCost escape = FlightPlan.Escape(EarthGmKm, RadiusKm, Acceleration);
+
+        double circular = Math.Sqrt(EarthGmKm / RadiusKm);      // km/s
+
+        _o.WriteLine($"circular speed       {circular:F3} km/s");
+        _o.WriteLine($"impulsive escape     {escape.ImpulsiveDeltaV / 1000.0:F2} km/s "
+            + $"= {(Math.Sqrt(2.0) - 1.0):F4} x v_circ");
+        _o.WriteLine($"spiral escape        {escape.SpiralDeltaV / 1000.0:F2} km/s = 1.0000 x v_circ");
+        _o.WriteLine($"the impulsive burn is {escape.Orbits:F1} orbits long, "
+            + $"and the spiral takes {escape.SpiralSeconds / 3600.0:F1} h");
+
+        // The two limits, each a closed form.
+        Assert.Equal((Math.Sqrt(2.0) - 1.0) * circular * 1000.0, escape.ImpulsiveDeltaV, 0);
+        Assert.Equal(circular * 1000.0, escape.SpiralDeltaV, 0);
+
+        // A factor of 2.41 apart, which is the whole question.
+        Assert.Equal(2.414, escape.SpiralDeltaV / escape.ImpulsiveDeltaV, 2);
+
+        // And this drive is nowhere near impulsive: the cheap burn is fourteen orbits long, so there
+        // is no point in the orbit at which to deliver it.
+        Assert.True(escape.IsSpiral);
+        Assert.InRange(escape.Orbits, 14.0, 15.0);
+    }
+
+    [Fact]
+    public void AStrongEnoughDrive_WouldPayTheImpulsivePrice()
+    {
+        // The same escape with a drive a hundred times stronger: still under two orbits, so the
+        // impulsive price starts to be available. The line is one orbit, and it is the burn duration
+        // against the orbital period rather than anything about the destination.
+        const double EarthGmKm = 398_600.4418;
+        const double RadiusKm = 6_778.0;
+
+        FlightPlan.EscapeCost weak = FlightPlan.Escape(EarthGmKm, RadiusKm, 5.5 / 140.0);
+        FlightPlan.EscapeCost strong = FlightPlan.Escape(EarthGmKm, RadiusKm, 5.5 / 1.4);
+        FlightPlan.EscapeCost absurd = FlightPlan.Escape(EarthGmKm, RadiusKm, 5.5 / 0.14);
+
+        _o.WriteLine($"4 milligee  -> {weak.Orbits,8:F2} orbits, spiral {weak.IsSpiral}");
+        _o.WriteLine($"0.4 g       -> {strong.Orbits,8:F2} orbits, spiral {strong.IsSpiral}");
+        _o.WriteLine($"4 g         -> {absurd.Orbits,8:F2} orbits, spiral {absurd.IsSpiral}");
+
+        Assert.True(weak.IsSpiral);
+        Assert.False(absurd.IsSpiral);
+
+        // The prices themselves never change -- only which one is reachable.
+        Assert.Equal(weak.ImpulsiveDeltaV, absurd.ImpulsiveDeltaV, 6);
+        Assert.Equal(weak.SpiralDeltaV, absurd.SpiralDeltaV, 6);
+    }
 }

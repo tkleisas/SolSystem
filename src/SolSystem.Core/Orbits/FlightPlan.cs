@@ -214,38 +214,74 @@ internal static class FlightPlan
     }
 
     /// <summary>
-    /// What it costs to climb out of a planet's gravity well before any course can begin.
+    /// What it costs to climb out of a gravity well, and how the cost depends on the drive.
+    /// </summary>
+    /// <param name="ImpulsiveDeltaV">The price if the burn could be instantaneous.</param>
+    /// <param name="SpiralDeltaV">The price for a slow tangential spiral.</param>
+    /// <param name="Orbits">How many orbits the impulsive burn would take at this thrust.</param>
+    /// <param name="SpiralSeconds">How long the spiral takes.</param>
+    internal readonly record struct EscapeCost(
+        double ImpulsiveDeltaV,
+        double SpiralDeltaV,
+        double Orbits,
+        double SpiralSeconds)
+    {
+        /// <summary>
+        /// Whether the drive is slow enough that the spiral price is the one it pays.
+        /// </summary>
+        /// <remarks>
+        /// A burn has to be short compared with an orbit to earn the impulsive price, and this asks
+        /// whether it is. One orbit is the line, and in practice a drive is well inside one regime or
+        /// the other — the interesting range is a factor of a hundred either side, not a factor of
+        /// two.
+        /// </remarks>
+        internal bool IsSpiral => Orbits > 1.0;
+    }
+
+    /// <summary>
+    /// What it costs to reach escape speed, which is NOT one number.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A ship in orbit cannot point at Mars and leave.</b> At four milligee the drive's thrust is
-    /// <b>0.45 per cent</b> of the Earth's gravity at low orbit, so a vertical burn does not lift it —
-    /// it falls. What a low-thrust ship does instead is thrust along its direction of travel and
-    /// spiral outward, raising its orbit until it reaches escape speed, and that is a different
-    /// manoeuvre from anything in this planner.
+    /// <b>The same escape costs 3.18 km/s or 7.67 km/s depending on how fast the drive can deliver
+    /// it, and this is the Oberth effect.</b> An instantaneous prograde burn at low orbit adds
+    /// <c>v·dv</c> of specific energy per metre a second, and it does it at the highest speed the ship
+    /// will ever have. Solving <c>v² + 2·v_c·Δv − v_c² = 0</c> gives <c>Δv = (√2 − 1)·v_c = 3.18</c>.
+    /// A slow spiral spends its metres a second at every radius from here to infinity, where the
+    /// speed is lower, and the energy accounting gives exactly <c>Δv = v_c = 7.67</c>.
     /// </para>
     /// <para>
-    /// The cost of the spiral is <c>(sqrt(2) − 1)·v_circular</c>, which at the station's altitude is
-    /// <b>3.18 km/s</b> — a twentieth of the tanks — and it takes <b>22.5 hours</b> of continuous
-    /// full thrust, because a low-thrust burn is slow by definition.
+    /// <b>The ratio is 2.41 and there is no way to buy the cheap one with a weak drive.</b> The
+    /// impulsive burn would take 22.5 hours at four milligee — <b>fourteen and a half orbits</b> — so
+    /// there is no point in the orbit at which to deliver it. Thrusting prograde is the spiral, and
+    /// the spiral pays the spiral price.
     /// </para>
     /// <para>
-    /// This is returnable so that a chart can say so rather than offering a course the ship cannot
-    /// fly. The first version of the chart offered Mars at 63 days and the ship would have fallen
-    /// out of the sky.
+    /// A finite-thrust escape lies between the two limits. This reports both and says which regime
+    /// the drive is in, rather than interpolating: the honest middle needs a low-thrust trajectory
+    /// optimiser and this is not one.
     /// </para>
     /// </remarks>
-    internal static (double DeltaV, double Seconds) Escape(
-        double centralGmKm, double radiusKm, double acceleration)
+    internal static EscapeCost Escape(double centralGmKm, double radiusKm, double acceleration)
     {
         if (radiusKm <= 0.0 || acceleration <= 0.0)
         {
-            return (double.PositiveInfinity, double.PositiveInfinity);
+            return new EscapeCost(double.PositiveInfinity, double.PositiveInfinity, 0.0,
+                double.PositiveInfinity);
         }
 
-        double circular = Math.Sqrt(centralGmKm / radiusKm);            // km/s
-        double deltaV = (Math.Sqrt(2.0) - 1.0) * circular * 1000.0;     // m/s
-        return (deltaV, deltaV / acceleration);
+        double circular = Math.Sqrt(centralGmKm / radiusKm) * 1000.0;      // m/s
+        double period = 2.0 * Math.PI * Math.Sqrt(
+            (radiusKm * radiusKm * radiusKm) / centralGmKm);               // s
+
+        double impulsive = (Math.Sqrt(2.0) - 1.0) * circular;
+        double spiral = circular;
+
+        return new EscapeCost(
+            impulsive,
+            spiral,
+            impulsive / acceleration / period,
+            spiral / acceleration);
     }
 
     /// <summary>

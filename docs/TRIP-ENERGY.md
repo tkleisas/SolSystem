@@ -1313,10 +1313,22 @@ coming back, which is exactly what §4.1 says the war is about. Ceres at 204 km/
 and Ceres is supposed to be the cheap source of volatiles; the cheap way there is the ballistic
 column, at 472 days.
 
-**The escape problem comes first.** A ship at the station is 6 778 km from the centre of the Earth,
-where gravity is 8.68 m/s². The drive produces 0.0393 m/s². **The thrust is 0.45 % of the weight.**
-No amount of delta-v makes a vertical burn work; the ship has to thrust along its velocity and spiral
-outward, which costs `(√2 − 1)·v_circular` — 3.18 km/s — and takes 22.5 hours at full throttle.
+**The escape problem comes first, and it costs more than it looks.** A ship at the station is
+6 778 km from the centre of the Earth, where gravity is 8.68 m/s². The drive produces 0.0393 m/s².
+**The thrust is 0.45 % of the weight**, so no amount of delta-v makes a vertical burn work: the ship
+thrusts along its velocity and spirals outward.
 
-Those 22.5 hours are also the answer to "why is there a station at all": it is cheaper to build the
-ship in orbit than to lift it, and cheaper still to leave from somewhere that has already paid.
+How much that costs depends on how fast the drive can pay it, and this is the **Oberth effect**:
+
+| | Δv | burn time | orbits |
+|---|---|---|---|
+| Impulsive, `(√2−1)·v_circ` | 3.18 km/s | 22.5 h | **14.6** |
+| Tangential spiral, `v_circ` | **7.67 km/s** | 54.3 h | 35 |
+
+**The impulsive price is not available to a four-milligee drive.** That burn is fourteen orbits long,
+so there is no point in the orbit at which to deliver it — and the tangential burn, which is what a
+low-thrust ship can actually do, spends its metres a second at every radius out to infinity where the
+speed is lower.
+
+The 7.67 km/s figure is also the answer to "why is there a station at all": leaving is expensive
+enough that it is worth building the ship where it already is.
