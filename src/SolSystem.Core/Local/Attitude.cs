@@ -26,6 +26,13 @@ namespace SolSystem.Core.Local;
 /// </remarks>
 internal struct Attitude
 {
+    /// <summary>
+    /// A hair, for the fold in <see cref="Step"/>. Large enough to survive the fixed-point
+    /// representation and small enough to be unobservable: a millionth of a radian is a
+    /// twentieth of an arc-second.
+    /// </summary>
+    private static readonly Fix128 Epsilon = Fix128.FromDouble(1.0 / 1_048_576.0);
+
     /// <summary>Axis scaled by angle in radians. Zero is "pointing along +x".</summary>
     internal Fix128Vec RotationVector;
 
@@ -78,14 +85,20 @@ internal struct Attitude
         // Keep the magnitude below pi so the axis-angle pair stays unique. Past a half turn
         // the same rotation has two representations and the axis would flip.
         //
-        // The fold has to take effect AT the limit and not only past it, and that is a real
-        // case rather than a boundary curiosity. A ship that has been told to reverse and has
-        // come exactly half way round sits at pi with the rotation still commanded the same
-        // way, so the next step wants 2pi and folds back to pi — a fixed point. The ship
-        // tumbles on the spot forever while the pilot waits for an alignment that will never
-        // come. Folding at the limit takes it to zero instead and the turn completes.
+        // The fold has to land STRICTLY INSIDE the limit, and that is a real case rather
+        // than a boundary curiosity. A ship told to reverse reaches exactly pi with the
+        // rotation still commanded the same way; the next step wants 2pi; a fold that maps
+        // that to pi puts the ship straight back where it was, and it tumbles on the spot
+        // forever while the pilot waits for an alignment that never comes. Folding to a hair
+        // under the limit instead leaves room for the next step to make progress, and the
+        // turn completes.
+        //
+        // Two versions of this were wrong before that was clear. Folding only when the angle
+        // exceeded the limit made the equality case terminal. Folding when it reached the
+        // limit made every case that hit the limit terminal, because the fold's own output
+        // satisfies the condition that triggered it.
         Fix128 angle = RotationVector.Length;
-        Fix128 limit = Pi;
+        Fix128 limit = Pi * (Fix128.One - Epsilon);
         if (angle >= limit)
         {
             RotationVector = RotationVector * (limit / angle);
