@@ -1,5 +1,5 @@
 """
-The Workers freighter — a working ship, and the shape the physics actually asks for.
+The Workers freighter — a working ship, in the Train pattern.
 
 Design language (§6.5 of DESIGN.md): utilitarian, function over form. Radiators where
 the heat is, tanks where the mass is, handrails where a person has to go. Asymmetric
@@ -8,13 +8,23 @@ rather than styled: patches, replacement panels, visible plumbing.
 
 The ancestry is Soviet and Chinese heavy engineering, which in practice means:
 
-  * Cross-axis symmetry only where the load is symmetric. The spine runs along the
-    top of the hull because that is where the truss is stiffest against thrust, not
-    because it is centred.
+  * ONE clear structure with the clutter subordinate to it. The failure mode of a
+    modular ship is "scaffolding" — all mess and no order — and Mir and the ISS work
+    visually because the truss is the order and everything else is clipped to it.
+    This hull is built the same way: one open lattice truss, and a manifest of
+    canisters, wings, a tug and an engine bolted to it in a row.
   * Every module is a separate object with a flange on each end. The ship looks
-    assembled because it IS assembled, and a yard can swap a tank without a dry dock.
+    assembled because it IS assembled, and a yard can swap a canister without a dry
+    dock.
   * Nothing is faired in. The plumbing is on the outside because putting it inside
     costs hull volume and makes it unrepairable.
+
+The composition, engine to nose: an engine frame with four nozzles, a hundred and
+thirty metres of open truss, a row of clipped canisters — three warning-striped
+propellant, the rest whatever the contract says — a Soyuz ball-and-cone crew tug at
+the front, and four radiator wings mounted perpendicular across the truss like the
+station arrays the design descends from. The wingspan is wider than the hull is
+long, which is what thirteen and a half thousand square metres of panel asks for.
 
 The radiator is the dominant feature, and that is not a stylistic choice. At a
 milligee the panels are 4.4 % of the ship; at four they are 17.7 %. A freighter that
@@ -36,7 +46,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
     apply_transform, asset_paths, box, collection, cylinder, export_blend, export_glb,
-    join, lathe, link, material, render_orthographic, render_preview, render_views, reset, ring_of,
+    join, lathe, link, material, render_views, reset, ring_of,
     shade_smooth_by_angle, sphere, torus,
 )
 
@@ -48,19 +58,12 @@ NAME = "workers_freighter"
 # comes from the same table and a module cannot drift off the end of the hull. A
 # freighter with a habitat floating two metres clear of its tanks is a modelling bug
 # that is invisible in a three-quarter view and obvious in an elevation.
-TANK_RADIUS = 6.0              # 12 m across
-TANK_LENGTH = 42.0
-TANK_COUNT = 3
-TANK_GAP = 1.2
-
-ENGINE_TOP = 6.0               # the engine block runs from 0 to here
-TANKS_BOTTOM = ENGINE_TOP + 0.8
-TANKS_TOP = TANKS_BOTTOM + TANK_COUNT * TANK_LENGTH + (TANK_COUNT - 1) * TANK_GAP
-HABITAT_BOTTOM = TANKS_TOP + 0.8
-HABITAT_LENGTH = 13.0
-HABITAT_TOP = HABITAT_BOTTOM + HABITAT_LENGTH
-DOCK_TOP = HABITAT_TOP + 1.4
-SPINE_LENGTH = HABITAT_TOP - ENGINE_TOP
+FRAME_TOP = 8.0                # the engine frame runs from 0 to here
+TRUSS_BOTTOM = FRAME_TOP
+TRUSS_TOP = 140.0
+TRUSS_HALF = 1.8               # the truss is 3.6 m square
+TUG_Z = 146.0                  # the crew ball's centre
+TUG_TOP = TUG_Z + 9.7          # collar face
 DRY_MASS_T = 6_500.0
 PROPELLANT_T = 2_400.0
 WET_MASS_T = DRY_MASS_T + PROPELLANT_T
@@ -74,8 +77,8 @@ EXHAUST_VELOCITY = 1_200_000.0
 #     a = 1.00 milligee -> 4.41 % of the ship, Jupiter in 185 days
 #     a = 0.26 milligee -> 1.15 %,             Jupiter in 363 days
 #
-# At 8 900 t, 0.26 milligee asks for 12 770 m2 and the eight panels below supply
-# 13 440. The panels are still the largest single thing on the hull, which is the
+# At 8 900 t, 0.26 milligee asks for 12 770 m2 and the four wings below supply
+# 13 728. The panels are still the largest single thing on the hull, which is the
 # honest picture of a fusion ship at any acceleration worth having.
 CRUISE_MILLIGEE = 0.26
 ACCELERATION = CRUISE_MILLIGEE / 1000.0 * 9.80665
@@ -84,16 +87,15 @@ RADIATOR_TEMPERATURE = 1500.0
 RADIATOR_EFFICIENCY = 0.65
 RADIATOR_AREAL_DENSITY = 8.0
 
-# Four panels large enough to matter, each on an outrigger so it stands clear of the
-# hull. Eight panels lying flat on the tanks would meet the same area and hide the
-# ship: a radiator is only useful if it can see the sky, and a model is only readable
-# if the hull it belongs to is visible.
+# Four wings mounted PERPENDICULAR to the truss, two cross-truss stations amidships.
+# Each wing runs 78 m out from the truss and 44 m along it, split into four blankets:
+# station practice and the physics agree, because a panel wants to be as far from the
+# hull and from its neighbours as the structure allows.
 RADIATOR_PANELS = 4
-PANEL_LENGTH = 78.0
-PANEL_WIDTH = 44.0
-PANEL_SPLAY_DEGREES = 35.0
+PANEL_ALONG = 44.0
+PANEL_ACROSS = 78.0
 PANEL_THICKNESS = 0.22
-PANEL_STANDOFF = 5.5   # metres from the tank surface to the panel
+WING_STATIONS = (62.0, 110.0)
 
 NOZZLES = 4
 
@@ -126,6 +128,41 @@ def build_materials():
         "WorkersWarning", (0.55, 0.32, 0.03), metallic=0.3, roughness=0.6)
     MATERIALS["window"] = material(
         "WorkersWindow", (0.02, 0.025, 0.035), metallic=0.4, roughness=0.15)
+
+    # ---------------------------------------------------------------- navigation lights
+    #
+    # THE CYGNUS CONVENTION, new for this hull. The freighter carried no navigation
+    # lights at all until now; the convention is written up in full in DESIGN.md
+    # section 6.6, and the short version is that the COUNT is the message:
+    #
+    #     PORT        flashing RED, in a pair so the hull's length reads
+    #     STARBOARD   flashing GREEN, the same pair
+    #     DORSAL      exactly TWO flashing WHITE
+    #     VENTRAL     exactly ONE flashing YELLOW
+    #
+    # Two white above and one yellow below answers "which way is that thing's roof
+    # pointing" even when the colours wash out. The client flashes everything named
+    # with Nav or Strobe, by schedule rather than by faction -- a steady light is not
+    # the convention.
+    MATERIALS["nav_red"] = material(
+        "WorkersNavRed", (0.55, 0.02, 0.02), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.04, 0.03), emission_strength=1.0)
+    MATERIALS["nav_green"] = material(
+        "WorkersNavGreen", (0.02, 0.50, 0.06), metallic=0.0, roughness=0.35,
+        emission=(0.05, 1.0, 0.12), emission_strength=1.0)
+    MATERIALS["nav_white"] = material(
+        "WorkersNavWhite", (0.70, 0.70, 0.68), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.98, 0.92), emission_strength=1.0)
+    MATERIALS["nav_yellow"] = material(
+        "WorkersNavYellow", (0.62, 0.50, 0.02), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.78, 0.05), emission_strength=1.0)
+
+    # The anti-collision strobe, which Dragon carries alongside its red and green. Much
+    # brighter than the rest and meant to be seen before anything else.
+    MATERIALS["strobe"] = material(
+        "WorkersStrobe", (0.85, 0.85, 0.85), metallic=0.0, roughness=0.30,
+        emission=(1.0, 1.0, 1.0), emission_strength=1.0)
+
     MATERIALS["glow"] = material(
         "WorkersPlume", (0.42, 0.68, 1.0), metallic=0.0, roughness=0.4,
         emission=(0.42, 0.68, 1.0), emission_strength=4.0)
@@ -136,345 +173,118 @@ def assign(obj, key):
     return obj
 
 
-# --------------------------------------------------------------------------- tanks
+# --------------------------------------------------------------------------- truss
 
 
-def build_tanks(col):
+def build_truss(col, name, z0, z1, half, step=8.0):
     """
-    Three pressure tanks on the axis, each with a flange at both ends.
-
-    A tank is a pressure vessel first and a container second, so it is a barrel with
-    domed ends rather than a cylinder with flat caps — and the domes are where the
-    mass is saved, which is why a real one looks like three sausages in a row.
-    """
-    tanks = []
-    z = TANKS_BOTTOM
-    for i in range(TANK_COUNT):
-        profile = [(0.0, 0.0)]
-        for j in range(9):
-            t = j / 8.0
-            profile.append((TANK_RADIUS * math.sin(t * math.pi / 2.0), t * 2.2))
-        profile.append((TANK_RADIUS, 2.2))
-        profile.append((TANK_RADIUS, TANK_LENGTH - 2.2))
-        for j in range(9):
-            t = j / 8.0
-            profile.append((TANK_RADIUS * math.cos(t * math.pi / 2.0), TANK_LENGTH - 2.2 + t * 2.2))
-
-        tank = lathe(f"Tank{i}", profile, segments=64, location=(0, 0, z))
-        assign(tank, "hull")
-        shade_smooth_by_angle(tank, math.radians(35))
-        link(tank, col)
-        tanks.append(tank)
-
-        # Flanges, so the assembly reads as bolted rather than grown.
-        for zz in (z + 1.4, z + TANK_LENGTH - 1.4):
-            flange = torus(f"Flange{i}_{zz:.0f}", TANK_RADIUS + 0.06, 0.16,
-                           location=(0, 0, zz), major_segments=64, minor_segments=10)
-            assign(flange, "structure")
-            link(flange, col)
-            tanks.append(flange)
-
-        z += TANK_LENGTH + TANK_GAP
-
-    return tanks
-
-
-def build_spine(col):
-    """
-    A truss along the top of the tanks, and the one asymmetry the ship is built around.
-
-    It runs at the top rather than through the middle because that is where a truss
-    can be continuous past the tanks without a joint, and because a freighter's cargo
-    handling happens underneath where the cranes are.
+    An open lattice box truss: four longerons, posts, and alternating diagonals on
+    every face. The one clear order everything else hangs off — a truss reads as
+    engineering rather than mess precisely because it repeats.
     """
     parts = []
-    length = TANKS_TOP - TANKS_BOTTOM
-    y = TANK_RADIUS + 1.4
-    base = TANKS_BOTTOM
+    length = z1 - z0
+    zc = (z0 + z1) / 2.0
 
-    # Two longerons and a run of vertical posts with diagonal bracing.
-    for x, key in ((-1.5, "structure"), (1.5, "structure")):
-        rail = box("Longeron", (0.35, 0.35, length),
-                   location=(x, y, base + length / 2.0))
-        assign(rail, key)
+    for x in (-half, half):
+        for y in (-half, half):
+            rail = box(f"{name}Longeron", (0.30, 0.30, length),
+                       location=(x, y, zc))
+            assign(rail, "structure")
+            link(rail, col)
+            parts.append(rail)
+
+    stations = int(length / step)
+    for i in range(stations + 1):
+        z = z0 + length * i / stations
+        for y in (-half, half):
+            post = box(f"{name}PostX", (2 * half, 0.24, 0.24),
+                       location=(0, y, z))
+            assign(post, "structure")
+            link(post, col)
+            parts.append(post)
+        for x in (-half, half):
+            post = box(f"{name}PostY", (0.24, 2 * half, 0.24),
+                       location=(x, 0, z))
+            assign(post, "structure")
+            link(post, col)
+            parts.append(post)
+
+    for i in range(stations):
+        za = z0 + length * i / stations
+        zb = z0 + length * (i + 1) / stations
+        dz = zb - za
+        span = 2 * half
+        diag_len = math.hypot(span, dz)
+        angle = math.atan2(dz, span)
+
+        for y in (-half, half):
+            d = box(f"{name}DiagX", (diag_len, 0.18, 0.18),
+                    location=(0, y, (za + zb) / 2.0),
+                    rotation=(0, -angle * (1 if i % 2 == 0 else -1), 0))
+            assign(d, "structure")
+            link(d, col)
+            parts.append(d)
+        for x in (-half, half):
+            d = box(f"{name}DiagY", (0.18, diag_len, 0.18),
+                    location=(x, 0, (za + zb) / 2.0),
+                    rotation=(angle * (1 if i % 2 == 0 else -1), 0, 0))
+            assign(d, "structure")
+            link(d, col)
+            parts.append(d)
+
+    return parts
+
+
+def build_handrails(col):
+    """
+    Handrails along two longerons, because a person has to get from the tug to the
+    engine with something to hold. A rail and its standoff posts, nothing more.
+    """
+    parts = []
+    for x, y in ((TRUSS_HALF + 0.18, 0.0), (0.0, TRUSS_HALF + 0.18)):
+        length = TRUSS_TOP - TRUSS_BOTTOM - 8.0
+        rail = box("Handrail", (0.08 if x else 0.5, 0.5 if x else 0.08, length),
+                   location=(x, y, (TRUSS_BOTTOM + TRUSS_TOP) / 2.0))
+        assign(rail, "plumbing")
         link(rail, col)
         parts.append(rail)
 
-    posts = 16
-    for i in range(posts + 1):
-        z = base + length * i / posts
-        post = box("Post", (3.0, 0.3, 0.3), location=(0, y, z))
-        assign(post, "structure")
-        link(post, col)
-        parts.append(post)
-
-    # Diagonals between posts, the thing that makes a truss read as a truss.
-    for i in range(posts):
-        z0 = base + length * i / posts
-        z1 = base + length * (i + 1) / posts
-        dz = z1 - z0
-        brace = box("Brace", (0.22, 0.22, math.hypot(3.0, dz)),
-                    location=(0, y, (z0 + z1) / 2.0),
-                    rotation=(0, math.atan2(3.0, dz) * (1 if i % 2 == 0 else -1), 0))
-        assign(brace, "structure")
-        link(brace, col)
-        parts.append(brace)
+        z = TRUSS_BOTTOM + 6.0
+        while z < TRUSS_TOP - 4.0:
+            post = box("HandrailPost", (0.5 if x else 0.06, 0.06 if x else 0.5, 0.06),
+                       location=(x - 0.15 if x else 0.0, y - 0.15 if y else 0.0, z))
+            assign(post, "plumbing")
+            link(post, col)
+            parts.append(post)
+            z += 6.0
 
     return parts
 
 
-def build_radiators(col):
-    """
-    Four panels on outriggers, splayed outward like wings.
-
-    Sized to the physics first and modelled second: at 0.26 milligee the thermal budget
-    asks for 12 770 m2 and four panels of 78 by 44 m give 13 728.
-
-    The splay is the design, and it is a radiator decision rather than a styling one.
-    A panel lying flat against the hull radiates into the hull; a panel standing off
-    parallel to it radiates into the next panel along, because a 78 m sheet beside a
-    78 m sheet at five metres' separation is mostly looking at its neighbour. Splaying
-    them outward at thirty-five degrees means every one of them can see open sky, which
-    is the only thing a radiator is for -- and it has the side effect of letting the
-    tanks be seen, which is what the ship is.
-    """
-    parts = []
-    per_side = RADIATOR_PANELS // 2
-    span = TANKS_TOP - TANKS_BOTTOM
-    splay = math.radians(35.0)
-
-    for side in (-1, 1):
-        for i in range(per_side):
-            z_centre = TANKS_BOTTOM + span * (i + 0.5) / per_side
-
-            # The panel's own frame: rotated about z so its width runs outward, then
-            # tilted about the ship's long axis so it lifts away from the hull.
-            rotation = (splay * side, 0.0, 0.0)
-            # A point on the panel's inner edge, out on the outrigger.
-            hinge = TANK_RADIUS + PANEL_STANDOFF
-            x = hinge * side
-
-            panel = box(f"Panel{side}{i}",
-                        (PANEL_WIDTH, PANEL_THICKNESS, PANEL_LENGTH),
-                        location=(x + PANEL_WIDTH / 2.0 * side * math.cos(splay),
-                                  0.0,
-                                  z_centre),
-                        rotation=rotation)
-            assign(panel, "radiator")
-            link(panel, col)
-            parts.append(panel)
-
-            # The outward half of the sheet, the hot end of the gradient.
-            hot = box(f"PanelHot{side}{i}",
-                      (PANEL_WIDTH * 0.5, PANEL_THICKNESS, PANEL_LENGTH),
-                      location=(x + PANEL_WIDTH * 0.75 * side * math.cos(splay),
-                                0.0,
-                                z_centre),
-                      rotation=rotation)
-            assign(hot, "radiator_hot")
-            link(hot, col)
-            parts.append(hot)
-
-            # Stiffeners, on the hull-facing edge where they cannot shade the sheet.
-            for j in range(5):
-                z = z_centre - PANEL_LENGTH / 2.0 + PANEL_LENGTH * (j + 0.5) / 5.0
-                rib = box(f"PanelRib{side}{i}{j}",
-                          (PANEL_WIDTH, PANEL_THICKNESS * 3.0, 0.6),
-                          location=(x + PANEL_WIDTH / 2.0 * side * math.cos(splay),
-                                    0.0, z),
-                          rotation=rotation)
-                assign(rib, "structure")
-                link(rib, col)
-                parts.append(rib)
-
-            # The outrigger: a spar from the tank out to the hinge, and a tie back to
-            # the hull, which is what keeps a 78 m wing from folding.
-            for z in (z_centre - PANEL_LENGTH / 2.0 + 4.0,
-                      z_centre + PANEL_LENGTH / 2.0 - 4.0):
-                spar = box(f"Spar{side}{i}{z:.0f}",
-                           (PANEL_STANDOFF, 0.7, 0.7),
-                           location=((TANK_RADIUS + PANEL_STANDOFF / 2.0) * side, 0.0, z))
-                assign(spar, "structure")
-                link(spar, col)
-                parts.append(spar)
-
-                tie = box(f"Tie{side}{i}{z:.0f}",
-                          (PANEL_STANDOFF * 1.6, 0.4, 0.4),
-                          location=((TANK_RADIUS + PANEL_STANDOFF * 0.6) * side,
-                                    0.0,
-                                    z + 3.4),
-                          rotation=(0.0, 0.0, 0.0))
-                assign(tie, "structure")
-                link(tie, col)
-                parts.append(tie)
-
-    return parts
+# --------------------------------------------------------------------------- drive
 
 
-def build_engine_block(col):
-    """
-    Four nozzles in a block, with the thrust structure that carries them into the spine.
+def build_engine(col):
+    """The back end of the train: a wider frame, a thrust plate, four nozzles."""
+    parts = build_truss(col, "EngineFrame", 0.0, FRAME_TOP, 3.0, step=4.0)
 
-    Clustered rather than spread over the base: a freighter is not trying to be
-    graceful, and four bells close together need one thrust frame instead of six.
-    """
-    parts = []
+    plate = box("ThrustPlate", (7.0, 7.0, 1.4), location=(0, 0, FRAME_TOP - 0.7))
+    assign(plate, "structure")
+    link(plate, col)
+    parts.append(plate)
 
-    block = lathe("EngineBlock", [
-        (TANK_RADIUS * 0.82, -3.6),
-        (TANK_RADIUS * 0.95, -1.8),
-        (TANK_RADIUS, 0.0),
-        (TANK_RADIUS, 2.4),
-    ], segments=64, location=(0, 0, ENGINE_TOP))
-    assign(block, "hull_new")
-    shade_smooth_by_angle(block, math.radians(34))
-    link(block, col)
-    parts.append(block)
-
-    for i, (x, y, _) in enumerate(ring_of(NOZZLES, 3.4, z=0.0)):
+    for i, (x, y, _) in enumerate(ring_of(NOZZLES, 2.8, z=0.0)):
         nozzle = lathe(f"Nozzle{i}", [
             (0.55, 0.0),
             (0.62, 0.5),
             (1.05, 2.4),
             (1.25, 3.6),
-        ], segments=36, location=(x, y, ENGINE_TOP - 4.6))
+        ], segments=36, location=(x, y, 2.0))
         assign(nozzle, "dark")
         shade_smooth_by_angle(nozzle, math.radians(40))
         link(nozzle, col)
         parts.append(nozzle)
-
-    # Thrust frame: the struts that take 4 MN and hand it to the tanks.
-    for i in range(8):
-        angle = 2.0 * math.pi * i / 8
-        x = TANK_RADIUS * 0.9 * math.cos(angle)
-        y = TANK_RADIUS * 0.9 * math.sin(angle)
-        strut = box(f"ThrustStrut{i}", (0.4, 0.4, 5.0),
-                    location=(x, y, ENGINE_TOP + 2.0),
-                    rotation=(math.atan2(y, x) * 0.0, 0.22, 0))
-        assign(strut, "structure")
-        link(strut, col)
-        parts.append(strut)
-
-    return parts
-
-
-# --------------------------------------------------------------------------- modules
-
-
-def build_habitat(col):
-    """
-    The crew module, forward of the tanks and as far from the drive as the hull allows.
-
-    A freighter's crew live next to their cargo, so the habitat is small, has windows
-    because people need them, and is mounted on the spine rather than faired into it.
-    """
-    parts = []
-
-    body = lathe("Habitat", [
-        (0.0, 0.0),
-        (3.2, 0.9),
-        (3.4, 2.4),
-        (3.4, HABITAT_LENGTH - 2.4),
-        (3.2, HABITAT_LENGTH - 0.9),
-        (0.0, HABITAT_LENGTH),
-    ], segments=48, location=(0, 0, HABITAT_BOTTOM))
-    assign(body, "hull")
-    shade_smooth_by_angle(body, math.radians(35))
-    link(body, col)
-    parts.append(body)
-
-    # A docking collar on the nose, which is how the freighter meets a station.
-    collar = torus("DockingCollar", 1.9, 0.35, location=(0, 0, DOCK_TOP - 0.7),
-                   major_segments=48, minor_segments=12)
-    assign(collar, "structure")
-    link(collar, col)
-    parts.append(collar)
-
-    hatch = cylinder("Hatch", 1.5, 0.5, location=(0, 0, DOCK_TOP - 0.35), vertices=32)
-    assign(hatch, "dark")
-    link(hatch, col)
-    parts.append(hatch)
-
-    # Windows. Eight, on one side only, because that is where the crew sit.
-    for i in range(8):
-        angle = -0.6 + i * 0.22
-        x = 3.42 * math.cos(angle)
-        y = 3.42 * math.sin(angle)
-        w = cylinder(f"Window{i}", 0.34, 0.12,
-                     location=(x, y, HABITAT_BOTTOM + HABITAT_LENGTH * 0.52),
-                     rotation=(math.pi / 2, 0, angle), vertices=20)
-        assign(w, "window")
-        link(w, col)
-        parts.append(w)
-
-    return parts
-
-
-def build_cargo(col):
-    """
-    Cargo and equipment boxes clamped to the underside of the spine.
-
-    Deliberately uneven: the boxes are different sizes and not sympathetically
-    arranged, because on a real ship they were added as they were needed.
-    """
-    parts = []
-    y = -(TANK_RADIUS + 1.9)
-    span = TANKS_TOP - TANKS_BOTTOM
-    sizes = [
-        (5.6, 3.4, 14.0, "hull", TANKS_BOTTOM + span * 0.10),
-        (4.2, 3.0, 9.0, "hull_new", TANKS_BOTTOM + span * 0.28),
-        (6.4, 3.8, 16.0, "hull", TANKS_BOTTOM + span * 0.48),
-        (3.6, 2.6, 7.0, "hull_new", TANKS_BOTTOM + span * 0.68),
-        (5.0, 3.2, 11.0, "hull", TANKS_BOTTOM + span * 0.86),
-    ]
-    for i, (w, h, length, key, z) in enumerate(sizes):
-        b = box(f"Cargo{i}", (w, h, length), location=(0, y, z))
-        assign(b, key)
-        link(b, col)
-        parts.append(b)
-
-        # A warning stripe on one box, because some of them are not cargo.
-        if i % 2 == 1:
-            stripe = box(f"Stripe{i}", (w * 1.02, 0.06, length * 0.16),
-                         location=(0, y - h / 2.0, z))
-            assign(stripe, "warning")
-            link(stripe, col)
-            parts.append(stripe)
-
-    return parts
-
-
-def build_plumbing(col):
-    """
-    Propellant lines and cable runs, on the outside where they can be reached.
-
-    This is the detail that separates the two factions' ships at a glance: the
-    Workers run their plumbing where a person can get at it with a wrench, and the
-    Illuminus do not have any visible.
-    """
-    parts = []
-    for i in range(6):
-        angle = 0.5 + i * 0.42
-        x = (TANK_RADIUS + 0.5) * math.cos(angle)
-        y = (TANK_RADIUS + 0.5) * math.sin(angle)
-
-        # A run along the tanks, as a series of straight segments between the barrels.
-        for j in range(TANK_COUNT):
-            z0 = TANKS_BOTTOM + j * (TANK_LENGTH + TANK_GAP) + 3.0
-            pipe = cylinder(f"Pipe{i}{j}", 0.22, TANK_LENGTH - 6.0,
-                            location=(x, y, z0 + (TANK_LENGTH - 6.0) / 2.0),
-                            vertices=12)
-            assign(pipe, "plumbing")
-            link(pipe, col)
-            parts.append(pipe)
-
-    # Two big feed lines from the tanks down to the engine block.
-    for x in (-2.2, 2.2):
-        feed = cylinder("Feed", 0.45, 12.0, location=(x, -TANK_RADIUS * 0.7, ENGINE_TOP),
-                        rotation=(0.35, 0, 0), vertices=16)
-        assign(feed, "plumbing")
-        link(feed, col)
-        parts.append(feed)
 
     return parts
 
@@ -493,10 +303,273 @@ def build_plume(col):
         (1.3, -3.0),
         (0.9, -8.0),
         (0.0, -14.0),
-    ], segments=36, location=(0, 0, ENGINE_TOP - 5.0))
+    ], segments=36, location=(0, 0, 0.0))
     assign(plume, "glow")
     link(plume, col)
     return plume
+
+
+# --------------------------------------------------------------------------- manifest
+
+
+def build_canisters(col):
+    """
+    The freight: canisters clipped in a row under the truss. Uneven sizes and
+    finishes, three of them propellant (warning-striped), the rest whatever the
+    contract says they are. Clips, not cradles — every canister is a swap, and two
+    of them carry replacement plates because nothing on this ship is one age.
+    """
+    manifest = [
+        # (radius, length, z centre, key, propellant?)
+        (3.2, 16.0, 18.0, "hull", False),
+        (4.5, 26.0, 40.0, "hull", True),
+        (3.2, 14.0, 60.0, "hull_new", False),
+        (4.5, 26.0, 78.0, "hull", True),
+        (3.6, 18.0, 98.0, "hull_new", False),
+        (4.5, 22.0, 118.0, "hull", True),
+        (3.2, 14.0, 131.0, "hull", False),
+    ]
+    parts = []
+    for i, (radius, length, z, key, propellant) in enumerate(manifest):
+        y = -(TRUSS_HALF + radius + 0.6)
+        body = cylinder(f"Canister{i}", radius, length,
+                        location=(0, y, z), vertices=40)
+        assign(body, key)
+        link(body, col)
+        parts.append(body)
+
+        for zz in (z - length / 2.0 + 1.0, z + length / 2.0 - 1.0):
+            flange = torus(f"CanFlange{i}{zz:.0f}", radius + 0.05, 0.12,
+                           location=(0, y, zz), major_segments=40, minor_segments=8)
+            assign(flange, "structure")
+            link(flange, col)
+            parts.append(flange)
+
+        # The clips: two straps per canister from the truss down round the barrel.
+        for dz in (-length * 0.28, length * 0.28):
+            clip = box(f"Clip{i}{dz:+.0f}", (0.3, 1.0, 1.2),
+                       location=(0, -(TRUSS_HALF + 0.5), z + dz))
+            assign(clip, "structure")
+            link(clip, col)
+            parts.append(clip)
+
+        if propellant:
+            stripe = cylinder(f"CanStripe{i}", radius + 0.06, 1.6,
+                              location=(0, y, z), vertices=40)
+            assign(stripe, "warning")
+            link(stripe, col)
+            parts.append(stripe)
+        elif i % 2 == 1:
+            # A replacement plate on every second cargo canister.
+            plate = box(f"CanPlate{i}", (0.08, radius * 1.1, length * 0.4),
+                        location=(radius * 0.7, y, z))
+            assign(plate, "hull_new")
+            link(plate, col)
+            parts.append(plate)
+
+    return parts
+
+
+def build_tug(col):
+    """
+    The crew tug: a Soyuz ball, a cone, a collar. Small, because the crew are
+    passengers on their own railroad and the freight is the ship.
+    """
+    parts = []
+
+    ball = sphere("TugBall", radius=3.4, location=(0, 0, TUG_Z),
+                  segments=40, rings=20)
+    assign(ball, "hull")
+    link(ball, col)
+    parts.append(ball)
+
+    cone = lathe("TugCone", [
+        (3.0, 0.0),
+        (2.6, 2.0),
+        (1.6, 5.5),
+        (1.4, 7.0),
+    ], segments=48, location=(0, 0, TUG_Z + 2.0))
+    assign(cone, "hull_new")
+    shade_smooth_by_angle(cone, math.radians(35))
+    link(cone, col)
+    parts.append(cone)
+
+    collar = torus("TugCollar", 1.4, 0.3, location=(0, 0, TUG_Z + 9.4),
+                   major_segments=40, minor_segments=10)
+    assign(collar, "structure")
+    link(collar, col)
+    parts.append(collar)
+
+    for i in range(4):
+        angle = 0.5 + i * 0.5
+        w = cylinder(f"TugWindow{i}", 0.26, 0.12,
+                     location=(3.42 * math.cos(angle), 3.42 * math.sin(angle),
+                               TUG_Z + 0.8),
+                     rotation=(math.pi / 2, 0, angle), vertices=20)
+        assign(w, "window")
+        link(w, col)
+        parts.append(w)
+
+    return parts
+
+
+# --------------------------------------------------------------------------- radiator
+
+
+def build_wing(col, station, z, side):
+    """
+    One radiator wing, deployed and fixed: a mast out from the cross truss, a sheet
+    78 m across and 44 m along, split into four blankets by seams, with a tie from
+    the wingtip back to the truss because 78 m of wing does not cantilever. Workers
+    do not stow: folding gear is mass, and mass is cargo.
+    """
+    parts = []
+
+    mast = box(f"WingMast{station}{side}",
+               (PANEL_ACROSS * 0.22, 0.5, 0.5),
+               location=(side * (13.0 + PANEL_ACROSS * 0.11), 0, z))
+    assign(mast, "structure")
+    link(mast, col)
+    parts.append(mast)
+
+    wing = box(f"Wing{station}{side}",
+               (PANEL_ACROSS, PANEL_THICKNESS, PANEL_ALONG),
+               location=(side * (13.0 + PANEL_ACROSS / 2.0), 0, z))
+    assign(wing, "radiator")
+    link(wing, col)
+    parts.append(wing)
+
+    # The hot outer half, as a thin skin PROUD of each face rather than a second
+    # slab inside the wing's volume: two coplanar surfaces fight, and the first
+    # version of this rendered hot-or-grey by face lottery.
+    for face in (-1, 1):
+        hot = box(f"WingHot{station}{side}{face:+d}",
+                  (PANEL_ACROSS * 0.55, 0.024, PANEL_ALONG),
+                  location=(side * (13.0 + PANEL_ACROSS * 0.72),
+                            face * (PANEL_THICKNESS / 2.0 + 0.012), z))
+        assign(hot, "radiator_hot")
+        link(hot, col)
+        parts.append(hot)
+
+    # Blanket divisions: the wing is four blankets, not one slab.
+    for j in range(1, 4):
+        seam = box(f"WingSeam{station}{side}{j}",
+                   (PANEL_ACROSS, PANEL_THICKNESS * 2.5, 0.5),
+                   location=(side * (13.0 + PANEL_ACROSS / 2.0), 0,
+                             z - PANEL_ALONG / 2.0 + PANEL_ALONG * j / 4.0))
+        assign(seam, "structure")
+        link(seam, col)
+        parts.append(seam)
+
+    # The wingtip tie: a diagonal from the tip back down to the truss.
+    tip_x = side * (13.0 + PANEL_ACROSS * 0.85)
+    run = abs(tip_x) - TRUSS_HALF
+    drop = 36.0
+    tie_len = math.hypot(run, drop)
+    tie = box(f"WingTie{station}{side}", (0.25, 0.25, tie_len),
+              location=((tip_x + side * TRUSS_HALF) / 2.0, 0, z - drop / 2.0),
+              rotation=(0.0, side * math.atan2(run, drop), 0.0))
+    assign(tie, "structure")
+    link(tie, col)
+    parts.append(tie)
+
+    return parts
+
+
+def build_radiators(col):
+    """
+    Four wings on two cross-truss stations amidships, perpendicular to the truss.
+    The wingspan is the widest thing about the ship, and that is the honest
+    silhouette of this much panel.
+    """
+    parts = []
+    for station, z in enumerate(WING_STATIONS):
+        bar = box(f"CrossTruss{station}", (26.0, 1.0, 1.0),
+                  location=(0, 0, z))
+        assign(bar, "structure")
+        link(bar, col)
+        parts.append(bar)
+
+        for side in (-1, 1):
+            parts.extend(build_wing(col, station, z, side))
+
+    return parts
+
+
+def build_plumbing(col):
+    """A pair of propellant mains down the truss, flanged at every bay."""
+    parts = []
+    for x in (-0.9, 0.9):
+        pipe = cylinder(f"Main{x:+.0f}", 0.22, TRUSS_TOP - TRUSS_BOTTOM,
+                        location=(x, 0, (TRUSS_BOTTOM + TRUSS_TOP) / 2.0),
+                        vertices=12)
+        assign(pipe, "plumbing")
+        link(pipe, col)
+        parts.append(pipe)
+
+        z = TRUSS_BOTTOM + 4.0
+        j = 0
+        while z < TRUSS_TOP - 2.0:
+            flange = torus(f"MainFlange{x:+.0f}{j}", 0.32, 0.09,
+                           location=(x, 0, z), major_segments=18, minor_segments=8)
+            assign(flange, "structure")
+            link(flange, col)
+            parts.append(flange)
+            z += 8.0
+            j += 1
+
+    return parts
+
+
+def build_navigation_lights(col):
+    """
+    The navigation lights, to the Cygnus convention — new for this hull, which
+    carried none until now. See the note over the materials. Each lamp is a dark
+    housing with a lens in it, because an emissive patch with nothing around it
+    reads as a texture error and a lens in a fitting reads as a lamp.
+    """
+    lights = []
+
+    def lamp(name, key, location, radius=0.36):
+        housing = sphere(f"{name}_Housing", radius=radius * 1.6, location=location,
+                         segments=16, rings=8)
+        assign(housing, "dark")
+        link(housing, col)
+
+        lens = sphere(name, radius=radius, location=location, segments=16, rings=8)
+        assign(lens, key)
+        link(lens, col)
+
+        lights.append(housing)
+        lights.append(lens)
+        return lens
+
+    # PORT: red, fore and aft, so the hull's length reads as well as its heading.
+    lamp("NavPort", "nav_red", (0.0, -3.8, TUG_Z))
+    lamp("NavPortAft", "nav_red", (0.0, -3.4, 4.0))
+
+    # STARBOARD: green, the same two stations.
+    lamp("NavStarboard", "nav_green", (0.0, 3.8, TUG_Z))
+    lamp("NavStarboardAft", "nav_green", (0.0, 3.4, 4.0))
+
+    # DORSAL: TWO white — one on the tug's roofline, one on a mast over the truss.
+    # The count is the message, so there are exactly two.
+    lamp("NavDorsalFore", "nav_white", (3.8, 0.0, TUG_Z + 1.0))
+    mast = box("DorsalMast", (0.3, 0.3, 2.2),
+               location=(TRUSS_HALF + 1.0, 0, 76.0))
+    assign(mast, "structure")
+    link(mast, col)
+    lights.append(mast)
+    lamp("NavDorsalAft", "nav_white", (TRUSS_HALF + 1.4, 0.0, 77.2))
+
+    # VENTRAL: ONE yellow. Not two. That asymmetry with the roof is the mechanism.
+    lamp("NavVentral", "nav_yellow", (-3.8, 0.0, TUG_Z - 0.6), radius=0.42)
+
+    # The anti-collision strobes, dorsal and ventral, on the tug's nose.
+    lamp("StrobeDorsal", "strobe", (2.6, 0.0, TUG_Z + 8.0), radius=0.30)
+    lamp("StrobeVentral", "strobe", (-2.6, 0.0, TUG_Z + 8.0), radius=0.30)
+
+    return lights
 
 
 # --------------------------------------------------------------------------- views
@@ -521,21 +594,33 @@ def main():
     col = collection("WorkersFreighter")
     build_materials()
 
-    tanks = build_tanks(col)
-    spine = build_spine(col)
+    engine = build_engine(col)
+    truss = build_truss(col, "MainTruss", TRUSS_BOTTOM, TRUSS_TOP, TRUSS_HALF)
+    handrails = build_handrails(col)
+    canisters = build_canisters(col)
+    tug = build_tug(col)
     radiators = build_radiators(col)
-    engine = build_engine_block(col)
-    habitat = build_habitat(col)
-    cargo = build_cargo(col)
     plumbing = build_plumbing(col)
+    lights = build_navigation_lights(col)
 
+    # Fixed parts into one mesh; the drive and the wings stay separate because they
+    # are the parts that move.
     hull_parts = join(
         "WorkersFreighter_Hull",
-        tanks + spine + engine + habitat + cargo + plumbing)
+        truss + handrails + canisters + tug + plumbing + lights)
+    drive = join("WorkersFreighter_Drive", engine)
     panels = join("WorkersFreighter_Radiators", radiators)
 
-    for obj in (hull_parts, panels):
-        apply_transform(obj, scale=True)
+    # Bake every node transform into the vertices, so the exported nodes are all
+    # identity. The client frames a hull from the TRANSFORMED CORNERS of each
+    # part's axis-aligned box, and a box rotated about a node inflates by root two
+    # -- with the wing frame left on the Radiators node the client measured the
+    # courier 79 m long instead of 58, and the cockpit camera keys its standoff
+    # off that length. The pivots an animation would want are geometry positions
+    # (the two cross-truss stations, the spar roots), not node transforms, so
+    # nothing is lost by baking them.
+    for obj in (hull_parts, drive, panels):
+        apply_transform(obj, location=True, rotation=True, scale=True)
 
     blend, glb, preview = asset_paths("ships", NAME)
 
@@ -545,16 +630,19 @@ def main():
     area_per_kg = (jet_per_kg * (1.0 - RADIATOR_EFFICIENCY) / RADIATOR_EFFICIENCY
                    / (2.0 * sigma * RADIATOR_TEMPERATURE ** 4))
     needed = area_per_kg * WET_MASS_T * 1000.0
-    built = RADIATOR_PANELS * PANEL_LENGTH * PANEL_WIDTH
+    built = RADIATOR_PANELS * PANEL_ALONG * PANEL_ACROSS
 
-    print(f"  hull      {SPINE_LENGTH:.0f} m overall, {TANK_RADIUS * 2:.0f} m tanks, "
-          f"{WET_MASS_T:,.0f} t wet")
+    print(f"  hull      {TUG_TOP:.0f} m overall, {WET_MASS_T:,.0f} t wet")
     print(f"  radiator  {built:,.0f} m2 built against {needed:,.0f} m2 needed at "
-          f"{CRUISE_MILLIGEE:.1f} milligee")
+          f"{CRUISE_MILLIGEE} milligee")
     print(f"            {built * RADIATOR_AREAL_DENSITY / 1000.0:,.0f} t "
           f"= {built * RADIATOR_AREAL_DENSITY / (WET_MASS_T * 1000.0) * 100:.1f} % of the ship")
+    print(f"            {RADIATOR_PANELS} perpendicular wings at z = "
+          f"{', '.join(f'{z:.0f}' for z in WING_STATIONS)}")
     print(f"  drive     {NOZZLES} nozzles at v_e = {EXHAUST_VELOCITY / 1000:,.0f} km/s")
 
+    # Framed to the whole ship plus its wings: 156 m of hull and a 180 m span
+    # needs about 370 m of standoff at this lens to sit inside the frame.
     render_views(preview, SHOTS, resolution=1200, samples=80)
     export_glb(glb, NAME)
     export_blend(blend)
