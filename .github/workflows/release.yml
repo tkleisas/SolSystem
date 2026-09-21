@@ -52,7 +52,7 @@ jobs:
       # blend/ is a source file and previews/ is development evidence.
       - name: Assemble the package
         run: |
-          mkdir -p "artifacts/package/SolSystem"
+          mkdir -p "artifacts/package/SolSystem/art"
           cp -r artifacts/publish/${{ matrix.label }}/. "artifacts/package/SolSystem/"
           cp -r art/models art/sky art/textures "artifacts/package/SolSystem/art/"
           cp README.md "artifacts/package/SolSystem/"
