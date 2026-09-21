@@ -26,8 +26,8 @@ Earth orbit, dt = 1 h
   Energy drift  Fix128     1.524E-12
   Energy drift  double     6.277E-15
   Position difference      1.288E+06 m
-  Cost  Fix128             15,627 ns/step
-  Cost  double            132 ns/step
+  Cost  Fix128             1,500 ns/step
+  Cost  double            40 ns/step
 
 Earth orbit, dt = 2 h
 ---------------------
@@ -38,8 +38,8 @@ Earth orbit, dt = 2 h
   Energy drift  Fix128     1.317E-12
   Energy drift  double     1.281E-16
   Position difference      1.279E+06 m
-  Cost  Fix128             18,774 ns/step
-  Cost  double            127 ns/step
+  Cost  Fix128             1,506 ns/step
+  Cost  double            43 ns/step
 
 Growth of the fixed/double difference
 -------------------------------------
@@ -63,3 +63,50 @@ Interpretation
   error, with energy conserved to one part in 10^12. That is six orders of
   magnitude below anything the simulation can act on. Option A is sound: the
   constraint is the WIDTH of the type, which Fix128 provides and Fix64 cannot.
+
+Width variants — the same orbit, the integrator unchanged, storage narrowed to 64 bits
+--------------------------------------------------------------------------------------
+  Same algorithm, step and initial conditions as the Q64.64 control. All variants are
+  a long with Int128 intermediates, so they share one speed class; what differs is
+  range, resolution, and which constants stop fitting the type. Every timing keeps the
+  last of forty passes: the tiered JIT needs about ten long-loop executions to reach
+  final code (set SPIKE_TIMING_TRACE=1 to see the cliff), and a first-pass measurement
+  bills the JIT to the type rather than the arithmetic.
+
+  Q48.16, metre  range ±   940.8 AU   grid  1.53E-05 m
+      GM storable in the type: NO — wide-constant path   |   r² storable at 1 AU: NO — raw-integer path
+      solar acceleration at 1 AU = 389 quanta of the type's LSB; Δv per 1 h step = 1.399E+06 quanta
+      final radius  149,591,986.429 km   position error vs double   6.681E+09 m   (0.00711 of the year's path)
+      energy drift 5.324E-05   (double control 9.4E-15)   cost     464 ns/step   (double 40)
+
+  Q34.30, km     range ±   57.42 AU   grid  9.31E-07 m
+      GM storable in the type: NO — wide-constant path   |   r² storable at 1 AU: NO — raw-integer path
+      solar acceleration at 1 AU = 6.37E+03 quanta of the type's LSB; Δv per 1 h step = 2.292E+07 quanta
+      final radius  149,596,877.759 km   position error vs double    3.99E+08 m   (0.000424 of the year's path)
+      energy drift 7.718E-06   (double control 6.28E-15)   cost     454 ns/step   (double 39)
+
+  Q48.16, km     range ±9.408E+05 AU   grid    0.0153 m
+      GM storable in the type: yes   |   r² storable at 1 AU: NO — raw-integer path
+      solar acceleration at 1 AU = 0.389 quanta of the type's LSB; Δv per 1 h step = 1399 quanta
+      ACCELERATION IS BELOW THE LSB — gravity rounds to zero and the orbit never curves.
+      final radius  951,617,524.548 km   position error vs double   9.394E+11 m   (0.999 of the year's path)
+      energy drift     1.685   (double control 6.28E-15)   cost     401 ns/step   (double 40)
+
+  Q56.8,  km     range ±2.408E+08 AU   grid      3.91 m
+      GM storable in the type: yes   |   r² storable at 1 AU: yes
+      solar acceleration at 1 AU = 0.00152 quanta of the type's LSB; Δv per 1 h step = 5.465 quanta
+      ACCELERATION IS BELOW THE LSB — gravity rounds to zero and the orbit never curves.
+      final radius  951,656,519.135 km   position error vs double   9.394E+11 m   (0.999 of the year's path)
+      energy drift     1.685   (double control 6.28E-15)   cost     321 ns/step   (double 40)
+
+  Q32.32, Mm     range ±1.436E+04 AU   grid  0.000233 m
+      GM storable in the type: yes   |   r² storable at 1 AU: NO — raw-integer path
+      solar acceleration at 1 AU = 25.5 quanta of the type's LSB; Δv per 1 h step = 9.169E+04 quanta
+      final radius  157,059,841.290 km   position error vs double   1.373E+11 m   (0.146 of the year's path)
+      energy drift   0.01927   (double control 5.5E-15)   cost     443 ns/step   (double 39)
+
+  The navigation tick — one hour at dt = 1/128 s (exact in every width)
+      Q48.16 metre quanta: solar Δv per tick 3.04; a 4 milligee burn per tick 20.5
+      Q48.16, metre  energy drift 7.281E-07   position error vs double   1.221E+04 m   cost     384 ns/step
+      Q64.64, km    energy drift 6.406E-16   cost   1,323 ns/step
+

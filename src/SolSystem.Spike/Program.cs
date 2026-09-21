@@ -34,6 +34,7 @@ internal static class Program
 
         ReportGrowth(fine);
         Verdict(fine, coarse);
+        WidthVariants.Run();
         return 0;
     }
 
@@ -96,7 +97,7 @@ internal static class Program
 
         var samples = new List<(long, double)>();
 
-        var fixedClock = Stopwatch.StartNew();
+        // The accuracy pass: the real state, integrated once, untimed.
         for (int tick = 1; tick <= ticks; tick++)
         {
             Verlet128.Step(ref fixedState, Constants.SunGm, dt);
@@ -108,16 +109,12 @@ internal static class Program
             }
         }
 
-        fixedClock.Stop();
-
-        DoubleState timingState = doubleState;
-        var doubleClock = Stopwatch.StartNew();
-        for (int tick = 1; tick <= ticks; tick++)
-        {
-            DoubleStep(ref timingState, gm, dtDouble);
-        }
-
-        doubleClock.Stop();
+        // Timing on throwaway copies, keeping the last of forty passes. The tiered JIT
+        // needs on the order of ten long-loop executions before a method reaches its final
+        // code; an earlier version of this spike timed the first pass and billed the JIT
+        // to Fix128, inflating its cost by an order of magnitude.
+        double fixedNs = TimeFixedPasses(fixedState, dt, ticks);
+        double doubleNs = TimeDoublePasses(doubleState, gm, dtDouble, ticks);
 
         double fixedRadius = RadiusKm(fixedState.Position);
         double doubleRadius = RadiusKm(doubleState.Position);
@@ -133,17 +130,55 @@ internal static class Program
         Console.WriteLine($"  Energy drift  Fix128     {fixedDrift:G4}");
         Console.WriteLine($"  Energy drift  double     {doubleDrift:G4}");
         Console.WriteLine($"  Position difference      {ErrorMetres(fixedState.Position, doubleState.Position):G4} m");
-        Console.WriteLine($"  Cost  Fix128             {fixedClock.Elapsed.TotalSeconds / ticks * 1e9:N0} ns/step");
-        Console.WriteLine($"  Cost  double            {doubleClock.Elapsed.TotalSeconds / ticks * 1e9:N0} ns/step");
+        Console.WriteLine($"  Cost  Fix128             {fixedNs:N0} ns/step");
+        Console.WriteLine($"  Cost  double            {doubleNs:N0} ns/step");
         Console.WriteLine();
 
         return new Scenario(
             ErrorMetres(fixedState.Position, doubleState.Position),
             fixedDrift,
             doubleDrift,
-            fixedClock.Elapsed.TotalSeconds / ticks * 1e9,
-            doubleClock.Elapsed.TotalSeconds / ticks * 1e9,
+            fixedNs,
+            doubleNs,
             samples);
+    }
+
+    private static double TimeFixedPasses(SolarState state, Fix128 dt, int ticks)
+    {
+        double nsPerStep = 0;
+        for (int pass = 0; pass < 40; pass++)
+        {
+            SolarState s = state;
+            var clock = Stopwatch.StartNew();
+            for (int tick = 0; tick < ticks; tick++)
+            {
+                Verlet128.Step(ref s, Constants.SunGm, dt);
+            }
+
+            clock.Stop();
+            nsPerStep = clock.Elapsed.TotalSeconds / ticks * 1e9;
+        }
+
+        return nsPerStep;
+    }
+
+    private static double TimeDoublePasses(DoubleState state, double gm, double dt, int ticks)
+    {
+        double nsPerStep = 0;
+        for (int pass = 0; pass < 40; pass++)
+        {
+            DoubleState s = state;
+            var clock = Stopwatch.StartNew();
+            for (int tick = 0; tick < ticks; tick++)
+            {
+                DoubleStep(ref s, gm, dt);
+            }
+
+            clock.Stop();
+            nsPerStep = clock.Elapsed.TotalSeconds / ticks * 1e9;
+        }
+
+        return nsPerStep;
     }
 
     private static void ReportGrowth(Scenario result)
@@ -210,18 +245,20 @@ internal static class Program
         {
             Console.WriteLine("  VERDICT: FAIL — investigate before committing to Option A.");
         }
+
+        Console.WriteLine();
     }
 
     // ------------------------------------------------------------------ arithmetic
 
-    private readonly record struct Double3(double X, double Y, double Z)
+    internal readonly record struct Double3(double X, double Y, double Z)
     {
         internal double LengthSquared => X * X + Y * Y + Z * Z;
     }
 
-    private readonly record struct DoubleState(Double3 Position, Double3 Velocity);
+    internal readonly record struct DoubleState(Double3 Position, Double3 Velocity);
 
-    private static void DoubleStep(ref DoubleState state, double gm, double dt)
+    internal static void DoubleStep(ref DoubleState state, double gm, double dt)
     {
         double halfDt = dt * 0.5;
         Double3 a = DoubleGravity(state.Position, gm);
@@ -261,7 +298,7 @@ internal static class Program
         return new Double3(position.X * scale, position.Y * scale, position.Z * scale);
     }
 
-    private static double DoubleEnergy(DoubleState state, double gm) =>
+    internal static double DoubleEnergy(DoubleState state, double gm) =>
         state.Velocity.LengthSquared * 0.5 - gm / Math.Sqrt(state.Position.LengthSquared);
 
     private static double RadiusKm(Fix128Vec position) => position.Length.ToDouble();
