@@ -47,6 +47,16 @@ internal sealed class LaunchOptions
     /// <summary>Print what each body resolved to. For when a frame looks wrong.</summary>
     internal bool Verbose { get; private set; }
 
+    /// <summary>
+    /// Run the interactive loop for this many frames and then exit, saving <c>--shot</c> if asked.
+    /// </summary>
+    /// <remarks>
+    /// The headless mode renders one frame through a path that no player ever takes: no update
+    /// loop, no keyboard, no fixed timestep. This runs the loop a player runs — which is the only
+    /// way to check that the thing they type actually starts.
+    /// </remarks>
+    internal int Frames { get; private set; }
+
     /// <summary>The command line, for when nobody knows what to type.</summary>
     internal const string Usage = """
         SolSystem.Client — fly a ship in the solar system
@@ -63,6 +73,7 @@ internal sealed class LaunchOptions
           --dockward           look down the corridor at the station
           --rate <n>           simulated seconds per real second (default 1)
           --verbose            print what each body resolved to
+          --frames <n>         run the interactive loop for n frames, then exit
         """;
 
     internal enum ViewAim
@@ -107,6 +118,10 @@ internal sealed class LaunchOptions
 
                 case "--rate":
                     options.TimeRate = Number(args, ref i, 0.0, 1.0e6);
+                    break;
+
+                case "--frames":
+                    options.Frames = (int)Number(args, ref i, 1, 100_000);
                     break;
 
                 case "--verbose":

@@ -7,6 +7,12 @@
     <!-- MonoGame's content pipeline and the DesktopGL runtime are the two places a warning
          becomes noise rather than signal, and this project treats warnings as errors. -->
     <NoWarn>$(NoWarn);NU1701</NoWarn>
+
+    <!-- The content pipeline is driven by the mgcb dotnet tool, which is pinned in
+         /.config/dotnet-tools.json. Restoring it as part of the build means a fresh clone works with
+         `dotnet build` and nothing else — without this it fails with "dotnet-mgcb does not exist",
+         which names the symptom and not the cure. -->
+    <AutoRestoreMGCBTool>true</AutoRestoreMGCBTool>
   </PropertyGroup>
 
   <ItemGroup>

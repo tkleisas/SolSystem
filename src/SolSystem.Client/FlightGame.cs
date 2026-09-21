@@ -154,6 +154,14 @@ internal sealed class FlightGame : Game
         }
 
         _previousKeys = keys;
+
+        // A bounded interactive run, for checking that the loop a player gets actually runs. It
+        // goes through Update and Draw exactly as an unbounded one does; only the exit differs.
+        if (_options.Frames > 0 && _frame >= _options.Frames)
+        {
+            Exit();
+        }
+
         base.Update(gameTime);
     }
 
@@ -217,9 +225,13 @@ internal sealed class FlightGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
+        // A render target is needed both for the headless shot and for a bounded interactive run
+        // that was asked to save its last frame — the back buffer cannot be read back directly.
         RenderTarget2D? target = null;
+        bool saving = _options.Headless
+            || (_options.ShotPath is not null && _options.Frames > 0 && _frame >= _options.Frames - 1);
 
-        if (_options.Headless)
+        if (saving)
         {
             target = new RenderTarget2D(
                 GraphicsDevice, _options.Width, _options.Height, false,
@@ -290,7 +302,11 @@ internal sealed class FlightGame : Game
             GraphicsDevice.SetRenderTarget(null);
             Save(target, _options.ShotPath!);
             target.Dispose();
-            Exit();
+
+            if (_options.Headless)
+            {
+                Exit();
+            }
         }
 
         base.Draw(gameTime);

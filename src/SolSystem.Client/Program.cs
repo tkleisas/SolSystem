@@ -10,16 +10,14 @@ using SolSystem.Client;
 // claim this project makes about the Milky Way being in the right place, or the Sun being where the
 // ephemeris says on a given date, is checkable against a frame from this mode.
 
+// No arguments means FLY. The first version of this printed the usage and exited, because it was
+// written when the client could only render a frame and had nothing to do with no arguments — and
+// then the interactive mode was added underneath it and nobody ran `dotnet run` with no arguments
+// again. The single most likely thing a person types is the one that did nothing.
 if (args.Length > 0 && args[0] is "--help" or "-h")
 {
     Console.WriteLine(LaunchOptions.Usage);
     return 0;
-}
-
-if (args.Length == 0)
-{
-    Console.WriteLine(LaunchOptions.Usage);
-    return 1;
 }
 
 try
