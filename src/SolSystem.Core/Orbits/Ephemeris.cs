@@ -184,6 +184,25 @@ internal static class Ephemeris
             343.17904, 7822.9, 153.90322, 0.0, 80.30553, 0.0),
     };
 
+    /// <summary>
+    /// A body's mean orbital radius, in astronomical units.
+    /// </summary>
+    /// <remarks>
+    /// The semi-major axis from the table, with no time term: this is the orbit's size and not the
+    /// body's position on it. A transfer orbit is defined between two such radii.
+    /// </remarks>
+    internal static double MeanSemiMajorAxisAu(Body body)
+    {
+        int index = (int)body;
+
+        if (index < 0 || index >= Table.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(body), body, "no such body in the table");
+        }
+
+        return Table[index].SemiMajorAxisAu;
+    }
+
     /// <summary>Kilometres in one astronomical unit, the frame's unit.</summary>
     private const double KilometresPerAu = 149_597_870.7;
 

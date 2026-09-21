@@ -96,6 +96,12 @@ internal sealed class LaunchOptions
     /// </remarks>
     internal string Hold { get; private set; } = string.Empty;
 
+    /// <summary>Open the chart at startup, and optionally select a body.</summary>
+    internal bool Chart { get; private set; }
+
+    /// <summary>Which body to select on the chart, by name.</summary>
+    internal string Destination { get; private set; } = string.Empty;
+
     /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
     internal double CameraYaw { get; private set; }
 
@@ -124,6 +130,8 @@ internal sealed class LaunchOptions
           --frames <n>         run the interactive loop for n frames, then exit
           --camera <mode>      chase, orbit, cockpit or port (default chase)
           --throttle <0-1>     start with the engine lit, for rendering the plume
+          --chart              open the solar-system chart
+          --destination <name> select a body on the chart, e.g. Mars
           --hold <keys>        hold these keys down, e.g. --hold D
           --camera-yaw <deg>   start the camera at this yaw
           --camera-pitch <deg> start the camera at this pitch
@@ -177,6 +185,14 @@ internal sealed class LaunchOptions
 
                 case "--throttle":
                     options.Throttle = Number(args, ref i, 0.0, 1.0);
+                    break;
+
+                case "--chart":
+                    options.Chart = true;
+                    break;
+
+                case "--destination":
+                    options.Destination = Require(args, ref i);
                     break;
 
                 case "--hold":

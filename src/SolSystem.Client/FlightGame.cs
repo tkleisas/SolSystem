@@ -41,6 +41,9 @@ internal sealed class FlightGame : Game
     /// </remarks>
     private const float FieldOfViewDegrees = 60.0f;
 
+    /// <summary>The line height every panel draws on.</summary>
+    private const float Line = 21f;
+
     /// <summary>
     /// Render units per kilometre.
     /// </summary>
@@ -69,6 +72,14 @@ internal sealed class FlightGame : Game
     private SpriteFont _hud = null!;
     private readonly Camera _camera = new();
     private Plume _plume = null!;
+    private Chart _chart = null!;
+    private Autohelm _helm;
+    private bool _chartOpen;
+    private readonly List<TransferOption> _courses = new();
+    private int _courseIndex;
+
+    /// <summary>Which body the course list was built for, so it is not rebuilt every frame.</summary>
+    private Ephemeris.Body? _selectedFor;
     private MouseState _previousMouse;
 
     /// <summary>The attitude the run started with, so a held key can be measured against it.</summary>
@@ -158,6 +169,7 @@ internal sealed class FlightGame : Game
         _sun = new SunRenderer(GraphicsDevice, Content);
         _hulls = new HullRenderer(GraphicsDevice);
         _plume = new Plume(GraphicsDevice, _sprites);
+        _chart = new Chart(GraphicsDevice, _sprites);
 
         string root = FlightSession.RepositoryRoot();
         _courier = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "ships",
@@ -184,6 +196,13 @@ internal sealed class FlightGame : Game
 
         _camera.Use(_options.Camera);
         _camera.StartAt(_options.CameraYaw, _options.CameraPitch, _options.CameraDistance);
+        _chartOpen = _options.Chart;
+
+        if (_options.Destination.Length > 0
+            && Enum.TryParse(_options.Destination, ignoreCase: true, out Ephemeris.Body chosen))
+        {
+            _chart.Selected = chosen;
+        }
 
         // The player's ship starts on the station's docking corridor, co-orbiting with the station.
         //
@@ -237,6 +256,16 @@ internal sealed class FlightGame : Game
         // headless run can be told to hold Up and the ladder can be checked. It could not be,
         // before, and an untestable control is an unverified one.
         ReadTimeCompression(keys);
+
+        if (JustPressed(keys, Keys.M))
+        {
+            _chartOpen = !_chartOpen;
+        }
+
+        if (_chartOpen)
+        {
+            ReadChart(keys, mouse);
+        }
 
         if (_options.Headless)
         {
@@ -293,12 +322,25 @@ internal sealed class FlightGame : Game
     /// </remarks>
     private void SimulateTicks(KeyboardState keys, double seconds)
     {
-        Command command = _flight.Read(keys, seconds);
-
         Span<GravitySource> sources = stackalloc GravitySource[1];
         sources[0] = _session.Station.GravitySource;
 
         int ticks = Math.Clamp((int)Math.Round(seconds / TickSeconds), 0, 240);
+
+        if (_helm.Engaged)
+        {
+            // The computer has the controls. The pilot's keys are ignored rather than blended, so
+            // there is never a question of who is flying.
+            for (int i = 0; i < ticks; i++)
+            {
+                _helm.Step(ref _flight.Ship, sources, Fix128.FromDouble(TickSeconds));
+            }
+
+            return;
+        }
+
+        Command command = _flight.Read(keys, seconds);
+
         for (int i = 0; i < ticks; i++)
         {
             _flight.Step(sources, TickSeconds, command);
@@ -393,6 +435,112 @@ internal sealed class FlightGame : Game
         _timeRate = TimeRates[_timeRateIndex] * _options.TimeRate;
     }
 
+    /// <summary>
+    /// The chart's controls, which have the keyboard while it is open.
+    /// </summary>
+    /// <remarks>
+    /// The thumbstick is deliberately ignored: the keyboard has focus. That was true when the
+    /// gamepad was added to this client too, which is why nothing in the code below reads one.
+    /// </remarks>
+    private void ReadChart(KeyboardState keys, MouseState mouse)
+    {
+        if (JustPressed(keys, Keys.Tab))
+        {
+            _chart.NextBody();
+            _courses.Clear();
+        }
+
+        int notches = mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue;
+        if (notches != 0)
+        {
+            _chart.AdjustZoom(notches / 120f);
+        }
+
+        // A click picks the body under it, which is what a person tries first.
+        if (mouse.LeftButton == ButtonState.Pressed
+            && _previousMouse.LeftButton == ButtonState.Released)
+        {
+            if (_chart.Nearest(new Vector2(mouse.X, mouse.Y)) is Ephemeris.Body hit)
+            {
+                _chart.Selected = hit;
+                _courses.Clear();
+            }
+        }
+
+        // Up and down move through the courses rather than the time compression, which has no
+        // meaning while the clock is not being watched.
+        if (JustPressed(keys, Keys.Down))
+        {
+            _courseIndex = Math.Min(_courseIndex + 1, Math.Max(_courses.Count - 1, 0));
+        }
+
+        if (JustPressed(keys, Keys.Up))
+        {
+            _courseIndex = Math.Max(_courseIndex - 1, 0);
+        }
+
+        if (JustPressed(keys, Keys.Enter) && _chart.Selected is Ephemeris.Body destination)
+        {
+            Engage(destination);
+        }
+    }
+
+    /// <summary>
+    /// Hands the controls to the flight computer for the chosen course.
+    /// </summary>
+    private void Engage(Ephemeris.Body destination)
+    {
+        var system = new SolarSystem();
+        system.SetTime((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+
+        TransferOption option = _courses.Count > 0
+            ? _courses[Math.Clamp(_courseIndex, 0, _courses.Count - 1)]
+            : default;
+
+        Fix128 throttle = option.Name == "ECONOMY"
+            ? Fix128.FromDouble(0.25)
+            : Fix128.One;
+
+        // A torch crossing is steered by the computer; a ballistic one is not flown here at all,
+        // because it needs a launch window and two timed impulses and this does neither. Engaging on
+        // a ballistic course hands over the heading and leaves the pilot the timing.
+        if (option.Name == "BALLISTIC")
+        {
+            Console.WriteLine("  ballistic courses are not flown by this computer; "
+                + "the plan is a heading and a window, not an autopilot");
+            return;
+        }
+
+        // THE TARGET HAS TO BE IN THE SHIP'S OWN FRAME. The ship is in the Earth-centred local frame
+        // and the ephemeris is heliocentric, so the destination is re-expressed as an offset from the
+        // Earth — which is also the physically right thing, because what the ship has to cross first
+        // is the distance from where it is to where the planet will be.
+        Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
+        Fix128Vec targetHere = (system.Heliocentric(destination).Position - earth.Position)
+            * Fix128.FromDouble(1000.0);        // km to metres
+
+        // And refuse if the drive cannot beat the local gravity, rather than flying a course that
+        // ends with the ship falling out of orbit.
+        double radiusKm = _flight.Ship.Position.Length.ToDouble() / 1000.0;
+        double gmKm = _session.Station.GmMetres.ToDouble() / 1e9;
+
+        double acceleration = _flight.Ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble();
+
+        if (FlightPlan.ThrustToGravity(gmKm, radiusKm, acceleration) < 1.0)
+        {
+            Console.WriteLine(
+                "  cannot engage: the drive is weaker than the local gravity. Spiral out first.");
+            return;
+        }
+
+        _helm = Autohelm.To(targetHere, Fix128.FromDouble(2_000_000.0), throttle);
+
+        _chartOpen = false;
+
+        Console.WriteLine($"  autohelm engaged: {destination}, {option.Name}, "
+            + $"{option.Seconds / 86400.0:F1} days, {option.DeltaV / 1000.0:F1} km/s");
+    }
+
     private void Simulate(GameTime gameTime, KeyboardState keys)
     {
         double seconds = gameTime.ElapsedGameTime.TotalSeconds * _timeRate;
@@ -439,6 +587,13 @@ internal sealed class FlightGame : Game
         }
 
         GraphicsDevice.Clear(new Color(2, 3, 6));
+
+        if (_chartOpen)
+        {
+            DrawChart();
+            FinishFrame(target, gameTime);
+            return;
+        }
 
         Matrix view = BuildView();
 
@@ -530,7 +685,19 @@ internal sealed class FlightGame : Game
             _sprites.End();
         }
 
-        DrawHud();
+        if (_chartOpen)
+        {
+            // The chart replaces everything. It is drawn last and over an already-cleared frame,
+            // which is the cheapest way to have two views that do not have to agree about scale:
+            // the flying view has a unit of a thousand kilometres, the chart has one of thirty
+            // astronomical units, and nothing needs to reconcile them.
+            GraphicsDevice.Clear(new Color(4, 6, 12));
+            DrawChartScreen();
+        }
+        else
+        {
+            DrawHud();
+        }
 
         if (target is not null)
         {
@@ -631,6 +798,200 @@ internal sealed class FlightGame : Game
         _sprites.End();
     }
 
+    /// <summary>Draws the chart itself, over the cleared frame.</summary>
+    private void DrawChart()
+    {
+        var system = new SolarSystem();
+        system.SetTime((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+
+        _sprites.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.AnisotropicClamp);
+        _chart.Draw(_session, system, null);
+        _sprites.End();
+
+        DrawChartScreen();
+    }
+
+    /// <summary>The chart's own display: what is selected, and what it would cost to go there.</summary>
+    private void DrawChartScreen()
+    {
+        _sprites.Begin();
+
+        var ink = new Color(150, 220, 175);
+        var dim = new Color(110, 150, 135);
+        var warn = new Color(230, 170, 90);
+        var chosen = new Color(255, 220, 130);
+
+        _sprites.DrawString(_hud, "CHART  \u00b7  SOL  \u00b7  J2000 ECLIPTIC", new Vector2(28f, 24f), dim);
+
+        // The scale, stated. A logarithmic chart that does not say so is a lie about distance, and
+        // this one compresses by a factor of seventy-seven between Mercury and Neptune.
+        _sprites.DrawString(_hud,
+            $"zoom x{_chart.Zoom:F0}   radii compressed: r_screen ~ log(1 + r / 0.1 AU)",
+            new Vector2(28f, 46f), dim);
+
+        if (_chart.Selected is Ephemeris.Body body)
+        {
+            var at = new Vector2(28f, 92f);
+            _sprites.DrawString(_hud,
+                $"DESTINATION  {SolarSystem.BodyOf(body).Name.ToUpperInvariant()}", at, chosen);
+            at.Y += Line * 1.6f;
+
+            DrawCourseOptions(at, body, ink, dim, warn);
+        }
+        else
+        {
+            _sprites.DrawString(_hud, "TAB or click a body to choose a destination",
+                new Vector2(28f, 100f), dim);
+        }
+
+        _sprites.DrawString(_hud,
+            "TAB next   click select   wheel zoom   UP/DN course   ENTER engage   M close",
+            new Vector2(28f, GraphicsDevice.Viewport.Height - 40f), dim);
+
+        _sprites.End();
+    }
+
+    /// <summary>
+    /// The courses to the selected destination, with their times and their fuel.
+    /// </summary>
+    /// <remarks>
+    /// The whole feature on one panel: one destination, three ways to reach it, and a factor of eight
+    /// in time against a factor of twenty in fuel. Which one the pilot picks is the game.
+    /// </remarks>
+    private void DrawCourseOptions(Vector2 at, Ephemeris.Body body, Color ink, Color dim, Color warn)
+    {
+        var system = new SolarSystem();
+        system.SetTime((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+
+        // THE SHIP'S POSITION IS EARTH-CENTRED AND THE DESTINATION'S IS HELIOCENTRIC, and mixing the
+        // two put the ship six thousand eight hundred kilometres from the Sun instead of one hundred
+        // and fifty million. Every course then came out as a hundred and ninety days and none of them
+        // was affordable. The session's observer position is the heliocentric one.
+        double hereKm = _session.ObserverPosition.Length.ToDouble();
+
+        // For the COURSES, the destination is its orbit rather than its current position: a transfer
+        // is between two orbits. The chart still draws the body where it is.
+        double thereKm = SolarSystem.MeanOrbitKm(body);
+        double thereNowKm = system.Heliocentric(body).Position.Length.ToDouble();
+        double acceleration = _flight.Ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble();
+
+        if (_courses.Count == 0 || _selectedFor != body)
+        {
+            _courses.Clear();
+            _courses.AddRange(FlightPlan.Options(
+                hereKm, thereKm, acceleration, _flight.DeltaV));
+
+            _selectedFor = body;
+            _courseIndex = 0;
+        }
+
+        _sprites.DrawString(_hud,
+            $"orbit {thereKm / FlightPlan.KilometresPerAu:F3} AU   "
+            + $"currently {thereNowKm / FlightPlan.KilometresPerAu:F3} AU out", at, dim);
+        at.Y += Line;
+
+        for (int i = 0; i < _courses.Count; i++)
+        {
+            TransferOption option = _courses[i];
+            bool cursor = i == _courseIndex;
+
+            string when = double.IsInfinity(option.Seconds)
+                ? "     never"
+                : option.Seconds > 86400.0 * 900.0
+                    ? $"{option.Seconds / 86400.0 / 365.25,5:F1} yr"
+                    : $"{option.Seconds / 86400.0,5:F1} d";
+
+            string fuel = double.IsInfinity(option.DeltaV)
+                ? "    ---"
+                : $"{option.DeltaV / 1000.0,6:F1} km/s";
+
+            _sprites.DrawString(_hud,
+                $"{(cursor ? ">" : " ")} {option.Name,-10} {when}  {fuel}"
+                + (option.Feasible ? string.Empty : "   NOT ENOUGH FUEL"),
+                at, cursor ? Color.White : (option.Feasible ? ink : warn));
+
+            at.Y += Line;
+        }
+
+        at.Y += Line * 0.6f;
+
+        TransferOption pick = _courses[Math.Clamp(_courseIndex, 0, _courses.Count - 1)];
+        _sprites.DrawString(_hud, pick.Note, at, dim);
+        at.Y += Line;
+
+        double used = double.IsInfinity(pick.DeltaV) || _flight.DeltaV <= 0.0
+            ? 0.0
+            : pick.DeltaV / _flight.DeltaV * 100.0;
+
+        _sprites.DrawString(_hud,
+            $"tanks hold {_flight.DeltaV / 1000.0:F1} km/s; this course uses {used:F0}%", at, dim);
+        at.Y += Line * 1.4f;
+
+        // Whether the drive can beat the gravity it is sitting in. This is not a detail: at four
+        // milligee the thrust is 0.45 per cent of the Earth's pull at low orbit, so a ship at the
+        // station CANNOT fly a straight-line course anywhere. It has to spiral out first, which is a
+        // different manoeuvre and is not flown here.
+        double shipRadiusKm = _flight.Ship.Position.Length.ToDouble() / 1000.0;
+        double stationGmKm = _session.Station.GmMetres.ToDouble() / 1e9;
+
+        if (shipRadiusKm > 1.0)
+        {
+            double ratio = FlightPlan.ThrustToGravity(
+                stationGmKm, shipRadiusKm, acceleration);
+
+            if (ratio < 1.0)
+            {
+                (double escapeV, double escapeSeconds) = FlightPlan.Escape(
+                    stationGmKm, shipRadiusKm, acceleration);
+
+                _sprites.DrawString(_hud,
+                    $"IN A GRAVITY WELL: thrust is {ratio * 100:F1}% of local gravity",
+                    at, warn);
+                at.Y += Line;
+                _sprites.DrawString(_hud,
+                    $"  spiral out first: {escapeV / 1000.0:F2} km/s over "
+                    + $"{escapeSeconds / 3600.0:F1} hours of full thrust",
+                    at, warn);
+                at.Y += Line;
+                _sprites.DrawString(_hud,
+                    "  a straight-line course cannot be flown from here", at, dim);
+                at.Y += Line * 1.4f;
+            }
+        }
+
+        if (_helm.Engaged)
+        {
+            _sprites.DrawString(_hud, $"FLIGHT COMPUTER  {_helm.Describe()}", at, new Color(255, 220, 130));
+            at.Y += Line;
+            _sprites.DrawString(_hud,
+                $"  elapsed {_helm.ElapsedSeconds / 86400.0:F2} days", at, dim);
+        }
+        else
+        {
+            _sprites.DrawString(_hud, "ENTER hands the controls to the flight computer", at, dim);
+        }
+    }
+
+    /// <summary>The tail of a frame: save if asked, and count it.</summary>
+    private void FinishFrame(RenderTarget2D? target, GameTime gameTime)
+    {
+        if (target is not null)
+        {
+            GraphicsDevice.SetRenderTarget(null);
+            Save(target, _options.ShotPath!);
+            target.Dispose();
+
+            // A one-shot has nothing left to do; a bounded run does too, once it has its frame.
+            if (_options.ShotPath is not null)
+            {
+                Exit();
+            }
+        }
+
+        base.Draw(gameTime);
+        _frame++;
+    }
+
     private void DrawFlightPanel()
     {
         // Speed relative to the station, which is the number that matters for a docking and the one
@@ -651,7 +1012,6 @@ internal sealed class FlightGame : Game
         var warn = new Color(230, 170, 90);
 
         var at = new Vector2(28f, 26f);
-        const float Line = 21f;
 
         _sprites.DrawString(_hud, "ILLUMINUS COURIER  \u00b7  MERIDIAN", at, dim);
         at.Y += Line * 1.6f;
@@ -1055,6 +1415,7 @@ internal sealed class FlightGame : Game
         _sun.Dispose();
         _hulls.Dispose();
         _plume.Dispose();
+        _chart.Dispose();
         _courier.Dispose();
         _station.Dispose();
         _freighter.Dispose();

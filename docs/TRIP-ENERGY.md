@@ -1292,3 +1292,31 @@ That is a real limitation of the law as it stands and it is recorded rather than
   defined operationally.
 - The V-bar (along-track) and R-bar (radial) approach corridors, and the cone-shaped safety corridor
   that constrains them, are standard practice from the Shuttle and ISS programmes.
+
+---
+
+## 18. What the drive buys, in journeys
+
+§15 established that the tanks hold 403 km/s and §16 that the acceleration is four milligee. This is
+what those two numbers mean when you point the ship at somewhere.
+
+| From Earth orbit to | direct, full thrust | economy, ¼ thrust | ballistic |
+|---|---|---|---|
+| Venus (0.72 AU) | 24 d, 81 km/s | 48 d, 40 km/s | 146 d, 5.2 km/s |
+| Mars (1.52 AU) | 35 d, 118 km/s | 85 d, 72 km/s | 256 d, 5.8 km/s |
+| Ceres (2.77 AU) | 60 d, 204 km/s | 120 d, 102 km/s | 472 d, 11 km/s |
+| Jupiter (5.20 AU) | 93 d, 317 km/s | 191 d, 162 km/s | 998 d, 14 km/s |
+
+**The direct column is the whole reason the setting is shaped the way it is.** Jupiter at 317 km/s is
+78 % of the tanks — a one-way trip — so the Jovian moons are somewhere you go when you are not
+coming back, which is exactly what §4.1 says the war is about. Ceres at 204 km/s is half the tanks,
+and Ceres is supposed to be the cheap source of volatiles; the cheap way there is the ballistic
+column, at 472 days.
+
+**The escape problem comes first.** A ship at the station is 6 778 km from the centre of the Earth,
+where gravity is 8.68 m/s². The drive produces 0.0393 m/s². **The thrust is 0.45 % of the weight.**
+No amount of delta-v makes a vertical burn work; the ship has to thrust along its velocity and spiral
+outward, which costs `(√2 − 1)·v_circular` — 3.18 km/s — and takes 22.5 hours at full throttle.
+
+Those 22.5 hours are also the answer to "why is there a station at all": it is cheaper to build the
+ship in orbit than to lift it, and cheaper still to leave from somewhere that has already paid.

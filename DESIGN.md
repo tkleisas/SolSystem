@@ -873,6 +873,61 @@ whether it costs the design more than it buys.
 
 ---
 
+## 7.1 The course planner, and the shape of a journey
+
+**[DECIDED] Every destination is offered three ways, and the exchange rate between time and fuel is
+the game.**
+
+| Earth → Mars | transit | delta-v |
+|---|---|---|
+| **Direct**, full thrust | **35 days** | **118 km/s** |
+| **Economy**, a quarter thrust | 85 days | 72 km/s |
+| **Ballistic** — engine off, fall | 256 days | **5.8 km/s** |
+
+A courier's tanks hold 403 km/s. That is one trip to Jupiter the fast way, or twenty-eight the slow
+way, and `docs/TRIP-ENERGY.md` §15 is the reason the number is that large.
+
+### The two families
+
+A **direct** crossing is a constant-thrust flip-and-burn: accelerate to the midpoint, turn over,
+decelerate. For a crossing of length *d* at a net acceleration *a*:
+
+```
+t = 2·sqrt(d/a)        v_peak = sqrt(d·a)        Δv = 2·v_peak
+```
+
+The peak speed is set by the distance, not by the drive, which is why the delta-v climbs so sharply
+with range and why Jupiter direct costs three-quarters of a tank one way. Throttling back is a clean
+trade — time goes as `1/sqrt(a)` and delta-v as `sqrt(a)`, so a quarter thrust is two for two — and
+it is only clean where there is no gravity to fight. In the inner system the Sun's pull does not
+scale down with the throttle, so throttling costs a little more than the clean ratio promises.
+
+A **ballistic** crossing is the Hohmann transfer: two impulses and a long fall between. It is exact
+rather than approximate, and it is the cheapest thing in the solar system — but it has to wait for a
+launch window, and Mars has to be **44.3°** ahead when the ship leaves. That figure falls out of the
+transit time rather than being quoted from anywhere, and the test checks it.
+
+### The thing that makes it a game
+
+**A ship in low orbit cannot point at Mars and leave.** At four milligee the drive's thrust is
+**0.45 %** of the Earth's gravity at the station, so a vertical burn does not lift it; the ship
+falls. What a low-thrust ship does is thrust along its direction of travel and spiral out, which
+costs `(√2 − 1)·v_circular` — **3.18 km/s** from the station, a twentieth of the tanks — and takes
+**22.5 hours** of continuous full thrust.
+
+The chart says so, in those words, beside the courses. It is the first thing a new pilot should
+learn about the setting: leaving is not free, and the fast way out is not available from a
+standing start.
+
+### What is not built
+
+The planner quotes the ideal transfer and the computer flies the **direct** courses only. A
+ballistic course is a heading and a window, not an autopilot: it needs a launch window and two timed
+impulses and neither is implemented. The escape spiral is not flown either. Both are marked here
+rather than quietly offered.
+
+---
+
 ## 8. Combat
 
 **[DECIDED]** Newtonian, no artificial drag, no speed cap. **Delta-v is the

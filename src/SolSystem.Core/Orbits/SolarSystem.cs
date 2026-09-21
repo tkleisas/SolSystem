@@ -92,6 +92,19 @@ internal sealed class SolarSystem
         new(Ephemeris.Body.Earth, "Moon", MoonRadiusKm, MoonGmKm);
 
     /// <summary>The body entry for <paramref name="kind"/>.</summary>
+    /// <summary>
+    /// A body's mean orbital radius around the Sun, in kilometres.
+    /// </summary>
+    /// <remarks>
+    /// The SEMI-MAJOR AXIS, not where the body happens to be. A Hohmann transfer is defined between
+    /// two circular orbits, so the radius that belongs in it is the mean one — and using the current
+    /// distance instead makes the quoted transit time wobble by a week either way as the planet runs
+    /// round its ellipse. Mars is 1.38 astronomical units from the Sun at perihelion and 1.67 at
+    /// aphelion, so the difference is not small.
+    /// </remarks>
+    internal static double MeanOrbitKm(Ephemeris.Body kind) =>
+        Ephemeris.MeanSemiMajorAxisAu(kind) * FlightPlan.KilometresPerAu;
+
     internal static Body BodyOf(Ephemeris.Body kind)
     {
         Body[] bodies = Bodies;
