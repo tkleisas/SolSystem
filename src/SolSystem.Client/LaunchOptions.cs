@@ -85,6 +85,15 @@ internal sealed class LaunchOptions
     /// <summary>Throttle to start at, 0 to 1. For rendering the plume without a keyboard.</summary>
     internal double Throttle { get; private set; }
 
+    /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
+    internal double CameraYaw { get; private set; }
+
+    /// <summary>Camera pitch to start at, in degrees.</summary>
+    internal double CameraPitch { get; private set; } = double.NaN;
+
+    /// <summary>Camera zoom to start at, in metres.</summary>
+    internal double CameraDistance { get; private set; }
+
     /// <summary>The command line, for when nobody knows what to type.</summary>
     internal const string Usage = """
         SolSystem.Client — fly a ship in the solar system
@@ -104,6 +113,9 @@ internal sealed class LaunchOptions
           --frames <n>         run the interactive loop for n frames, then exit
           --camera <mode>      chase, orbit, cockpit or port (default chase)
           --throttle <0-1>     start with the engine lit, for rendering the plume
+          --camera-yaw <deg>   start the camera at this yaw
+          --camera-pitch <deg> start the camera at this pitch
+          --camera-distance <m> start the camera at this distance
           --lineup             draw every asset at true size, side by side
         """;
 
@@ -153,6 +165,18 @@ internal sealed class LaunchOptions
 
                 case "--throttle":
                     options.Throttle = Number(args, ref i, 0.0, 1.0);
+                    break;
+
+                case "--camera-yaw":
+                    options.CameraYaw = Number(args, ref i, -360.0, 360.0);
+                    break;
+
+                case "--camera-pitch":
+                    options.CameraPitch = Number(args, ref i, -89.0, 89.0);
+                    break;
+
+                case "--camera-distance":
+                    options.CameraDistance = Number(args, ref i, 25.0, 4000.0);
                     break;
 
                 case "--camera":

@@ -62,9 +62,33 @@ two ways.
 | Input | What it does exactly |
 |---|---|
 | `C` | Cycles chase → orbit → cockpit → port. |
-| Drag (left button) | Looks around: 0.315° per pixel. In cockpit it turns your head; in chase and orbit it swings the camera round the ship. |
-| Wheel | Zooms the **orbit** camera only: ×1.18 a notch, clamped to 25 m – 4 km. |
+| Drag (left button) | Looks around: 0.315° per pixel. In cockpit it turns your head; in chase, orbit and port it swings the camera round the ship. |
+| Wheel | Zooms the camera you are in: ×1.18 a notch, clamped to 25 m – 4 km. |
 | `Up` / `Down` | *(ship controls — they do not move the camera)* |
+
+**The wheel used to work in one mode out of four.** It moved the orbit distance and nothing else, and
+the chase camera ignored it — so in the default view it did nothing at all. A zoom control that works
+in a quarter of the views and says so nowhere is worse than no zoom control. Both cameras now keep
+their own distance and both respond.
+
+### If the camera does not respond
+
+The display carries two lines that answer it:
+
+```
+VIEW    CHASE 130 m  yaw 0  pitch 16
+MOUSE   drag 0 px   wheel 0   window active
+```
+
+Drag the mouse and watch `drag`. Scroll and watch `wheel`. Both count cumulative pixels and notches,
+so if they stay at zero the input is not arriving and the problem is the window, not the camera — and
+if `window active` reads **WINDOW NOT FOCUSED** in orange, that is the answer: the game only receives
+mouse input while its window has focus, and clicking the title bar is not the same as clicking into
+the view.
+
+The two angles are a readout rather than decoration. *"The drag does nothing"* cannot be told apart
+from *"the drag works and is not obvious"* without seeing what the input did to the state, and two
+numbers settle it.
 
 | Mode | Where it is | What it is for |
 |---|---|---|

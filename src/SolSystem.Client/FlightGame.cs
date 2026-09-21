@@ -71,6 +71,10 @@ internal sealed class FlightGame : Game
     private Plume _plume = null!;
     private MouseState _previousMouse;
 
+    /// <summary>Pixels dragged and notches scrolled, cumulative, for the display.</summary>
+    private double _dragPixels;
+    private double _wheelNotches;
+
     /// <summary>One navigation tick: 120 Hz, the rate the whole local frame was written for.</summary>
     private const double TickSeconds = 1.0 / 120.0;
 
@@ -158,6 +162,7 @@ internal sealed class FlightGame : Game
 
 
         _camera.Use(_options.Camera);
+        _camera.StartAt(_options.CameraYaw, _options.CameraPitch, _options.CameraDistance);
 
         // The player's ship starts on the station's docking corridor, co-orbiting with the station.
         //
@@ -246,13 +251,18 @@ internal sealed class FlightGame : Game
         if (mouse.LeftButton == ButtonState.Pressed
             && _previousMouse.LeftButton == ButtonState.Pressed)
         {
-            _camera.Look(mouse.X - _previousMouse.X, mouse.Y - _previousMouse.Y);
+            float dx = mouse.X - _previousMouse.X;
+            float dy = mouse.Y - _previousMouse.Y;
+
+            _camera.Look(dx, dy);
+            _dragPixels += Math.Abs(dx) + Math.Abs(dy);
         }
 
         int notches = mouse.ScrollWheelValue - _previousMouse.ScrollWheelValue;
         if (notches != 0)
         {
             _camera.Zoom(notches / 120f);
+            _wheelNotches += Math.Abs(notches) / 120.0;
         }
 
         if (JustPressed(keys, Keys.C))
@@ -594,6 +604,10 @@ internal sealed class FlightGame : Game
         // can only watch. The first version of this client had one fixed view and said so nowhere.
         at.Y += Line * 1.9f;
         _sprites.DrawString(_hud, $"VIEW       {_camera.Describe()}", at, ink);
+        at.Y += Line;
+        _sprites.DrawString(_hud, $"MOUSE      drag {_dragPixels,5:F0} px   "
+            + $"wheel {_wheelNotches,4:F0}   {(IsActive ? "window active" : "WINDOW NOT FOCUSED")}",
+            at, IsActive ? dim : warn);
         at.Y += Line;
         _sprites.DrawString(_hud, "  C view   drag look   wheel zoom", at, dim);
         at.Y += Line;
