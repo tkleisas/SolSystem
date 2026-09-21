@@ -605,7 +605,26 @@ internal sealed class FlightGame : Game
             return;
         }
 
-        Matrix view = BuildView();
+        // THE CAMERA IS BUILT FIRST, BECAUSE BOTH PASSES NEED IT.
+        //
+        // The near pass -- the hull, the station, the plume -- has always used the camera. The far
+        // pass -- the sky shell, the Sun, the Earth and the other bodies -- used `BuildView`, which
+        // reads the SESSION's forward and up: a direction fixed when the session started and never
+        // changed since.
+        //
+        // So dragging turned the ship and the station while the Earth, the Sun and the Milky Way
+        // stayed exactly where they were. Reported twice, and the second report is the diagnosis:
+        //
+        //     "I see translation movement for the ship (not earth)"
+        //     "I see rotation movement for the ship (not earth again)"
+        //
+        // A view is one thing. Two passes that disagree about where the camera is looking are not a
+        // rendering bug that looks like a physics bug, they are a world split in half.
+        (Matrix nearView, Fix128Vec cameraForward, Fix128Vec cameraUp) =
+            _camera.Build(NoseVector(), DeckVector(), PortOffset(), Largest(_courier));
+
+        Matrix view = Matrix.CreateLookAt(
+            Vector3.Zero, Unit(cameraForward), Unit(cameraUp));
 
         // The far plane has to reach Neptune, which is four and a half thousand units away at this
         // scale, and the near plane has to let the camera sit inside the docking corridor — four
@@ -626,9 +645,6 @@ internal sealed class FlightGame : Game
         // THE CAMERA IS BUILT ONCE AND USED FOR EVERYTHING. The star projection needs the same
         // basis the view matrix was made from — the camera's, not the ship's — and building it twice
         // is how the two drifted apart in the first place.
-        (Matrix nearView, Fix128Vec cameraForward, Fix128Vec cameraUp) =
-            _camera.Build(NoseVector(), DeckVector(), PortOffset(), Largest(_courier));
-
         _sprites.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.AnisotropicClamp);
         _sky.DrawStars(_session, cameraForward, cameraUp, FieldOfViewDegrees);
         _sprites.End();
@@ -735,24 +751,6 @@ internal sealed class FlightGame : Game
     /// centre</em> rather than its heliocentric position, because a float cannot resolve a metre at
     /// 1.5 × 10⁸ kilometres and the local frame is where everything being drawn already lives.
     /// </remarks>
-    private Matrix BuildView()
-    {
-        // The camera is at the origin and everything drawn is expressed relative to it, which is what
-        // keeps the precision: a body's position is computed by subtracting two heliocentric
-        // positions and then scaled, rather than by putting a scaled absolute position through a
-        // view matrix that would lose the Earth to rounding.
-        var forward = new Vector3(
-            (float)_session.Forward.X.ToDouble(),
-            (float)_session.Forward.Y.ToDouble(),
-            (float)_session.Forward.Z.ToDouble());
-
-        var up = new Vector3(
-            (float)_session.Up.X.ToDouble(),
-            (float)_session.Up.Y.ToDouble(),
-            (float)_session.Up.Z.ToDouble());
-
-        return Matrix.CreateLookAt(Vector3.Zero, forward, up);
-    }
 
     /// <summary>
     /// A minimal heads-up display: what the ship is doing, in text.
