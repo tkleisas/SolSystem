@@ -3,29 +3,52 @@ Meridian — the station the courier flies to.
 
     blender --background --python tools/blender/stations/meridian.py
 
-A station is not a ship and must not look like one. A ship is a thing that goes somewhere, so it is
-long, pointed and built around a drive; a station is a place, so it is broad, blunt and built around
-the two things that cannot be moved: the docking interface and the radiator.
+A station is not a ship and must not look like one. A ship is a thing that goes
+somewhere; a station is a place. Meridian is THE place: a two-kilometre wheel
+turning at 0.95 rpm for one gravity at the rim, with a harbour inside the hub.
+Capacity two hundred and thirty thousand, population forty — mostly empty, and
+the emptiness is the setting. Old, neutral, Earth-built: the last great thing
+Earth made. The reference is 2001 — elegant, monumental, a little dated.
 
-Meridian is a *rotating* station, because the setting needs one and because it decides the shape.
-The ring is 120 m across and turns at 2.7 revolutions a minute, which is half a gravity at the rim —
-not a full one, and that is a deliberate figure rather than a compromise. Half a gravity is enough
-for a person to live in indefinitely, it halves the structural mass, and it is what the trading
-stations in the Belt actually offer. The people who can afford a full gravity live on Earth.
+THE LAYOUT, nose to reactor
+
+  port funnel      z = 0          the small-craft dock the player flies to
+  nose drum        20..70 m       antenna farm, traffic control
+  harbour drum     70..640 m      an open bay round the core: 240 m across,
+                                  twelve berths, mouth lights — the hub is a
+                                  PLACE, and the mouth is how you tell
+  wheel           710..980 m      two rings, 2 100 m across, 100 m tube,
+                                  ten lit districts per ring and the rest dark
+  boom            640..2 050 m    box truss through the wheel's centre
+  radiators       1 000..1 400 m  four panels on two masts
+  reactor         2 050..2 350 m  housing, shadow shield, end mast
 
 WHAT THE DIMENSIONS TRACE TO
 
-  ring radius    60 m      half a gravity at 2.7 rpm: a = w^2 r, w = 0.286 rad/s
-  spine          180 m     the docking port at one end, the reactor and radiators at the other
-  radiators      2 x 2,400 m2   the station's whole thermal problem, and the reason for the length
-  port           12 m bore, 6.4 m of standoff structure, on the spine's axis
+  ring radius    1 000 m    one gravity at 0.95 rpm: a = w^2 r, w = 0.099 rad/s
+  overall        ~2 352 m   the figure the client frames this asset by
+  radiators      192 000 m2 the station's whole thermal problem
+  port           12 m bore, on the axis at the origin
 
-The port is on the axis at x = 0 and the station extends along +x, so a ship on the approach corridor
-comes in along -x and docks nose-first. That is the convention `Station.Port` uses, and getting the
-axis backwards puts the target behind the ship.
+The port is at the ORIGIN and the station extends along -z in Blender space.
+Blender is z-up and the glTF exporter converts to y-up, so the client reads the
+station long along -y with the port at the origin — which is exactly how the
+client's StationTransform places it: the corridor axis is +x, a ship on the
+approach comes in along -x, and the station's body lies on the far side of the
+port. All node transforms are baked to identity before export, because the
+client frames assets from transformed AABB corners and any transform left on a
+node inflates the measure it frames by (the courier measured 79 m instead of 58
+until the same bake was applied there).
 
-ORIENTATION. The spine runs along +x and the ring turns about it, so the ring lies in the yz plane.
-Blender is z-up and the glTF export converts to y-up, which is what the client reads.
+ORIENTATION HISTORY, for the next person: an earlier version of this script
+built the tori rotated and then applied a second rotation to the joined meshes
+about an off-origin pivot. The composition happened to land close to the same
+silhouette and the accident was never untangled; the measured 2 352 m the client
+reports descends from it. This version builds every part directly in its final
+frame — no post-rotation anywhere — and reproduces that measured figure
+honestly: the wheel stays a 2 km wheel at 0.95 rpm (the rim-rate physics is not
+negotiable) and the spindle carries the rest of the length, which is the
+Discovery silhouette and is the right look for the last great thing Earth made.
 """
 
 import math
@@ -37,63 +60,39 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
     apply_transform, asset_paths, box, collection, cylinder, export_blend,
-    export_glb, join, material, render_views, reset,
-    shade_smooth_by_angle, torus,
+    export_glb, join, lathe, link, material, render_views, reset, ring_of,
+    shade_smooth_by_angle, sphere, torus,
 )
 
 NAME = "meridian"
 
 # --------------------------------------------------------------------------- numbers
-#
-# A WHEEL, and the wheel is the whole design. The reference is the station in 2001 --
-# a fat torus turning about a central spindle, with ships docking on the axis -- and
-# the reason to build one is that it is the only shape in which the answer to "where
-# is down" is a direction a person can see. On a station with a spine, down is a
-# corridor floor and nobody can tell which way it points; on a wheel, down is outward
-# and the whole structure says so.
-#
-# THE TUBE IS FAT. This is what separates a wheel from a bicycle tyre, and it is the
-# thing most attempts get wrong: a ring of 150 m radius with a 7 m tube is a hoop, and
-# a hoop does not read as a place to live. At 30 m across the tube is eight decks deep
-# and the ring reads as a *building* bent into a circle, which is what it is.
 
 RING_RADIUS = 1000.0           # m to the habitat tube's centreline: a 2 km wheel
-RING_TUBE = 70.0               # m radius: a 140 m tube, twenty decks
-RING_DECKS = 20
-RING_WINDOWS = 240             # round each rim: one every twenty-six metres
+RING_TUBE = 50.0               # m radius: a 100 m tube, twelve decks at the rim
 RINGS = 2                      # the double wheel. Two, because one is a hoop
-RING_SEPARATION = 150.0        # m between the two rings' centrelines
+RING_STATIONS = (-760.0, -930.0)  # z of each ring's plane
+SPOKES = 6                     # per ring, from the hub wall out to the habitat
+DISTRICTS = 10                 # lit window districts per ring; the rest is dark
 
-SPOKES = 8                     # per ring, from the hub out to the habitat
-
-# The hub, and the hub is now a harbour rather than a spindle.
-#
-# A 2 km wheel's interior is a void 1.86 km across and open to space, and the obvious
-# thing to do with a void that size is to PARK IN IT. So the hub is a cylinder 300 m
-# across and 560 m long with an open mouth at the forward end, and a ship flies in
-# through the mouth and berths against the inside wall. That is what "internal port"
-# means here, and it is why the hub is thirty times the volume it needs to be for
-# bearings and tanks: the volume IS the facility.
-HUB_RADIUS = 150.0
-HUB_START = 60.0               # m, behind the small-craft port at the nose
-HUB_END = 620.0
-
-BAY_RADIUS = 128.0             # m, the clear bore a ship flies into
-BAY_START = 24.0
-BAY_END = 470.0
+HUB_RADIUS = 240.0             # the harbour drum, 480 m across
+HUB_FACE = -70.0               # z of the harbour mouth
+HUB_END = -640.0               # z of the aft bearing
+CORE_RADIUS = 60.0             # the core the port sits on, through the bay
 BAY_BERTHS = 12                # round the inside wall
 
 PORT_BORE = 12.0               # m, the small-craft port at the very nose
-PORT_LENGTH = 26.0
 
-BOOM_END = 1180.0              # m, where the reactor housing sits
-RADIATOR_STATION = 980.0       # m along the boom, where the radiator masts are
+BOOM_END = -2050.0             # z, where the reactor housing starts
+RADIATOR_STATIONS = (-1050.0, -1250.0)
 RADIATOR_PANELS = 4
 RADIATOR_LENGTH = 320.0
 RADIATOR_WIDTH = 150.0
 
-# Colours, linear. Workers-built: painted, patched, honest about being machinery. No
-# polish, high contrast where a person has to see an edge, and a great deal of yellow.
+END_MAST = -2338.0             # z, the comm mast that caps the spindle
+
+# Colours, linear. Earth-built and old: painted white gone grey, structural dark,
+# warning yellow where a pilot has to see an edge, and the city's windows warm.
 HULL_WHITE = (0.62, 0.63, 0.62)
 HULL_SHADOW = (0.19, 0.20, 0.21)
 STRUCTURE = (0.30, 0.31, 0.32)
@@ -104,31 +103,81 @@ WARNING = (0.85, 0.55, 0.03)
 WINDOW = (0.95, 0.86, 0.62)
 BEACON = (0.9, 0.08, 0.05)
 
+MATERIALS = {}
+
 
 def build_materials():
-    material("MeridianHull", HULL_WHITE, metallic=0.1, roughness=0.55)
-    material("MeridianShadow", HULL_SHADOW, metallic=0.2, roughness=0.6)
-    material("MeridianStructure", STRUCTURE, metallic=0.7, roughness=0.4)
-    material("MeridianTruss", TRUSS, metallic=0.8, roughness=0.45)
-    material("MeridianRadiator", RADIATOR, metallic=0.15, roughness=0.25)
-
+    MATERIALS["hull"] = material(
+        "MeridianHull", HULL_WHITE, metallic=0.1, roughness=0.55)
+    MATERIALS["shadow"] = material(
+        "MeridianShadow", HULL_SHADOW, metallic=0.2, roughness=0.6)
+    MATERIALS["structure"] = material(
+        "MeridianStructure", STRUCTURE, metallic=0.7, roughness=0.4)
+    MATERIALS["truss"] = material(
+        "MeridianTruss", TRUSS, metallic=0.8, roughness=0.45)
+    MATERIALS["radiator"] = material(
+        "MeridianRadiator", RADIATOR, metallic=0.15, roughness=0.25)
     # The hot face of a radiator, emissive. The client draws this with the emissive
     # term, so a station reads as running rather than as a model of a station.
-    material("MeridianRadiatorHot", RADIATOR_HOT, metallic=0.0, roughness=0.7,
-             emission=(1.0, 0.22, 0.06), emission_strength=6.0)
+    MATERIALS["radiator_hot"] = material(
+        "MeridianRadiatorHot", RADIATOR_HOT, metallic=0.0, roughness=0.7,
+        emission=(1.0, 0.22, 0.06), emission_strength=6.0)
+    MATERIALS["warning"] = material(
+        "MeridianWarning", WARNING, metallic=0.0, roughness=0.5)
+    # The city's windows: warm, dim, and steady. A city at night does not flash.
+    MATERIALS["window"] = material(
+        "MeridianWindow", WINDOW, metallic=0.0, roughness=0.2,
+        emission=(1.0, 0.88, 0.62), emission_strength=2.2)
+    MATERIALS["beacon"] = material(
+        "MeridianBeacon", BEACON, metallic=0.0, roughness=0.4,
+        emission=(1.0, 0.1, 0.05), emission_strength=8.0)
 
-    material("MeridianWarning", WARNING, metallic=0.0, roughness=0.5)
-    material("MeridianWindow", WINDOW, metallic=0.0, roughness=0.2,
-             emission=(1.0, 0.88, 0.62), emission_strength=3.0)
-    material("MeridianBeacon", BEACON, metallic=0.0, roughness=0.4,
-             emission=(1.0, 0.1, 0.05), emission_strength=8.0)
+    # The Cygnus convention, station register. The client flashes anything named
+    # Nav or Strobe by schedule: reds and greens together at a hertz, whites and
+    # the yellow on the same clock, strobes much faster and shorter. A station is
+    # a dock target, and the convention is how the approach reads at night.
+    MATERIALS["nav_red"] = material(
+        "MeridianNavRed", (0.55, 0.02, 0.02), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.04, 0.03), emission_strength=1.0)
+    MATERIALS["nav_green"] = material(
+        "MeridianNavGreen", (0.02, 0.50, 0.06), metallic=0.0, roughness=0.35,
+        emission=(0.05, 1.0, 0.12), emission_strength=1.0)
+    MATERIALS["nav_white"] = material(
+        "MeridianNavWhite", (0.70, 0.70, 0.68), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.98, 0.92), emission_strength=1.0)
+    MATERIALS["nav_yellow"] = material(
+        "MeridianNavYellow", (0.62, 0.50, 0.02), metallic=0.0, roughness=0.35,
+        emission=(1.0, 0.78, 0.05), emission_strength=1.0)
+    MATERIALS["strobe"] = material(
+        "MeridianStrobe", (0.85, 0.85, 0.85), metallic=0.0, roughness=0.30,
+        emission=(1.0, 1.0, 1.0), emission_strength=1.0)
 
 
 def assign(obj, key):
     """Give an object one material, replacing whatever it has."""
     obj.data.materials.clear()
-    obj.data.materials.append(bpy.data.materials[key])
+    obj.data.materials.append(MATERIALS[key])
     return obj
+
+
+def lamp(col, parts, name, key, location, radius=0.8):
+    """A lens in a dark housing, because a bare emissive point reads as an error.
+
+    Appended to `parts` by the caller, and that is not decoration: the first
+    version of this station created its hundred and fifty lamps WITHOUT joining
+    them, the exporter wrote each as its own mesh, and the client's part count
+    went from thirteen to a hundred and seventy — a draw call per light bulb.
+    """
+    housing = sphere(f"{name}_Housing", radius=radius * 1.6, location=location,
+                     segments=16, rings=8)
+    assign(housing, "structure")
+    link(housing, col)
+    lens = sphere(name, radius=radius, location=location, segments=16, rings=8)
+    assign(lens, key)
+    link(lens, col)
+    parts.append(housing)
+    parts.append(lens)
+    return lens
 
 
 # --------------------------------------------------------------------------- the port
@@ -136,404 +185,543 @@ def assign(obj, key):
 
 def build_port(col):
     """
-    The docking interface, on the axis, where a ship arrives.
+    The docking interface, on the axis at the origin, where a ship arrives.
 
     On the axis and NOT on the rim, which is the opposite of what a wheel suggests.
-    A ship that docked at the rim would have to match a point moving at 38 m/s and
-    then be lifted 150 m up a spoke; a ship that docks on the spindle steps off into
-    the hub and takes the lift out. Every real proposal does it this way and so does
-    this one.
-
-    The funnel is sized by the ship: a 55 m courier needs a bore it can put its nose
-    into and a cone that forgives a pilot who is a metre out.
+    A ship that docked at the rim would have to match a point moving at a hundred
+    metres a second and then be lifted a kilometre up a spoke; a ship that docks on
+    the spindle steps off into the hub and takes the lift out. Every real proposal
+    does it this way and so does this one.
     """
     parts = []
 
-    funnel = bpy.ops.mesh.primitive_cone_add(
-        vertices=64, radius1=26.0, radius2=PORT_BORE, depth=22.0,
-        location=(0, 0, 0), rotation=(0, math.pi / 2, 0))
-    obj = bpy.context.object
-    obj.name = "MeridianFunnel"
-    parts.append(assign(obj, "MeridianWarning"))
+    funnel = lathe("MeridianFunnel", [
+        (PORT_BORE * 2.2, -8.0),
+        (PORT_BORE * 1.6, -2.0),
+        (PORT_BORE, 6.0),
+        (PORT_BORE, 10.0),
+    ], segments=64)
+    parts.append(assign(funnel, "warning"))
+    link(funnel, col)
 
     # The collar, which is what the latches take hold of.
-    collar = cylinder("MeridianCollar", radius=PORT_BORE + 4.0, depth=10.0,
-                      location=(0, 0, -22.0), rotation=(0, math.pi / 2, 0))
-    parts.append(assign(collar, "MeridianStructure"))
+    collar = cylinder("MeridianCollar", radius=PORT_BORE + 4.0, depth=12.0,
+                      location=(0, 0, -12.0))
+    parts.append(assign(collar, "structure"))
+    link(collar, col)
 
     bore = cylinder("MeridianBore", radius=PORT_BORE - 2.0, depth=2.0,
-                    location=(0, 0, -21.0), rotation=(0, math.pi / 2, 0))
-    parts.append(assign(bore, "MeridianWindow"))
+                    location=(0, 0, -19.0))
+    parts.append(assign(bore, "window"))
+    link(bore, col)
 
-    # Approach lights at the four cardinals. Four is enough to read a roll and few
-    # enough to count at a glance, which is the whole job of an approach light.
+    # Approach lights at the four cardinals, close round the bore. Four is enough
+    # to read a roll and few enough to count at a glance.
     for i in range(4):
         angle = (i * math.tau / 4.0) + (math.pi / 4.0)
-        bpy.ops.mesh.primitive_uv_sphere_add(
-            segments=20, ring_count=10, radius=1.6,
-            location=(0,
-                      math.sin(angle) * (PORT_BORE + 8.0),
-                      -22.0 + math.cos(angle) * (PORT_BORE + 8.0)))
-        light = bpy.context.object
-        light.name = f"MeridianApproach{i}"
-        parts.append(assign(light, "MeridianBeacon"))
+        lamp(col, parts, f"MeridianApproach{i}", "beacon",
+             (math.cos(angle) * (PORT_BORE + 7.0),
+              math.sin(angle) * (PORT_BORE + 7.0), -8.0), radius=1.4)
 
     return parts
 
 
-# --------------------------------------------------------------------------- the hub
+# --------------------------------------------------------------------------- the nose
 
 
-def build_hub(col):
+def build_nose(col):
     """
-    The harbour: an open cylinder 300 m across with a mouth at the forward end.
-
-    THIS IS THE POINT OF THE STATION. A 2 km wheel encloses a void 1.86 km wide, and the
-    only reason to build a wheel that size rather than a smaller one is that the void is
-    useful — a ship flies in through the mouth, berths against the inside wall, and is
-    under cover for cargo transfer without ever being pressurised into the habitat. The
-    alternative, docking on the outside of the hub, means every tonne of cargo crosses
-    vacuum twice.
-
-    The bay is a CAGE, not a pressure vessel: it is open to space at the forward end and
-    through the ring's plane. Twelve berths round the inside wall, each with a cradle,
-    a power trunk and approach lights, and the whole thing lit so that a pilot coming in
-    sees the far wall rather than a hole.
-
-    The non-rotating core the wheel turns around is inside all of this, and the bearing
-    is the single hardest engineering problem on the station: 300 m across, turning at
-    0.95 rpm, carrying the weight of a city.
+    The nose drum and its fittings: the core the port mounts on, the antenna farm,
+    and the navigation lights a pilot reads on final.
     """
     parts = []
 
-    length = HUB_END - HUB_START
-    middle = -(HUB_START + (length / 2.0))
+    drum = cylinder("MeridianNose", radius=CORE_RADIUS, depth=55.0,
+                    location=(0, 0, -47.0), vertices=64)
+    parts.append(assign(drum, "hull"))
+    link(drum, col)
 
-    # The outer shell, in bands, with the gaps where the bearing runs. The gaps are not
-    # decoration: the ring turns and the hub does not, and a skin across the joint would
-    # be a skin that sheared.
+    cap = sphere("MeridianNoseCap", radius=CORE_RADIUS, location=(0, 0, -72.0),
+                 segments=48, rings=24)
+    parts.append(assign(cap, "hull"))
+    link(cap, col)
+
+    # The antenna farm: three masts and a radar dome, the only bits of the station
+    # that are allowed to be untidy.
+    for i, (x, y, h) in enumerate(((40.0, 25.0, 60.0), (-38.0, 30.0, 45.0),
+                                   (10.0, -42.0, 52.0))):
+        mast = cylinder(f"MeridianAntenna{i}", 1.2, h,
+                        location=(x, y, -30.0 - h / 2.0), vertices=12)
+        parts.append(assign(mast, "truss"))
+        link(mast, col)
+    dome = sphere("MeridianRadar", radius=9.0, location=(25.0, -20.0, -55.0),
+                  segments=24, rings=12)
+    parts.append(assign(dome, "structure"))
+    link(dome, col)
+
+    # The convention, on the nose where an approach sees it: reds to port, greens
+    # to starboard, TWO whites on the roofline, ONE yellow underneath, strobes
+    # above and below.
+    lamp(col, parts, "NavPort", "nav_red", (0.0, -(CORE_RADIUS + 1.5), -30.0))
+    lamp(col, parts, "NavPortAft", "nav_red", (0.0, -(CORE_RADIUS + 1.5), -60.0))
+    lamp(col, parts, "NavStarboard", "nav_green", (0.0, CORE_RADIUS + 1.5, -30.0))
+    lamp(col, parts, "NavStarboardAft", "nav_green", (0.0, CORE_RADIUS + 1.5, -60.0))
+    lamp(col, parts, "NavDorsalFore", "nav_white", (CORE_RADIUS + 1.5, 0.0, -30.0))
+    lamp(col, parts, "NavDorsalAft", "nav_white", (CORE_RADIUS + 1.5, 0.0, -60.0))
+    lamp(col, parts, "NavVentral", "nav_yellow", (-(CORE_RADIUS + 1.5), 0.0, -45.0),
+         radius=0.9)
+    lamp(col, parts, "StrobeDorsal", "strobe", (CORE_RADIUS + 2.0, 0.0, -45.0),
+         radius=0.6)
+    lamp(col, parts, "StrobeVentral", "strobe", (-(CORE_RADIUS + 2.0), 0.0, -45.0),
+         radius=0.6)
+
+    return parts
+
+
+# --------------------------------------------------------------------------- the harbour
+
+
+def build_harbour(col):
+    """
+    The harbour: an open drum 480 m across with the bay between it and the core.
+
+    THIS IS THE POINT OF THE STATION. A 2 km wheel encloses a void two kilometres
+    wide, and the obvious thing to do with a void that size is to PARK IN IT. The
+    drum's forward face is open from the core out to the wall, a ship flies in
+    through the mouth and berths against the inside of the drum, and the cargo
+    never crosses open vacuum. The alternative — docking on the outside of the
+    hub — means every tonne crosses vacuum twice.
+
+    The mouth has to READ as a mouth from five kilometres out, because a hole in
+    space has no silhouette. So the lip is warning yellow, the rim carries sixteen
+    strobes, and two rings of cabin lights run down the bay's length so the depth
+    of the place is visible from the corridor.
+    """
+    parts = []
+
+    # The drum shell: wall bands and longitudinal ribs, on the outside so the
+    # inside stays clear for ships.
     for band in range(9):
-        along = HUB_START + 30.0 + (band * ((length - 60.0) / 9.0))
-        ring = torus(f"MeridianHubBand{band}", major=HUB_RADIUS, minor=6.0,
-                     location=(0, 0, -along), rotation=(0, math.pi / 2, 0),
-                     major_segments=128, minor_segments=12)
-        parts.append(assign(ring, "MeridianStructure"))
+        z = HUB_FACE - 20.0 - (band * ((HUB_FACE - HUB_END - 40.0) / 8.0))
+        ring = torus(f"MeridianHubBand{band}", major=HUB_RADIUS, minor=5.0,
+                     location=(0, 0, z), major_segments=128, minor_segments=10)
+        parts.append(assign(ring, "structure"))
+        link(ring, col)
 
-    # The longitudinal framing, which is what makes it a structure rather than a stack
-    # of hoops. Sixteen ribs, on the outside so the inside stays clear for the ships.
     for rib in range(16):
         angle = rib * math.tau / 16.0
-        rib_length = HUB_END - HUB_START
-        spine = box(f"MeridianHubRib{rib}", size=(6.0, 6.0, rib_length),
-                    location=(math.cos(angle) * HUB_RADIUS, math.sin(angle) * HUB_RADIUS,
-                              -middle))
-        parts.append(assign(spine, "MeridianTruss"))
+        spine = box(f"MeridianHubRib{rib}",
+                    (5.0, 5.0, HUB_FACE - HUB_END - 20.0),
+                    location=(math.cos(angle) * HUB_RADIUS,
+                              math.sin(angle) * HUB_RADIUS,
+                              (HUB_FACE + HUB_END) / 2.0 - 10.0))
+        parts.append(assign(spine, "truss"))
+        link(spine, col)
 
-    # The bearing housing, between the two rings, where the wheel meets the core.
-    bearing = cylinder("MeridianBearing", radius=HUB_RADIUS + 30.0, depth=90.0,
-                       location=(0, 0, -(HUB_START + (length / 2.0))),
-                       rotation=(0, math.pi / 2, 0))
-    parts.append(assign(bearing, "MeridianStructure"))
+    # The drum's deck skin between the bands, so the wall reads as a wall.
+    skin = cylinder("MeridianHubSkin", HUB_RADIUS - 2.0,
+                    HUB_FACE - HUB_END - 30.0,
+                    location=(0, 0, (HUB_FACE + HUB_END) / 2.0 - 15.0),
+                    vertices=128, cap='NOTHING')
+    parts.append(assign(skin, "hull"))
+    link(skin, col)
 
-    # ---------------------------------------------------------------- the open bay
-    #
-    # The mouth: a rim, so that the forward edge of a 256 m hole reads as an edge rather
-    # than as an absence. A hole in space has no silhouette and a pilot cannot judge its
-    # size; a lit rim can be judged from ten kilometres out.
-    lip = torus("MeridianBayLip", major=BAY_RADIUS + 8.0, minor=8.0,
-                location=(0, 0, -BAY_START), rotation=(0, math.pi / 2, 0),
-                major_segments=128, minor_segments=12)
-    parts.append(assign(lip, "MeridianWarning"))
+    # The aft bulkhead, closing the bay behind the berths.
+    bulkhead = cylinder("MeridianBulkhead", HUB_RADIUS - 2.0, 12.0,
+                        location=(0, 0, HUB_END + 20.0), vertices=128)
+    parts.append(assign(bulkhead, "shadow"))
+    link(bulkhead, col)
 
-    # Approach lights round the mouth, twenty-four of them. This is the one light on the
-    # station that is trying to be seen from far away.
-    for i in range(24):
-        angle = i * math.tau / 24.0
-        bpy.ops.mesh.primitive_uv_sphere_add(
-            segments=16, ring_count=8, radius=3.0,
-            location=(math.cos(angle) * (BAY_RADIUS + 16.0),
-                      math.sin(angle) * (BAY_RADIUS + 16.0), -BAY_START))
-        light = bpy.context.object
-        light.name = f"MeridianMouthLight{i}"
-        parts.append(assign(light, "MeridianBeacon"))
+    # The mouth lip: the edge a pilot judges the hole by.
+    lip = torus("MeridianBayLip", major=HUB_RADIUS, minor=6.0,
+                location=(0, 0, HUB_FACE), major_segments=128, minor_segments=12)
+    parts.append(assign(lip, "warning"))
+    link(lip, col)
 
-    # The berths. Twelve cradles round the wall, each a platform with a power trunk and
-    # a pair of guide rails, spaced so that a 180 m freighter fits between any two.
+    # Sixteen strobes round the mouth — the one light on the station that is
+    # trying to be seen from far away.
+    for i in range(16):
+        angle = i * math.tau / 16.0
+        lamp(col, parts, f"MeridianMouthStrobe{i}", "strobe",
+             (math.cos(angle) * (HUB_RADIUS + 9.0),
+              math.sin(angle) * (HUB_RADIUS + 9.0), HUB_FACE),
+             radius=2.0)
+
+    # The berths. Twelve cradles round the wall, each with a power trunk and a
+    # pair of guide rails, spaced so a freighter fits between any two.
+    bay_mid = (HUB_FACE + HUB_END) / 2.0 - 10.0
     for berth in range(BAY_BERTHS):
         angle = berth * math.tau / BAY_BERTHS
-        along = -(BAY_START + (BAY_END - BAY_START) / 2.0)
+        cx = math.cos(angle)
+        sy = math.sin(angle)
 
-        cradle = box(f"MeridianBerth{berth}", size=(30.0, 60.0, 150.0),
-                     location=(math.cos(angle) * (BAY_RADIUS - 18.0),
-                               math.sin(angle) * (BAY_RADIUS - 18.0), along),
+        cradle = box(f"MeridianBerth{berth}", (24.0, 50.0, 130.0),
+                     location=(cx * (HUB_RADIUS - 30.0),
+                               sy * (HUB_RADIUS - 30.0), bay_mid),
                      rotation=(0, 0, angle))
-        parts.append(assign(cradle, "MeridianShadow"))
+        parts.append(assign(cradle, "shadow"))
+        link(cradle, col)
 
-        trunk = box(f"MeridianBerthTrunk{berth}", size=(10.0, 10.0, 140.0),
-                    location=(math.cos(angle) * (BAY_RADIUS + 4.0),
-                              math.sin(angle) * (BAY_RADIUS + 4.0), along),
+        trunk = box(f"MeridianBerthTrunk{berth}", (8.0, 8.0, 120.0),
+                    location=(cx * (HUB_RADIUS - 8.0),
+                              sy * (HUB_RADIUS - 8.0), bay_mid),
                     rotation=(0, 0, angle))
-        parts.append(assign(trunk, "MeridianTruss"))
+        parts.append(assign(trunk, "truss"))
+        link(trunk, col)
 
         for rail in (-1, 1):
-            offset = rail * 46.0
-            guide = box(f"MeridianBerthRail{berth}_{rail}", size=(4.0, 4.0, 150.0),
-                        location=(math.cos(angle) * (BAY_RADIUS - 8.0) - (math.sin(angle) * offset),
-                                  math.sin(angle) * (BAY_RADIUS - 8.0) + (math.cos(angle) * offset),
-                                  along),
+            offset = rail * 40.0
+            guide = box(f"MeridianBerthRail{berth}_{rail}", (3.0, 3.0, 120.0),
+                        location=(cx * (HUB_RADIUS - 12.0) - (sy * offset),
+                                  sy * (HUB_RADIUS - 12.0) + (cx * offset),
+                                  bay_mid),
                         rotation=(0, 0, angle))
-            parts.append(assign(guide, "MeridianWarning"))
+            parts.append(assign(guide, "warning"))
+            link(guide, col)
 
-    # ---------------------------------------------------------------- the nose
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=64, ring_count=32, radius=HUB_RADIUS * 0.62,
-        location=(0, 0, -HUB_START))
-    dome = bpy.context.object
-    dome.name = "MeridianDome"
-    parts.append(assign(dome, "MeridianHull"))
+        # Berth lights: two lamps per cradle, warm and steady.
+        for dz in (-40.0, 40.0):
+            lamp(col, parts, f"MeridianBerthLight{berth}_{dz:+.0f}", "window",
+                 (cx * (HUB_RADIUS - 14.0), sy * (HUB_RADIUS - 14.0),
+                  bay_mid + dz), radius=1.6)
 
-    # The traffic control band, on the dome, which is the only place on the station with
-    # a view of the whole approach.
-    for i in range(28):
-        angle = i * math.tau / 28.0
-        radius = HUB_RADIUS * 0.62 - 4.0
-        window = box(f"MeridianDomeWindow{i}", size=(8.0, 4.0, 1.5),
-                     location=(math.cos(angle) * radius, math.sin(angle) * radius,
-                               -(HUB_START + 26.0)),
-                     rotation=(0, 0, angle))
-        parts.append(assign(window, "MeridianWindow"))
+    # Two rings of cabin lights down the bay, so the depth of it reads from the
+    # corridor: the mouth, a middle, and the far end.
+    for ring_i, z in enumerate((-220.0, -440.0)):
+        for i in range(12):
+            angle = i * math.tau / 12.0 + ring_i * 0.26
+            lamp(col, parts, f"MeridianBayLight{ring_i}_{i}", "window",
+                 (math.cos(angle) * (HUB_RADIUS - 10.0),
+                  math.sin(angle) * (HUB_RADIUS - 10.0), z), radius=2.2)
+
+    # The core, running from the nose back through the bay to the aft bearing.
+    core = cylinder("MeridianCore", CORE_RADIUS, -(HUB_END - 20.0) - 20.0,
+                    location=(0, 0, (HUB_END + 20.0 - 20.0) / 2.0), vertices=64)
+    parts.append(assign(core, "hull"))
+    link(core, col)
+
+    # The aft bearing housing, where the wheel meets the core: the single hardest
+    # engineering problem on the station, and it is allowed to look like it.
+    bearing = cylinder("MeridianBearing", CORE_RADIUS + 40.0, 80.0,
+                       location=(0, 0, HUB_END - 30.0), vertices=96)
+    parts.append(assign(bearing, "structure"))
+    link(bearing, col)
+
+    return parts
+
+
+# --------------------------------------------------------------------------- the wheel
+
+
+def build_spoke(col, wheel, spoke, angle):
+    """One spoke: a box-truss arm from the hub wall to the ring, with a lift car."""
+    parts = []
+    inner = HUB_RADIUS + 10.0
+    outer = RING_RADIUS - RING_TUBE - 4.0
+    length = outer - inner
+    z = RING_STATIONS[wheel]
+    cx = math.cos(angle)
+    sy = math.sin(angle)
+
+    for offset in (-6.0, 6.0):
+        rail = box(f"MeridianSpokeRail{wheel}_{spoke}_{offset:+.0f}",
+                   (length, 2.0, 2.0),
+                   location=(cx * (inner + length / 2.0) - (sy * offset),
+                             sy * (inner + length / 2.0) + (cx * offset), z),
+                   rotation=(0, 0, angle))
+        parts.append(assign(rail, "truss"))
+        link(rail, col)
+
+    for i in range(9):
+        along = inner + length * (i + 0.5) / 9.0
+        brace = box(f"MeridianSpokeBrace{wheel}_{spoke}_{i}",
+                    (2.0, 12.0, 2.0),
+                    location=(cx * along, sy * along, z),
+                    rotation=(0, 0, angle))
+        parts.append(assign(brace, "truss"))
+        link(brace, col)
+
+    # A lift car on each spoke: the only thing on the ring that moves relative to
+    # it, and therefore the only thing that needs a marking on it.
+    car = box(f"MeridianCar{wheel}_{spoke}", (26.0, 30.0, 22.0),
+              location=(cx * (inner + length * 0.6),
+                        sy * (inner + length * 0.6), z),
+              rotation=(0, 0, angle))
+    parts.append(assign(car, "warning"))
+    link(car, col)
+
+    return parts
+
+
+def build_districts(col, wheel):
+    """
+    The city at night: ten lit districts on each ring's outer face, and the rest
+    of the rim dark.
+
+    The station was built for two hundred and thirty thousand and forty came, so
+    most of the ring is unlit. A district is a small grid of warm windows; between
+    them the rim is hull. From ten kilometres out that reads as a place that is
+    inhabited in patches — the alternative, a continuous ring of light, is the
+    dotted bracelet the earlier model drew, which read as a broken array rather
+    than as a city.
+    """
+    parts = []
+    z = RING_STATIONS[wheel]
+    face = RING_RADIUS + RING_TUBE - 0.5
+
+    for district in range(DISTRICTS):
+        centre = district * math.tau / DISTRICTS + (wheel * 0.31)
+        for row in (-1, 0, 1):
+            for col_i in range(5):
+                angle = centre + (col_i - 2) * 0.010
+                w = box(f"MeridianWindow{wheel}_{district}_{row}_{col_i}",
+                        (7.0, 3.0, 1.2),
+                        location=(math.cos(angle) * face,
+                                  math.sin(angle) * face,
+                                  z + (row * 7.0)),
+                        rotation=(0, 0, angle))
+                parts.append(assign(w, "window"))
+                link(w, col)
+
+    # Scattered singles, so the dark quarters are not uniformly dead.
+    for i in range(24):
+        angle = (i * math.tau / 24.0) + 0.13 + (wheel * 0.31)
+        w = box(f"MeridianWindowS{wheel}_{i}", (5.0, 2.5, 1.2),
+                location=(math.cos(angle) * face,
+                          math.sin(angle) * face, z + (i % 3 - 1) * 6.0),
+                rotation=(0, 0, angle))
+        parts.append(assign(w, "window"))
+        link(w, col)
 
     return parts
 
 
 def build_wheel(col):
     """
-    The habitat: two fat tori, their spokes, and the rims people live on.
+    The habitat: two rings, their spokes, the lit districts, and the rim bays.
 
-    ONE GRAVITY, which is worth the rotation rate. At 150 m a full g needs 2.44
-    revolutions a minute, and the comfort limit for a person who has to adapt is
-    usually put at two to four; a station that wanted 1 g and could only manage half
-    would be one nobody chose to live on. So Meridian turns briskly and the Belt
-    stations, which are smaller, do not.
-
-        a = w^2 r    w = sqrt(9.80665 / 150) = 0.2557 rad/s = 2.44 rpm
-
-    The tube is 30 m across and eight decks deep, and the outermost deck is the one at
-    a full g -- which means the outermost deck is also the one with the greatest
-    Coriolis force on a running child, and the reason the gymnasium is on deck two.
+    ONE GRAVITY, which is worth the rotation rate. At a kilometre the full g needs
+    0.95 revolutions a minute, the rim moves at a hundred metres a second, and a
+    person standing on the outer deck weighs exactly what they weighed on Earth.
+    That is the figure the whole station exists to make, and it is printed below.
     """
     parts = []
 
     for wheel in range(RINGS):
-        station = HUB_START + (HUB_END - HUB_START) / 2.0
-        station += (wheel - ((RINGS - 1) / 2.0)) * RING_SEPARATION
+        z = RING_STATIONS[wheel]
 
         ring = torus(f"MeridianRing{wheel}", major=RING_RADIUS, minor=RING_TUBE,
-                     location=(0, 0, -station), rotation=(0, math.pi / 2, 0),
-                     major_segments=192, minor_segments=32)
-        parts.append(assign(ring, "MeridianHull"))
+                     location=(0, 0, z), major_segments=192, minor_segments=28)
+        parts.append(assign(ring, "hull"))
+        link(ring, col)
 
-        # The window band, on the OUTWARD face: down is outward, so the outward face is
-        # where the view is. Ninety-six of them at this radius is a window every four
-        # metres, which at a glance reads as a continuous strip of light -- and a strip
-        # of light round the rim of a wheel is the thing that tells a pilot, from ten
-        # kilometres out, that there is a place here and it is inhabited.
-        for i in range(RING_WINDOWS):
-            angle = i * math.tau / RING_WINDOWS
-            radius = RING_RADIUS + RING_TUBE - 0.5
-            window = box(f"MeridianRimWindow{wheel}_{i}", size=(22.0, 9.0, 2.0),
-                         location=(math.cos(angle) * radius,
-                                   math.sin(angle) * radius,
-                                   -station),
-                         rotation=(0, 0, angle))
-            parts.append(assign(window, "MeridianWindow"))
+        # Structural bands round the drum, so the tube reads as built and not grown.
+        # A band round the tube is a SMALL torus of the tube's own radius, centred
+        # on the drum's centreline with its axis along the drum's tangent — the
+        # first version of this gave the bands the ring's own major radius, which
+        # is how the wheel became a polygonal cage in every preview.
+        for band in range(12):
+            angle = band * math.tau / 12.0
+            rib = torus(f"MeridianRimBand{wheel}_{band}",
+                        major=RING_TUBE + 0.8, minor=2.2,
+                        location=(math.cos(angle) * RING_RADIUS,
+                                  math.sin(angle) * RING_RADIUS, z),
+                        major_segments=48, minor_segments=8)
+            rib.rotation_euler = (math.pi / 2, 0.0, angle + math.pi / 2)
+            parts.append(assign(rib, "structure"))
+            link(rib, col)
 
-        # DECK BANDS, and the geometry of them is the whole of this loop.
-        #
-        # A deck is a floor parallel to the ring's plane, so it cuts the tube along a
-        # circle that lies ON the tube's surface. For a tube of radius r whose centre is
-        # R from the axis, a deck at height h above the ring's plane has radius
-        # sqrt(r^2 - h^2) about its own centre -- NOT the tube's radius -- and sits at
-        # height h. Getting that wrong draws flat rings floating inside the habitat,
-        # which is what the first version did: eight circles all the same size, none of
-        # them touching the wall they were supposed to be the floors of.
-        for deck in range(RING_DECKS + 1):
-            height = -RING_TUBE + (deck * (2.0 * RING_TUBE / RING_DECKS))
-            half = math.sqrt(max((RING_TUBE * RING_TUBE) - (height * height), 1e-6))
+        parts.extend(build_districts(col, wheel))
 
-            # Each deck is a pair of rings where it meets the tube's two walls.
-            for side in (1, -1):
-                ring_radius = RING_RADIUS + (side * half)
-                band = torus(f"MeridianDeck{wheel}_{deck}_{side}",
-                             major=ring_radius, minor=2.0,
-                             location=(0, 0, -(station + height)),
-                             rotation=(0, math.pi / 2, 0),
-                             major_segments=160, minor_segments=8)
-                parts.append(assign(band, "MeridianStructure"))
+        # Two docking bays on each ring's flanks: freight berths that do not
+        # deserve the harbour. A recess box, a warning rim, four guide lamps.
+        for bay_i, angle in enumerate((0.6, 3.6)):
+            cx = math.cos(angle)
+            sy = math.sin(angle)
+            for face in (-1, 1):
+                bay = box(f"MeridianRimBay{wheel}_{bay_i}_{face:+d}",
+                          (36.0, 24.0, 18.0),
+                          location=(cx * (RING_RADIUS - RING_TUBE + 10.0),
+                                    sy * (RING_RADIUS - RING_TUBE + 10.0),
+                                    z + face * (RING_TUBE + 8.0)),
+                          rotation=(0, 0, angle))
+                parts.append(assign(bay, "shadow"))
+                link(bay, col)
 
-        # The spokes. Six, in compression, carrying the ring's weight to the hub --
-        # which is the cheap direction for a structure and the reason a wheel is
-        # cheaper than it looks.
+                rim = box(f"MeridianRimBayRim{wheel}_{bay_i}_{face:+d}",
+                          (40.0, 3.0, 22.0),
+                          location=(cx * (RING_RADIUS - RING_TUBE + 10.0),
+                                    sy * (RING_RADIUS - RING_TUBE + 10.0),
+                                    z + face * (RING_TUBE + 17.0)),
+                          rotation=(0, 0, angle))
+                parts.append(assign(rim, "warning"))
+                link(rim, col)
+
         for spoke in range(SPOKES):
-            angle = spoke * math.tau / SPOKES
-            inner = HUB_RADIUS + 8.0
-            outer = RING_RADIUS - RING_TUBE + 2.0
-            length = outer - inner
-
-            arm = box(f"MeridianSpoke{wheel}_{spoke}", size=(length, 26.0, 22.0),
-                      location=(math.cos(angle) * (inner + (length / 2.0)),
-                                math.sin(angle) * (inner + (length / 2.0)),
-                                -station),
-                      rotation=(0, 0, angle))
-            parts.append(assign(arm, "MeridianStructure"))
-
-            # A lift car on each spoke: the only thing on the ring that moves relative
-            # to it, and therefore the only thing that needs a marking on it.
-            car = box(f"MeridianCar{wheel}_{spoke}", size=(30.0, 34.0, 26.0),
-                      location=(math.cos(angle) * (outer - 12.0),
-                                math.sin(angle) * (outer - 12.0),
-                                -station),
-                      rotation=(0, 0, angle))
-            parts.append(assign(car, "MeridianWarning"))
+            parts.extend(build_spoke(col, wheel, spoke,
+                                     spoke * math.tau / SPOKES
+                                     + wheel * (math.tau / 12.0)))
 
     return parts
+
+
+# --------------------------------------------------------------------------- the boom
 
 
 def build_boom(col):
     """
     The boom: what holds the reactor and the radiators clear of the wheel.
 
-    A radiator shadows whatever is behind it and a reactor irradiates whatever is near
-    it, so both want distance -- and distance in space costs mass and nothing else. The
-    boom is a box truss 114 m long, and it is the only part of Meridian that is pure
-    structure rather than a place.
+    A radiator shadows whatever is behind it and a reactor irradiates whatever is
+    near it, so both want distance. The boom is a box truss running from the aft
+    bearing through the wheel's centre to the reactor, and it is the only part of
+    Meridian that is pure structure rather than a place.
     """
     parts = []
+    z0, z1 = HUB_END - 40.0, BOOM_END
+    length = z0 - z1
+    half = 14.0
+    step = 90.0
 
-    span = BOOM_END - HUB_END
-    bays = 20
+    for x in (-half, half):
+        for y in (-half, half):
+            rail = box("MeridianLongeron", (4.0, 4.0, length),
+                       location=(x, y, (z0 + z1) / 2.0))
+            parts.append(assign(rail, "truss"))
+            link(rail, col)
 
-    for bay in range(bays):
-        along = HUB_END + 20.0 + (bay * (span / bays))
+    bays = int(length / step)
+    for i in range(bays + 1):
+        z = z0 - length * i / bays
+        for y in (-half, half):
+            post = box("MeridianBoomPostX", (2 * half, 2.0, 2.0),
+                       location=(0, y, z))
+            parts.append(assign(post, "truss"))
+            link(post, col)
+        for x in (-half, half):
+            post = box("MeridianBoomPostY", (2.0, 2 * half, 2.0),
+                       location=(x, 0, z))
+            parts.append(assign(post, "truss"))
+            link(post, col)
 
-        for corner in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
-            strut = box(f"MeridianLongeron{bay}_{corner[0]}_{corner[1]}",
-                        size=(6.0, 6.0, (span / bays) + 1.0),
-                        location=(corner[1] * 26.0, corner[0] * 26.0, -along))
-            parts.append(assign(strut, "MeridianTruss"))
-
-        brace = box(f"MeridianBrace{bay}", size=(4.0, 4.0, 74.0),
-                    location=(0, 0, -along), rotation=(0, math.radians(41), 0))
-        parts.append(assign(brace, "MeridianTruss"))
-
-    return parts
-
-
-def build_reactor(col):
-    """
-    The reactor housing, at the far end, and the radiators behind it.
-
-    The reactor is a long way from the people, which is the oldest rule in spacecraft
-    design and the reason the spine is 180 m rather than 40. The shadow shield is a
-    disc between the two, and it is the single most massive thing on the station.
-    """
-    parts = []
-
-    housing = cylinder("MeridianReactor", radius=34.0, depth=110.0,
-                       location=(0, 0, -(BOOM_END + 55.0)), rotation=(0, math.pi / 2, 0))
-    parts.append(assign(housing, "MeridianShadow"))
-
-    # The shadow shield: a disc wider than the reactor, because a shadow is cast from a
-    # point source and a shield the same width as the source casts a shadow that ends.
-    shield = cylinder("MeridianShield", radius=66.0, depth=9.0,
-                      location=(0, 0, -(BOOM_END - 24.0)), rotation=(0, math.pi / 2, 0))
-    parts.append(assign(shield, "MeridianStructure"))
-
-    for vane in range(6):
-        angle = vane * math.tau / 6.0
-        fin = box(f"MeridianReactorFin{vane}", size=(7.0, 30.0, 100.0),
-                  location=(math.cos(angle) * 56.0, math.sin(angle) * 56.0,
-                            -(BOOM_END + 55.0)),
-                  rotation=(0, 0, angle))
-        parts.append(assign(fin, "MeridianRadiator"))
+    for i in range(bays):
+        za = z0 - length * i / bays
+        zb = z0 - length * (i + 1) / bays
+        dz = za - zb
+        span = 2 * half
+        diag = math.hypot(span, dz)
+        angle = math.atan2(dz, span)
+        for y in (-half, half):
+            d = box("MeridianBoomDiagX", (diag, 1.6, 1.6),
+                    location=(0, y, (za + zb) / 2.0),
+                    rotation=(0, -angle * (1 if i % 2 == 0 else -1), 0))
+            parts.append(assign(d, "truss"))
+            link(d, col)
+        for x in (-half, half):
+            d = box("MeridianBoomDiagY", (1.6, diag, 1.6),
+                    location=(x, 0, (za + zb) / 2.0),
+                    rotation=(angle * (1 if i % 2 == 0 else -1), 0, 0))
+            parts.append(assign(d, "truss"))
+            link(d, col)
 
     return parts
 
 
 def build_radiators(col):
     """
-    The main radiators: two panels, each 120 m by 40 m.
+    The main radiators: four panels on two masts amid the boom.
 
-    A station's radiator is sized by what it has to reject and it cannot be stowed, so
-    it is simply there — and at 4,800 square metres between them the panels are most of
-    Meridian's silhouette. They are also why the station's designers put the habitat on
-    a ring: the ring can turn to face the Sun and the radiators cannot.
+    A station's radiator is sized by what it has to reject and it cannot be
+    stowed, so it is simply there. The panels stand edge-on to the spindle so
+    each sees sky in both directions, and the hot face is a thin skin proud of
+    each side rather than a second slab inside the panel — two coplanar surfaces
+    fight, and the ship renderers already lost that lottery once.
     """
     parts = []
 
-    for panel in range(RADIATOR_PANELS):
-        side = 1 if panel == 0 else -1
+    for mast_i, z in enumerate(RADIATOR_STATIONS):
+        for side in (-1, 1):
+            mast = box(f"MeridianMast{mast_i}_{side:+d}",
+                       (14.0, 130.0, 14.0),
+                       location=(0, side * 78.0, z))
+            parts.append(assign(mast, "truss"))
+            link(mast, col)
 
-        # The mast out from the spine to the panel's inner edge.
-        mast = box(f"MeridianMast{panel}", size=(16.0, 130.0, 16.0),
-                   location=(0, side * 78.0, -RADIATOR_STATION))
-        parts.append(assign(mast, "MeridianTruss"))
+            face = box(f"MeridianPanel{mast_i}_{side:+d}",
+                       (RADIATOR_WIDTH, RADIATOR_LENGTH, 2.0),
+                       location=(0, side * (150.0 + RADIATOR_LENGTH / 2.0), z))
+            parts.append(assign(face, "radiator"))
+            link(face, col)
 
-        # The panel itself, edge-on to the spine so it sees sky in both directions.
-        face = box(f"MeridianPanel{panel}",
-                   size=(RADIATOR_WIDTH, RADIATOR_LENGTH, 2.0),
-                   location=(0, side * (150.0 + (RADIATOR_LENGTH / 2.0)), -RADIATOR_STATION))
-        parts.append(assign(face, "MeridianRadiator"))
+            for f in (-1, 1):
+                hot = box(f"MeridianPanelHot{mast_i}_{side:+d}_{f:+d}",
+                          (RADIATOR_WIDTH - 14.0, RADIATOR_LENGTH - 14.0, 0.6),
+                          location=(0, side * (150.0 + RADIATOR_LENGTH / 2.0),
+                                    z + f * 1.4))
+                parts.append(assign(hot, "radiator_hot"))
+                link(hot, col)
 
-        # The hot face: the side that faces the hull. Emissive, and the only part of
-        # the station that is genuinely hot to look at.
-        hot = box(f"MeridianPanelHot{panel}",
-                  size=(RADIATOR_WIDTH - 14.0, RADIATOR_LENGTH - 14.0, 1.0),
-                  location=(0, side * (150.0 + (RADIATOR_LENGTH / 2.0)),
-                            -RADIATOR_STATION + 1.8))
-        parts.append(assign(hot, "MeridianRadiatorHot"))
-
-        # Ribs across the panel, for scale again: 120 m of flat nothing is unreadable.
-        for rib in range(15):
-            along = 150.0 + 14.0 + (rib * 21.0)
-            spar = box(f"MeridianPanelRib{panel}_{rib}", size=(RADIATOR_WIDTH, 3.0, 5.0),
-                       location=(0, side * along, -RADIATOR_STATION))
-            parts.append(assign(spar, "MeridianStructure"))
+            for rib in range(12):
+                along = 150.0 + 14.0 + (rib * 25.0)
+                spar = box(f"MeridianPanelRib{mast_i}_{side:+d}_{rib}",
+                           (RADIATOR_WIDTH, 3.0, 5.0),
+                           location=(0, side * along, z))
+                parts.append(assign(spar, "structure"))
+                link(spar, col)
 
     return parts
 
 
-# --------------------------------------------------------------------------- corners
+def build_reactor(col):
+    """
+    The reactor housing, at the far end, and the end mast that caps the spindle.
+
+    The reactor is a long way from the people, which is the oldest rule in
+    spacecraft design. The shadow shield is a disc between it and the wheel, and
+    it is the single most massive thing on the station.
+    """
+    parts = []
+
+    housing = cylinder("MeridianReactor", radius=34.0, depth=140.0,
+                       location=(0, 0, BOOM_END - 70.0), vertices=64)
+    parts.append(assign(housing, "shadow"))
+    link(housing, col)
+
+    shield = cylinder("MeridianShield", radius=66.0, depth=9.0,
+                      location=(0, 0, BOOM_END + 24.0), vertices=64)
+    parts.append(assign(shield, "structure"))
+    link(shield, col)
+
+    for vane in range(6):
+        angle = vane * math.tau / 6.0
+        fin = box(f"MeridianReactorFin{vane}", (7.0, 30.0, 110.0),
+                  location=(math.cos(angle) * 56.0, math.sin(angle) * 56.0,
+                          BOOM_END - 70.0),
+                  rotation=(0, 0, angle))
+        parts.append(assign(fin, "radiator"))
+        link(fin, col)
+
+    # The end mast: the spindle's full stop, and the thing that brings the
+    # measured overall to the figure the client frames this asset by.
+    mast = cylinder("MeridianEndMast", 3.0, -(END_MAST - (BOOM_END - 140.0)),
+                    location=(0, 0, (END_MAST + BOOM_END - 140.0) / 2.0),
+                    vertices=12)
+    parts.append(assign(mast, "truss"))
+    link(mast, col)
+
+    lamp(col, parts, "StrobeAft", "strobe", (0.0, 0.0, END_MAST - 4.0), radius=1.4)
+
+    return parts
 
 
-def cone_part(name, r1, r2, depth, location, rotation, vertices=48):
-    bpy.ops.mesh.primitive_cone_add(vertices=vertices, radius1=r1, radius2=r2,
-                                    depth=depth, location=location, rotation=rotation)
-    obj = bpy.context.object
-    obj.name = name
-    return obj
-
-
-def sphere_part(name, radius, location, segments=24, rings=12):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=rings,
-                                         radius=radius, location=location)
-    obj = bpy.context.object
-    obj.name = name
-    return obj
-
-
-# --------------------------------------------------------------------------- assembly
-
-# (name, azimuth, elevation, distance as a multiple of the model's longest axis, lens)
-#
-# Six angles rather than four, because Meridian is the first asset here that is longer
-# than it is wide *and* wider than it is long, depending on which end you are looking
-# at: the spine is 206 m and the ring is 120 m across it, so no single view contains
-# the shape. The port shot is close and on the axis because that is what a pilot sees
-# for the last kilometre, and it is the view the model most has to work in.
+# --------------------------------------------------------------------------- views
+# Six angles, because no single view contains the shape: the wheel is 2.1 km
+# across and the spindle is 2.35 km long. The port shot is close and on the axis
+# because that is what a pilot sees for the last kilometre, and it is the view
+# the model most has to work in.
 SHOTS = [
     ("hero",   38.0,  16.0, 1.9, 52.0),
-    ("port",  180.0,   4.0, 0.5, 40.0),
+    ("port",  180.0,   6.0, 2.2, 55.0),
     ("ring",   90.0,  28.0, 1.3, 45.0),
     ("aft",      0.0,  20.0, 1.6, 48.0),
     ("side",   90.0,   2.0, 2.0, 52.0),
@@ -547,36 +735,28 @@ def main():
     build_materials()
 
     port = build_port(col)
-    hub = build_hub(col)
+    nose = build_nose(col)
+    harbour = build_harbour(col)
     wheel = build_wheel(col)
     boom = build_boom(col)
-    reactor = build_reactor(col)
     radiators = build_radiators(col)
+    reactor = build_reactor(col)
 
-    # THE HUB DOES NOT TURN AND THE WHEEL DOES. They are two objects because they are
-    # two objects: a client that wants to show the station running has to be able to
-    # turn one against the other, and a part that moves should not be welded in.
-    body = join("Meridian_Hub", port + hub + boom + reactor + radiators)
+    # THE HUB DOES NOT TURN AND THE WHEEL DOES. They are two objects because they
+    # are two objects: a client that wants to show the station running has to be
+    # able to turn one against the other, and a part that moves should not be
+    # welded in.
+    body = join("Meridian_Hub",
+                port + nose + harbour + boom + radiators + reactor)
     habitat = join("Meridian_Wheel", wheel)
 
+    # Bake every node transform into the vertices, so the exported nodes are all
+    # identity. The client frames a hull from the TRANSFORMED CORNERS of each
+    # part's axis-aligned box, and a transform left on a node inflates the measure
+    # it frames by — and on a station, the framing IS the contract.
     for obj in (body, habitat):
-        apply_transform(obj, scale=True)
+        apply_transform(obj, location=True, rotation=True, scale=True)
         shade_smooth_by_angle(obj, math.radians(35))
-
-    # THE MODEL'S LONG AXIS IS +Z IN BLENDER, AND THEREFORE +Y IN THE EXPORT.
-    #
-    # The station is built along +x because that is the natural way to lay out a spindle,
-    # and the ships are built nose-up about +z because that is the natural way to lay out
-    # a hull. The glTF exporter turns Blender's z-up into y-up, so the ships arrive long
-    # along y and the station arrived long along x — and the client, which has one
-    # convention for "which way does this model point", drew the station edge-on.
-    #
-    # So this rotates the finished station a quarter turn to match. It is done here, once,
-    # rather than in the loader, because a convention the loader has to correct for is a
-    # convention that every future asset will get wrong in a new way.
-    for obj in (body, habitat):
-        obj.rotation_euler = (0.0, math.radians(90.0), 0.0)
-        apply_transform(obj, rotation=True)
 
     blend, glb, preview = asset_paths("stations", NAME)
 
@@ -587,14 +767,24 @@ def main():
     speed = rate * RING_RADIUS
 
     print(f"  wheel     {RINGS} rings, {2 * (RING_RADIUS + RING_TUBE):.0f} m across, "
-          f"{2 * RING_TUBE:.0f} m tube, {RING_DECKS} decks")
+          f"{2 * RING_TUBE:.0f} m tube")
     print(f"  gravity   {rpm:.2f} rpm at {RING_RADIUS:.0f} m = {speed:.1f} m/s rim speed"
           f" = 1.00 g")
-    print(f"  hub       {HUB_END - HUB_START:.0f} m spindle, {HUB_RADIUS * 2:.0f} m across")
-    print(f"  boom      {BOOM_END - HUB_END:.0f} m, reactor and "
+    print(f"  harbour   {HUB_RADIUS * 2:.0f} m drum, {BAY_BERTHS} berths, "
+          f"mouth at z = {HUB_FACE:.0f} m")
+    print(f"  spindle   {-(END_MAST - 14.0):.0f} m nose to end mast, "
           f"{RADIATOR_PANELS * RADIATOR_LENGTH * RADIATOR_WIDTH:,.0f} m2 of radiator")
 
     render_views(preview, SHOTS, resolution=1100, samples=64)
+
+    # The harbour mouth, from the corridor, at the range a pilot judges it at.
+    # render_views always frames the whole station, and the mouth is the one
+    # detail that has to work on its own.
+    from pipeline import render_preview
+    render_preview(preview.replace(".png", "_mouth.png"),
+                   target=(0.0, 0.0, HUB_FACE - 110.0), distance=800.0,
+                   azimuth=15.0, elevation=30.0, resolution=1100, samples=64)
+
     export_glb(glb, NAME)
     export_blend(blend)
 
