@@ -25,6 +25,8 @@ internal sealed class FlightSession
 {
     private readonly StarCatalogue _stars;
 
+    private Station _station;
+
     /// <summary>
     /// Where the observer sits relative to the station's port, and how fast.
     /// </summary>
@@ -40,11 +42,14 @@ internal sealed class FlightSession
     /// <summary>One metre in kilometres. The scale between the local frame and the solar frame.</summary>
     private static readonly Fix128 MetresToKilometres = Fix128.FromDouble(0.001);
 
+    /// <summary>The ship's tick, which is also the station's — see <see cref="Advance"/>.</summary>
+    private const double TickSeconds = 1.0 / 120.0;
+
     private FlightSession(StarCatalogue stars, double julianDate, Station station)
     {
         _stars = stars;
         JulianDate = julianDate;
-        Station = station;
+        _station = station;
     }
 
     /// <summary>The stars, in the ecliptic frame.</summary>
@@ -54,7 +59,7 @@ internal sealed class FlightSession
     internal double JulianDate { get; private set; }
 
     /// <summary>The station being approached.</summary>
-    internal Station Station { get; }
+    internal Station Station => _station;
 
     /// <summary>
     /// Where the observer is, heliocentric, in kilometres.
@@ -202,9 +207,13 @@ internal sealed class FlightSession
     /// Advances the clock and carries the observer with it.
     /// </summary>
     /// <remarks>
-    /// The station is propagated with the symplectic integrator and the observer rides it, so a
-    /// client left running shows the station holding its orbit — and, over hours, the sky turning
-    /// as the Earth does.
+    /// The station is stepped with the same symplectic integrator and the same tick policy as the
+    /// ship, so the two hold formation: both orbit under the host's gravity and only their honest
+    /// relative dynamics separate them. The earlier version re-pinned the station at its starting
+    /// offset on every call — while its own comment claimed it was being propagated — so the ship,
+    /// which integrates real gravity, left the station behind at orbital speed: 38 km in five
+    /// seconds, which is 7.7 km/s exactly. A station you cannot stay beside is not a station you
+    /// can dock at, and no instrument on the HUD makes that fun.
     /// </remarks>
     internal void Advance(double seconds)
     {
@@ -215,14 +224,23 @@ internal sealed class FlightSession
 
         JulianDate += seconds / 86400.0;
 
+        // The same tick count the ship's stepper computes from the same elapsed seconds, so the
+        // two advance in lockstep — including the cap, under which station and hull fall behind
+        // the clock together at extreme time compression rather than apart from each other.
+        int ticks = Math.Clamp((int)Math.Round(seconds / TickSeconds), 0, 240);
+        Fix128 dt = Fix128.FromDouble(TickSeconds);
+        for (int i = 0; i < ticks; i++)
+        {
+            _station.Step(dt);
+        }
+
         var system = new SolarSystem();
         system.SetTime((JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
         Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
 
-        // The station is held in its circular orbit rather than propagated: it is where the
-        // ephemeris says the Earth is, plus a fixed offset. What moves is the Earth, and the
-        // observer rides it — which is the whole point, because over an orbit the sky turns and the
-        // Sun comes round, and a session left running for an hour should show it.
+        // What moves most is the Earth, and the observer rides it — which is the whole point,
+        // because over an orbit the sky turns and the Sun comes round, and a session left running
+        // for an hour should show it.
         Recompose(earth);
     }
 
