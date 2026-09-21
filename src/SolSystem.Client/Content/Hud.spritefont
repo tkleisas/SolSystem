@@ -5,10 +5,15 @@
   A monospaced face, because the numbers on a flight display are read as columns and a proportional
   one makes a value that changes length jitter sideways every frame. DejaVu Sans Mono is in every
   Linux distribution's font package and its licence permits redistribution.
+
+  The font is referenced as a FILE in this directory, not by name. Named lookup asks the OS for
+  the font, and the answer depends on which machine builds it: present on a Linux desktop,
+  absent on a clean CI runner, where the content build fails with "could not find DejaVu Sans
+  Mono". The file is the same for everyone.
 -->
 <XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">
   <Asset Type="Graphics:FontDescription">
-    <FontName>DejaVu Sans Mono</FontName>
+    <FontName>Fonts/DejaVuSansMono.ttf</FontName>
     <Size>15</Size>
     <Spacing>0</Spacing>
     <UseKerning>false</UseKerning>

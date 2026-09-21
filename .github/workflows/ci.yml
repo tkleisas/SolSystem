@@ -19,6 +19,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # MonoGame's shader compiler (MGFXC) is a Windows binary run through
+      # Wine; a clean ubuntu runner has none and the content build fails with
+      # MGFXC0001. Windows runners need nothing here.
+      - name: Install Wine, for MonoGame's shader compiler
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y wine64
+
       # The whole solution, including the MonoGame content pipeline (mgcb is
       # restored from .config/dotnet-tools.json by the client's build).
       - run: dotnet build -c Release
