@@ -73,6 +73,8 @@ internal sealed class FlightGame : Game
     private readonly Camera _camera = new();
     private Plume _plume = null!;
     private Chart _chart = null!;
+    private NavOverlay _nav = null!;
+    private CorridorGates _gates = null!;
     private Autohelm _helm;
     private bool _chartOpen;
     private readonly List<TransferOption> _courses = new();
@@ -243,6 +245,8 @@ internal sealed class FlightGame : Game
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData(new[] { Color.White });
         _hud = Content.Load<SpriteFont>("Hud");
+        _nav = new NavOverlay(_sprites, _pixel, _hud);
+        _gates = new CorridorGates(_sprites, _pixel);
 
         base.LoadContent();
     }
@@ -276,12 +280,10 @@ internal sealed class FlightGame : Game
             _simulatedSeconds += step;
             _session.Advance(step);
 
-            // A held key flies the ship, so that a control can be checked by what it does rather
-            // than by what a still frame of it looks like.
-            if (_options.Hold.Length > 0)
-            {
-                SimulateTicks(keys, step);
-            }
+            // The ship is always on the clock, held keys or not: since the station genuinely
+            // orbits, a ship left unsimulated is a ship the station leaves behind at 7.7 km/s,
+            // and a verification shot of that is a picture of a lie. The hold only adds keys.
+            SimulateTicks(keys, step);
         }
         else
         {
@@ -722,6 +724,17 @@ internal sealed class FlightGame : Game
         }
         else
         {
+            // The nav markers read the same camera basis the passes were rendered with, so a
+            // marker sits on the thing it names in every camera mode. The lineup is a measuring
+            // bench rather than a view of the sky, and nothing in it is anywhere, so it gets none.
+            // The corridor gates follow the same rule, for the same reason.
+            if (!_options.Lineup)
+            {
+                _nav.Draw(GraphicsDevice, _session, _flight, cameraForward, cameraUp,
+                    FieldOfViewDegrees, PortOffset(), _chart.Selected);
+                _gates.Draw(GraphicsDevice, _session, _flight, nearView, FieldOfViewDegrees);
+            }
+
             DrawHud();
         }
 
