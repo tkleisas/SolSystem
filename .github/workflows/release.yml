@@ -1,0 +1,82 @@
+name: release
+
+# A tag named v* (v0.0.1 and up) is a release. The tag is the version; the
+# workflow's only jobs are to prove it and to pack it.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test -c Release
+
+  package:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, rid: linux-x64, label: linux-x64 }
+          - { os: windows-latest, rid: win-x64, label: win-x64 }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The tag without its v is the assembly version: v0.0.1 -> 0.0.1.
+      - name: Publish the client, self-contained
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          dotnet publish src/SolSystem.Client -c Release -r ${{ matrix.rid }} \
+            --self-contained -p:Version="$VERSION" \
+            -o "artifacts/publish/${{ matrix.label }}"
+
+      # The client finds its assets by walking up from the executable for an
+      # art/ directory, so the package layout IS the runtime contract: the
+      # executable and art/ sit side by side. Only the runtime folders ship —
+      # blend/ is a source file and previews/ is development evidence.
+      - name: Assemble the package
+        run: |
+          mkdir -p "artifacts/package/SolSystem"
+          cp -r artifacts/publish/${{ matrix.label }}/. "artifacts/package/SolSystem/"
+          cp -r art/models art/sky art/textures "artifacts/package/SolSystem/art/"
+          cp README.md "artifacts/package/SolSystem/"
+
+      - name: Zip
+        run: |
+          cd artifacts/package
+          7z a "SolSystem-${GITHUB_REF_NAME}-${{ matrix.label }}.zip" SolSystem
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.label }}
+          path: artifacts/package/*.zip
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          merge-multiple: true
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes ./*.zip
