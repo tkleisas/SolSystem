@@ -37,6 +37,11 @@ ship
 
 expect "the ship reached the capture envelope" range 2.0 less
 expect "the ship is slow enough for the latches" closing 0.5 less
-expect "the ship is in the terminal phase" phase 2 exactly
+expect "the ship is inside the port's lateral corridor" lateral 1.0 less
+
+# Phase 3 is the hold: the envelope was satisfied and the latches have it. The law reaches that
+# state and stops correcting, which is the whole point -- a law that keeps flying after capture
+# charges through the port and out the other side.
+expect "the latches have taken the ship" phase 3 exactly
 
 hash docking

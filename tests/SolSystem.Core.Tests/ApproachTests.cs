@@ -120,7 +120,7 @@ public class ApproachTests
         return (false, closest, 0.0, maxTicks, (startPropellant - ship.Propellant).ToDouble());
     }
 
-    [Fact(Skip = "the hold phase latches early and the ship drifts; see the remarks")]
+    [Fact]
     public void AShipFlownFromTwoKilometres_Docks()
     {
         (bool docked, double closest, double closing, int ticks, double used) = Fly(2_000.0, 0.0);
@@ -133,7 +133,7 @@ public class ApproachTests
         Assert.True(used > 0.0, "a manoeuvre that changes velocity costs propellant");
     }
 
-    [Fact(Skip = "the hold phase latches early and the ship drifts; see the remarks")]
+    [Fact]
     public void TheShipNeverExceedsWhatTheEnvelopeCanHold()
     {
         (bool docked, double closest, double closing, int ticks, double used) = Fly(2_000.0, 0.0);
@@ -143,7 +143,7 @@ public class ApproachTests
             $"arrived at {closing:F4} m/s against a {Docking.MaxClosingSpeed.ToDouble()} m/s limit");
     }
 
-    [Fact(Skip = "the hold phase latches early and the ship drifts; see the remarks")]
+    [Fact]
     public void AnApproachThatStartsTooFast_IsSlowedRatherThanAbandoned()
     {
         (bool docked, double closest, double closing, int ticks, double used) =
@@ -157,7 +157,7 @@ public class ApproachTests
         Assert.True(closest < 50.0, $"the ship never got nearer than {closest:F1} m");
     }
 
-    [Fact(Skip = "the hold phase latches early and the ship drifts; see the remarks")]
+    [Fact]
     public void TheBudgetIsSane()
     {
         // Not "the shorter corridor is cheaper", which sounds obvious and is false here. A
@@ -187,6 +187,63 @@ public class ApproachTests
         // once and spends half an hour creeping. Asserting the naive inequality would have made
         // the test wrong rather than the law, which is the failure mode to watch for.
         Assert.True(usedA > 0.0 && usedB > 0.0, "a manoeuvre that changes velocity costs something");
+    }
+
+    /// <summary>
+    /// Writes one approach to CSV, for plotting.
+    /// </summary>
+    /// <remarks>
+    /// <code>
+    ///   APPROACH_CSV=/tmp/approach.csv dotnet test --filter DumpTheApproach
+    ///   python3 tools/plot_csv.py /tmp/approach.csv --x tick \
+    ///       --panels "range@symlog,closing,throttle,nose_x" --bands phase --out /tmp/a.svg
+    /// </code>
+    /// Reading traces a line at a time produced seven wrong diagnoses in this file, and the plot
+    /// found the real one in a single look: the ship reached two metres, and then the throttle
+    /// pinned at maximum while it was driven a hundred kilometres away. Every number in the trace
+    /// had been self-consistent. Only the shape showed the sign was wrong.
+    /// </remarks>
+    [Fact]
+    public void DumpTheApproach()
+    {
+        DockingPort port = Port;
+        var ship = MakeShip(
+            port.Position + port.Axis * F(2_000.0), -port.Axis * F(0.0), -port.Axis);
+
+        var approach = new Approach();
+        var sources = new[] { new GravitySource(V(-1e6, 0, 0), Fix128.Zero) };
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("tick,phase,range,x,closing,vx,throttle,nose_x,angle_deg");
+
+        for (int tick = 0; tick < 400_000; tick++)
+        {
+            Command command = approach.Next(ship, port, Fix128Vec.Zero);
+            DockingReport report = Docking.Evaluate(ship, port, Fix128Vec.Zero);
+
+            csv.Append(tick).Append(',')
+               .Append(approach.Phase).Append(',')
+               .Append(report.Range.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+               .Append(ship.Position.X.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+               .Append(report.ClosingSpeed.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+               .Append(ship.Velocity.X.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+               .Append(command.Throttle.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+               .Append(ship.Attitude.Forward.X.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+               .Append((ship.Attitude.RotationVector.Z.ToDouble() * 180.0 / Math.PI)
+                   .ToString("R", System.Globalization.CultureInfo.InvariantCulture))
+               .AppendLine();
+
+            ship.Step(sources, F(TickSeconds), command);
+            if (report.Docked)
+            {
+                _o.WriteLine($"docked at tick {tick}");
+                break;
+            }
+        }
+
+        string path = Environment.GetEnvironmentVariable("APPROACH_CSV") ?? "/tmp/approach.csv";
+        File.WriteAllText(path, csv.ToString());
+        _o.WriteLine($"wrote {path}");
     }
 
     /// <summary>

@@ -296,8 +296,8 @@ internal sealed class ProbeRunner
             throw new ProbeException("no ship has been launched — use 'launch'");
         }
 
-        string[] names = { "closing", "braking", "terminal" };
-        Emit($"  phase     {_world.Phase} ({names[Math.Min(_world.Phase, 2)]})");
+        string[] names = { "closing", "braking", "terminal", "hold" };
+        Emit($"  phase     {_world.Phase} ({names[Math.Min(_world.Phase, names.Length - 1)]})");
     }
 
     // ---------------------------------------------------------------- determinism

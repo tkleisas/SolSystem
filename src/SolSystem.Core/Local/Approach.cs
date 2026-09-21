@@ -50,6 +50,20 @@ internal struct Approach
 
         /// <summary>Inside contact range: killing the residual rate and settling on the latches.</summary>
         Hold,
+
+        /// <summary>
+        /// Braking overshot and the ship is drifting in on the creep. Only the terminal laws
+        /// are allowed from here.
+        /// </summary>
+        /// <remarks>
+        /// A fourth phase, and it exists because the first three cycle. Braking sheds speed
+        /// until the closing rate reaches <see cref="BrakeComplete"/>, which happens wherever it
+        /// happens; if that is still tens of metres out the law re-enters Closing, which
+        /// accelerates, which trips the brake trigger again, which brakes to a crawl again. A
+        /// trace of one approach shows the cycle four times — out to 1 160 m, in to 21 m, out to
+        /// 86 m, in to 6 m — each pass spending propellant and arriving nowhere. Recovery is
+        /// terminal-only: it creeps in from wherever the overshoot left it.
+        /// </remarks>
     }
 
     /// <summary>Where in the manoeuvre the ship is.</summary>
@@ -90,8 +104,30 @@ internal struct Approach
     /// <summary>Speed the terminal phase holds, in m/s.</summary>
     private const double CreepSpeed = 0.05;
 
+    /// <summary>
+    /// Closing speed the hold phase maintains, in m/s.
+    /// </summary>
+    /// <remarks>
+    /// Slow enough that the latches can hold it, positive enough that the envelope sees the ship
+    /// as approaching rather than leaving.
+    /// </remarks>
+    private const double HoldSpeed = 0.02;
+
     /// <summary>Fastest the closing phase will ask for, in m/s.</summary>
     private const double ClosingSpeedCap = 10.0;
+
+    /// <summary>
+    /// Fastest the terminal phase will ask for, in m/s.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately well inside <see cref="Docking.MaxClosingSpeed"/> rather than at it. The
+    /// envelope accepts 0.5 m/s, so a terminal approach that arrives at 0.65 does not dock: it
+    /// sails through the port, has to come about, and comes back. One approach did exactly that,
+    /// reaching 0.038 m — two hundred times inside the corridor — and then taking another
+    /// eighteen thousand ticks to be captured, because the latches would not have it at that
+    /// speed. A quarter of the limit leaves room for the overshoot that any real approach has.
+    /// </remarks>
+    private const double TerminalSpeedCap = 0.12;
 
     /// <summary>Closing speed per metre of corridor still to run.</summary>
     private const double ApproachGain = 0.04;
@@ -111,9 +147,6 @@ internal struct Approach
     /// <summary>How hard the closing phase chases its target speed.</summary>
     private const double ClosingGain = 0.5;
 
-    /// <summary>Range inside which the terminal creep begins, in metres.</summary>
-    private const double TerminalRange = 20.0;
-
     /// <summary>
     /// Range inside which the ship stops flying a profile and starts settling, in metres.
     /// </summary>
@@ -126,7 +159,7 @@ internal struct Approach
     /// a closing speed of zero, and at 0.182 m the test that flies two kilometres was still
     /// going after four hundred thousand ticks.
     /// </remarks>
-    private const double HoldRange = 0.25;
+    private const double HoldRange = 1.2;
 
     /// <summary>Alignment above which the engine is allowed to fire.</summary>
     private const double Firing = 0.90;
@@ -200,15 +233,31 @@ internal struct Approach
         // and runs away at ten metres a second. That is exactly what happened the first time
         // the terminal phase was given position feedback. Against the live bearing, the sign
         // flips the instant the ship passes, and the same law turns round and comes back.
-        // Signed travel along the corridor: positive means closing on the port, negative means
-        // past it and moving away. Along a fixed axis this is a genuine signed quantity, which
-        // is what lets the same law both approach and recover from an overshoot.
-        double closing = Dot(ship.Velocity, inward).ToDouble();
-        double alongCorridor = Dot(offset, inward).ToDouble();
+        // How fast the distance to the port is shrinking. Positive means approaching.
+        //
+        // This is the rate of change of `range`, not the component of velocity down the corridor
+        // axis, and the two only agree while the ship is short of the port. Past it they disagree
+        // in sign, and a law that steers by one and throttles by the other runs away: the trace
+        // showed 10 m/s and a hundred kilometres of separation with "closing" reading a steady
+        // ten. Range and its rate are a matched pair, so the law uses those for the throttle and
+        // the latched corridor for the helm.
+        Fix128Vec toPort = offset.IsZero ? inward : -offset.Normalized();
+        double closing = Dot(ship.Velocity, toPort).ToDouble();
 
         // What the drive can do, which moves as the tanks empty.
         double accel = ship.Engine.ThrustKilonewtons.ToDouble() / ship.Mass.ToDouble();
         accel = Math.Min(accel, ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble());
+
+        // Capture: once the envelope is satisfied, hold the ship there.
+        //
+        // The last stage, and the only one that is a latch rather than a law. Everything before
+        // it is trying to reach a state; this is the state. Left flying, the approach law keeps
+        // correcting, and a correction at a few centimetres is a charge through the port and out
+        // the other side.
+        if (Phase != Stage.Hold && Docking.Evaluate(ship, port, Fix128Vec.Zero).Docked)
+        {
+            Phase = Stage.Hold;
+        }
 
         if (accel <= 0.0)
         {
@@ -225,6 +274,9 @@ internal struct Approach
         double turnPenalty = closing * turnSeconds * GateRampFactor;
 
         // The latch. Once committed, committed: see the class remarks.
+        //
+        // And once Braking has had its go, the law does not accelerate down the corridor again:
+        // it goes straight to the terminal approach. See the note at the transition below.
         //
         // And it requires the ship to actually be moving toward the port. At rest the two
         // distances are both zero, so `range <= 0` is false at any real standoff and the
@@ -245,11 +297,23 @@ internal struct Approach
         }
         else if (Phase == Stage.Braking && closing <= BrakeComplete)
         {
-            // Only terminal if there is nothing left to travel. Reaching a low closing speed a
-            // kilometre out is not an arrival, and treating it as one is how the first version
-            // parked the ship nine hundred metres from the port for six hours. Far out, the
-            // right answer is to close the distance again.
-            Phase = range <= TerminalRange ? Stage.Terminal : Stage.Closing;
+            // Braking has done what it can, wherever that is, and from here the ship flies the
+            // terminal approach.
+            //
+            // There used to be a `TerminalRange` of twenty metres and a fourth phase for the
+            // case where braking stopped further out. Both are gone, and the plot is why.
+            // Braking shed 8.1 m/s and stopped at 115 m — outside the twenty — so the law
+            // entered the fourth phase, which commanded only a creep and had no braking
+            // authority at all. The ship had meanwhile been left pointing the wrong way, the
+            // speed error built while the helm took thirty seconds to come round, and by the
+            // time it pointed the right way it was doing 2.3 m/s and the alignment gate had shut
+            // the throttle. It then coasted outward for a quarter of a million ticks with the
+            // throttle at zero and the range climbing past a hundred kilometres.
+            //
+            // The terminal law needs no range gate. Its target speed is proportional to what is
+            // left and it has full authority both ways, so it brakes when hot and accelerates
+            // when slow. One phase, entered once.
+            Phase = Stage.Terminal;
         }
 
         // The acceleration the ship needs along the corridor, in its own frame.
@@ -278,26 +342,8 @@ internal struct Approach
         }
         else
         {
-            // Terminal homes on the port as a POSITION, and that is the whole difference
-            // between arriving and passing through. Holding a closing speed is not an
-            // approach: a ship doing a steady 0.05 m/s toward a port two metres away goes
-            // through it, out the other side, and continues at 0.05 m/s for as long as
-            // anybody watches — which is exactly what this did, reaching 0.44 m at tick
-            // 120 000 and being eleven kilometres away by tick 240 000 with the throttle shut
-            // the entire time.
-            //
-            // So the target speed is proportional to what is left, and the loop closes on
-            // range as well as on rate.
-            // The target speed falls with what is left, and it does NOT fall below the creep.
-            //
-            // That floor is load-bearing rather than a unit conversion. The capture envelope is
-            // two metres wide, so an approach that slows to a few millimetres a second outside
-            // it never crosses: the ship reached 0.056 m from the port, drifting at under a
-            // centimetre a second, and was still there four hundred thousand ticks later with
-            // `Docked` false the whole time. A floor of CreepSpeed covers two metres in forty
-            // seconds, so the envelope is entered and the latches get their chance.
-            double desired = Math.Max(CreepSpeed, Math.Min(ClosingSpeedCap, range * 0.05));
-            along = Math.Clamp((desired - closing) * 4.0, -accel, accel);
+            // The damped position law, which is the same in both. See ApproachAcceleration.
+            along = ApproachAcceleration(range, closing, accel);
         }
 
         // A little of the lateral error, or the ship drifts off the centreline. Bounded by
@@ -330,7 +376,16 @@ internal struct Approach
         // law reads a large positive rate error, and it accelerates into the distance at
         // forty-four metres a second. Along the bearing, a negative `along` means "toward the
         // port" wherever the ship happens to be, so overshooting simply turns the ship round.
-        Fix128Vec line = inward;
+        // The command is along the direction TO the port, live.
+        //
+        // This is the bug the plot found, after seven traces had missed it. `inward` is the
+        // corridor direction the ship travelled on the way in, and it is right until the ship
+        // passes the port — at which point a *negative* `along` (brake) pushes it further past
+        // instead of back. The plot of one approach shows the ship reaching 2 m at the closest
+        // approach and then, with the throttle pinned at 1.0 and the nose dead ahead, being
+        // driven out to a hundred kilometres over the next quarter of a million ticks. Every
+        // number in the trace was self-consistent; only the picture showed the sign was wrong.
+        Fix128Vec line = range > 1e-9 ? toPort : inward;
         Fix128Vec wanted = line * Fix128.FromDouble(along) + sideways - frameGravity;
         if (wanted.IsZero)
         {
@@ -347,6 +402,53 @@ internal struct Approach
             : Fix128.Zero;
 
         return new Command(direction, throttle, turn);
+    }
+
+    /// <summary>
+    /// The acceleration that brings the ship onto the port at a speed it can be caught at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>a = (v² − v_target²) / 2s</c>, negated, so the ship brakes whenever it is travelling
+    /// faster than the speed that would let it stop in the distance left, and accelerates when it
+    /// is slower. Three earlier forms of this are worth recording because each failed in a
+    /// different way:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>A speed error times a gain. Dimensionally a frequency, unrelated to the drive: an
+    /// error of a metre a second times four asks for 4 m/s² from an engine that makes 0.039, so
+    /// every correction was a full-thrust lunge and the approach became a series of overshoots
+    /// that threw the ship between 2 m and 17 m.</item>
+    /// <item>The same energy form with the target taken as a fraction of the range. Correct in
+    /// form, but past the port the sign of the rate was no longer the sign of the distance and
+    /// it accelerated away, sixty kilometres of it.</item>
+    /// <item>A spring and damper on the distance. Stable by construction and over-damped here:
+    /// at 115 m the commanded acceleration was 3 m/s² against a drive that makes 0.039, so it
+    /// saturated in the wrong direction and the ship hung motionless.</item>
+    /// </list>
+    /// <para>
+    /// What is left is the braking law with the target speed capped, and the cap is what does the
+    /// work: it is set well inside the envelope so the arrival is catchable, and it is a floor on
+    /// the approach rather than a target to hit exactly, so the ship always keeps leaning on the
+    /// port.
+    /// </para>
+    /// </remarks>
+    private static double ApproachAcceleration(double range, double closing, double accel)
+    {
+        // The speed that can still be shed in the distance remaining.
+        double stopSpeed = Math.Sqrt(2.0 * accel * Math.Max(range, 1e-9));
+
+        // Never faster than the envelope will catch, and never slower than the creep.
+        double target = Math.Min(stopSpeed, TerminalSpeedCap);
+        target = Math.Max(target, CreepSpeed);
+
+        // Brake toward the target when hot, and close the gap when slow.
+        double error = closing - target;
+        double commanded = error > 0.0
+            ? -(closing * closing - target * target) / (2.0 * Math.Max(range, 1e-9))
+            : accel * 0.25;
+
+        return Math.Clamp(commanded, -accel, accel);
     }
 
     /// <summary>
