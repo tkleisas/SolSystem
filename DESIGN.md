@@ -894,7 +894,13 @@ rescues it.**
       metres — 1 575 m from ten metres a second, 324 from four. Known limitation: a 500 m corridor
       reaches 0.47 m and stops, four centimetres outside the contact range. See `docs/TRIP-ENERGY.md`
       §17
-- [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
+- [x] **One flyable ship** — `SolSystem.Client`, a MonoGame window onto the simulation. The sky is
+      the real catalogue, the Sun and the planets are placed by the same ephemeris that flies the
+      ships and lit by the Sun alone, and the Earth is a textured sphere turning on its axis at the
+      real sidereal rate and tilted by the real obliquity. `--shot` renders one frame to a PNG, which
+      is what makes any of it checkable: `art/previews/flight/` holds three views from a station in
+      low Earth orbit. What is *not* there yet is the ship itself — the models are built and exported
+      but nothing loads a GLB — and there are no flight controls beyond the clock
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
 - [x] **The sky, drawn** — 11 558 real stars from the HYG catalogue, packed to 188 kB and loaded
       once; the Milky Way as the great circle it physically is, brightest towards the galactic

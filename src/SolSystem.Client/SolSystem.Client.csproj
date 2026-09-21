@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SolSystem.Client</RootNamespace>
+    <AssemblyName>SolSystem.Client</AssemblyName>
+    <!-- MonoGame's content pipeline and the DesktopGL runtime are the two places a warning
+         becomes noise rather than signal, and this project treats warnings as errors. -->
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SolSystem.Core/SolSystem.Core.csproj" />
+  </ItemGroup>
+
+</Project>

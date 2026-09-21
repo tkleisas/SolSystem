@@ -9,6 +9,7 @@
     <InternalsVisibleTo Include="SolSystem.Core.Tests" />
     <InternalsVisibleTo Include="SolSystem.Spike" />
     <InternalsVisibleTo Include="SolSystem.Probe" />
+    <InternalsVisibleTo Include="SolSystem.Client" />
   </ItemGroup>
 
 </Project>

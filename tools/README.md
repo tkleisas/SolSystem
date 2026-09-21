@@ -69,6 +69,20 @@ it lives in the simulation.
 
 Preview charts are in `art/previews/sky/`.
 
+## `pack_earth.py`
+
+```sh
+python3 tools/pack_earth.py --out art/textures/earth_albedo.jpg
+```
+
+`art/textures/earth_map.png` is a *data* map — red a land mask, green a coastline, blue the cosine of
+latitude — with no colour in it at all, because the Blender preview shader computed the colour from
+those three channels. A game renderer wants an ordinary albedo, so this does the same computation
+offline once and ships the result. Same ramps, so a planet in the game matches the same planet in
+the preview.
+
+`SolSystem.Client --shot <file>` renders one frame headlessly. See `art/previews/flight/`.
+
 ## `blender/`
 
 The model pipeline. See [`blender/README.md`](blender/README.md) for the build conventions and

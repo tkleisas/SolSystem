@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/SolSystem.Client/SolSystem.Client.csproj" />
     <Project Path="src/SolSystem.Core/SolSystem.Core.csproj" />
     <Project Path="src/SolSystem.Probe/SolSystem.Probe.csproj" />
     <Project Path="src/SolSystem.Spike/SolSystem.Spike.csproj" />

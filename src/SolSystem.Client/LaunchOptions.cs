@@ -1,0 +1,165 @@
+using System.Globalization;
+
+namespace SolSystem.Client;
+
+/// <summary>
+/// What the client was asked to do, parsed from the command line.
+/// </summary>
+/// <remarks>
+/// Every option has a default that produces a sensible picture, because the useful thing about a
+/// headless renderer is being able to ask for one frame with no arguments and get something worth
+/// looking at.
+/// </remarks>
+internal sealed class LaunchOptions
+{
+    /// <summary>Where to write a single frame, or null for an interactive session.</summary>
+    internal string? ShotPath { get; private set; }
+
+    internal int Width { get; private set; } = 1280;
+
+    internal int Height { get; private set; } = 720;
+
+    /// <summary>Julian date to start at. J2000 by default.</summary>
+    internal double JulianDate { get; private set; } = 2451545.0;
+
+    /// <summary>Which station to start beside.</summary>
+    internal string Station { get; private set; } = "Meridian";
+
+    /// <summary>How far down the corridor to start, in metres.</summary>
+    internal double Standoff { get; private set; } = 400.0;
+
+    /// <summary>
+    /// Which way to look at the start.
+    /// </summary>
+    /// <remarks>
+    /// The interesting directions are the ones with something in them. Looking at a random patch of
+    /// sky gives a picture of stars, which is lovely and tells you nothing about whether the
+    /// ephemeris is right; looking at the Sun, the Earth or the Milky Way tells you immediately.
+    /// </remarks>
+    internal ViewAim Aim { get; private set; } = ViewAim.Earth;
+
+    /// <summary>Simulated seconds per real second, interactively.</summary>
+    internal double TimeRate { get; private set; } = 1.0;
+
+    /// <summary>Whether the frame should be rendered without opening a visible window.</summary>
+    internal bool Headless => ShotPath is not null;
+
+    /// <summary>Print what each body resolved to. For when a frame looks wrong.</summary>
+    internal bool Verbose { get; private set; }
+
+    /// <summary>The command line, for when nobody knows what to type.</summary>
+    internal const string Usage = """
+        SolSystem.Client — fly a ship in the solar system
+
+          --shot <file>        render one frame to a PNG and exit
+          --width <n>          frame width  (default 1280)
+          --height <n>         frame height (default 720)
+          --at <jd>            Julian date (default 2451545.0, J2000)
+          --station <name>     which station to start beside (default Meridian)
+          --standoff <m>       how far off the dock to start (default 400)
+          --earthward          look at the Earth (default)
+          --sunward            look at the Sun
+          --milkyway           look at the galactic centre
+          --dockward           look down the corridor at the station
+          --rate <n>           simulated seconds per real second (default 1)
+          --verbose            print what each body resolved to
+        """;
+
+    internal enum ViewAim
+    {
+        Earth,
+        Sun,
+        MilkyWay,
+        Station,
+    }
+
+    internal static LaunchOptions Parse(string[] args)
+    {
+        var options = new LaunchOptions();
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--shot":
+                    options.ShotPath = Require(args, ref i);
+                    break;
+
+                case "--width":
+                    options.Width = (int)Number(args, ref i, 16, 8192);
+                    break;
+
+                case "--height":
+                    options.Height = (int)Number(args, ref i, 16, 8192);
+                    break;
+
+                case "--at":
+                    options.JulianDate = Number(args, ref i, 0.0, double.MaxValue);
+                    break;
+
+                case "--station":
+                    options.Station = Require(args, ref i);
+                    break;
+
+                case "--standoff":
+                    options.Standoff = Number(args, ref i, 1.0, 1.0e9);
+                    break;
+
+                case "--rate":
+                    options.TimeRate = Number(args, ref i, 0.0, 1.0e6);
+                    break;
+
+                case "--verbose":
+                    options.Verbose = true;
+                    break;
+
+                case "--sunward":
+                    options.Aim = ViewAim.Sun;
+                    break;
+
+                case "--earthward":
+                    options.Aim = ViewAim.Earth;
+                    break;
+
+                case "--milkyway":
+                    options.Aim = ViewAim.MilkyWay;
+                    break;
+
+                case "--dockward":
+                    options.Aim = ViewAim.Station;
+                    break;
+
+                default:
+                    throw new ArgumentException($"unknown option '{args[i]}'");
+            }
+        }
+
+        return options;
+    }
+
+    private static string Require(string[] args, ref int i)
+    {
+        if (i + 1 >= args.Length)
+        {
+            throw new ArgumentException($"'{args[i]}' needs a value");
+        }
+
+        return args[++i];
+    }
+
+    private static double Number(string[] args, ref int i, double min, double max)
+    {
+        string raw = Require(args, ref i);
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+        {
+            throw new ArgumentException($"'{args[i - 1]}' expected a number, got '{raw}'");
+        }
+
+        if (value < min || value > max)
+        {
+            throw new ArgumentException($"'{args[i - 1]}' wants {min} to {max}, got {value}");
+        }
+
+        return value;
+    }
+}
