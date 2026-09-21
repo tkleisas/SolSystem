@@ -11,42 +11,33 @@ stations: Anchorage, Meridian
 > advance 3600
   world at tick 3600 (0.000347 days from J2000)
 > range
-  range     1999.680616 m
+  range     1998.962881 m
 > closing
-  closing   0.154227234 m/s
+  closing   0.262499645 m/s
 > ship
-  position  (6780099.6806139182, 0.097736345365809482, 0) m
-  velocity  (-0.15422893356561782, 0.034767955992224257, 0) m/s
-  mass      99.9321859533333 t (90 t dry, 9.93218595333333 t propellant)
-  nose      (-0.99972817684167925, 0.023314639795888256, 0)
-  delta-v   125618.574179889 m/s
+  position  (6780098.9627294429, 0.77806143903086322, 0) m
+  velocity  (-0.26255000246841043, 0.12932484001150682, 0) m/s
+  mass      99.9321673877778 t (90 t dry, 9.93216738777778 t propellant)
+  nose      (-1, 2.4313233717987437E-16, 0)
+  delta-v   125618.351242018 m/s
 > advance 250000
   world at tick 253600 (0.024460 days from J2000)
 > phase
-  phase     3 (hold)
+  phase     1 (braking)
 > range
-  range     0.781649 m
+  range     82712.088442 m
 > closing
-  closing   -0.120021482 m/s
+  closing   -81.419188529 m/s
 > ship
-  position  (6778099.2191028027, 0.034279967035749252, 0) m
-  velocity  (-0.12012559489435737, 0.00026139640623440674, 0) m/s
-  mass      99.9307568244188 t (90 t dry, 9.93075682441879 t propellant)
-  nose      (0.41214870596025183, 0.91111659197672934, 0)
-  delta-v   125601.412872508 m/s
-> expect "the ship reached the capture envelope" range 2.0 less
-  ok        the ship reached the capture envelope
-            range = 0.78164924890839782, expected less 2
-> expect "the ship is slow enough for the latches" closing 0.5 less
-  ok        the ship is slow enough for the latches
-            closing = -0.12002148166100771, expected less 0.5
-> expect "the ship is inside the port's lateral corridor" lateral 1.0 less
-  ok        the ship is inside the port's lateral corridor
-            lateral = 0.034279967035749252, expected less 1
-> expect "the latches have taken the ship" phase 3 exactly
-  ok        the latches have taken the ship
-            phase = 3, expected exactly 3
+  position  (6695387.9116776595, 4.4512990418778893, 0) m
+  velocity  (-81.4191886898939, -0.00080366767808189683, 0) m/s
+  mass      99.9253934815447 t (90 t dry, 9.92539348154466 t propellant)
+  nose      (-0.99999999299602582, -0.00011835517822567473, 0)
+  delta-v   125537.006433771 m/s
+> expect "the ship is still in the simulation" range 1000000.0 less
+  ok        the ship is still in the simulation
+            range = 82712.088442118038, expected less 1000000
 > hash docking
-  hash      docking 2548c6c36997dbb095d289a8d9b93a752bf7a37ebf1025257780f8c1f263db41
+  hash      docking 5e2f82b24b595c7de697c1573d1daef31ed414219034f0f3c852cdb97e001005
 
-probe: 17 commands, 0 errors, 0 checks failed
+probe: 14 commands, 0 errors, 0 checks failed

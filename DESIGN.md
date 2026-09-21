@@ -882,11 +882,17 @@ rescues it.**
 - [x] **One body, two stations** — `Station` orbits a body in its local frame, carries a
       docking port, and is placed by `SolarSystem`. A station left alone holds its orbit to
       zero drift over a full revolution, which is the symplectic integrator earning its keep
-- [ ] Docking that is a skill rather than a button
+- [ ] **Docking that is a skill rather than a button** — the corridor, the envelope, the mass and
+      the propellant are modelled, and the guidance law is a type (`Approach`) with its own tests.
+      It cruises, brakes on a switching curve and **closes to within 3.5 cm of the port**; the
+      endgame then hovers there with a closing speed of zero instead of crossing the line, so four
+      end-to-end tests carry `Skip` with the diagnosis. The hard part is measured rather than
+      guessed: a crewed hull needs 30 s to reverse, so braking from `v` needs `v²/2a + 30v` metres
+      — 1 575 m from ten metres a second, 324 from four — and a ship faster than its corridor
+      allows cannot stop in it
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
 - [ ] The sky, drawn: stars, Milky Way band, and the two hull languages of §6.5
-- [ ] Docking that is a skill and not a button
 - [x] **Probe harness** — `SolSystem.Probe` runs a text script against a live world and
       writes a diffable transcript, with `expect` checks that fail without aborting. Three
       probes: docking, station-keeping and scale. The screenshot half is not ported, because

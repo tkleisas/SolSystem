@@ -51,7 +51,33 @@ internal readonly struct DockingPort
 /// </remarks>
 internal readonly struct DockingReport
 {
+    /// <summary>
+    /// The ship is inside every tolerance the latches need: range, lateral offset, closing speed
+    /// and alignment. It can be up to <see cref="Docking.CaptureRange"/> out and still be true.
+    /// </summary>
     internal readonly bool Docked;
+
+    /// <summary>
+    /// The ship is at the port as well as inside the tolerances.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The distinction between this and <see cref="Docked"/> is the difference between what the
+    /// latches can hold and what "arrived" means. A hull two metres out, closing at a third of a
+    /// metre a second and pointing the right way satisfies every tolerance — and is on the
+    /// doorstep, not in the airlock. A controller that treats the two as the same thing stops
+    /// manoeuvring at the outer edge of its own capture range and reports every docking at
+    /// 1.997 m.
+    /// </para>
+    /// <para>
+    /// It requires the <see cref="Docked"/> tolerances as well as proximity, and that is not
+    /// pedantry: a ship that crosses the contact range at 2.8 m/s has not docked, it has hit the
+    /// station. An earlier version treated proximity alone as arrival and cheerfully reported a
+    /// docking at 0.40 m and 2.76 m/s, in fifty-three seconds, which is a collision with good
+    /// paperwork.
+    /// </para>
+    /// </remarks>
+    internal readonly bool Contact;
 
     /// <summary>Why it failed, or empty on success.</summary>
     internal readonly string Reason;
@@ -70,6 +96,7 @@ internal readonly struct DockingReport
 
     internal DockingReport(
         bool docked,
+        bool contact,
         string reason,
         Fix128 range,
         Fix128 lateralOffset,
@@ -77,6 +104,7 @@ internal readonly struct DockingReport
         Fix128 misalignment)
     {
         Docked = docked;
+        Contact = contact;
         Reason = reason;
         Range = range;
         LateralOffset = lateralOffset;
@@ -110,7 +138,26 @@ internal readonly struct DockingReport
 internal static class Docking
 {
     /// <summary>Capture latches reach this far, in metres.</summary>
+    /// <summary>
+    /// How far from the port the latches can reach, in metres.
+    /// </summary>
+    /// <remarks>
+    /// A fifth of the corridor the approach is flown down, and the distinction matters in both
+    /// directions. A ship two metres out, closing at a third of a metre a second and pointing the
+    /// right way is inside every other tolerance — but it is on the doorstep, not in the airlock,
+    /// and a controller that reads this as "arrived" reports every docking at 1.997 m. Nothing
+    /// outside this is captured however well it is lined up.
+    /// </remarks>
     internal static readonly Fix128 CaptureRange = Fix128.FromDouble(2.0);
+
+    /// <summary>
+    /// How close the ship has to be for the latches to have taken it, in metres.
+    /// </summary>
+    /// <remarks>
+    /// A fifth of <see cref="CaptureRange"/>. The capture range is what the latches can reach;
+    /// this is what counts as being at the port.
+    /// </remarks>
+    internal static readonly Fix128 ContactRange = Fix128.FromDouble(0.4);
 
     /// <summary>How far off the axis a ship may be, in metres.</summary>
     internal static readonly Fix128 MaxLateralOffset = Fix128.FromDouble(1.0);
@@ -168,12 +215,12 @@ internal static class Docking
 
         if (range > CaptureRange)
         {
-            return new DockingReport(false, "out of range", range, lateralOffset, closingSpeed, misalignment);
+            return new DockingReport(false, false, "out of range", range, lateralOffset, closingSpeed, misalignment);
         }
 
         if (lateralOffset > MaxLateralOffset)
         {
-            return new DockingReport(false, "off the port axis", range, lateralOffset, closingSpeed, misalignment);
+            return new DockingReport(false, false, "off the port axis", range, lateralOffset, closingSpeed, misalignment);
         }
 
         // Moving away is checked BEFORE speed, because the two conditions overlap when a ship
@@ -181,20 +228,26 @@ internal static class Docking
         // fast" would be reported for a ship at -5 m/s, which is not what a pilot did wrong.
         if (closingSpeed < Fix128.Zero)
         {
-            return new DockingReport(false, "moving away", range, lateralOffset, closingSpeed, misalignment);
+            return new DockingReport(false, false, "moving away", range, lateralOffset, closingSpeed, misalignment);
         }
 
         if (closingSpeed > MaxClosingSpeed)
         {
-            return new DockingReport(false, "closing too fast", range, lateralOffset, closingSpeed, misalignment);
+            return new DockingReport(false, false, "closing too fast", range, lateralOffset, closingSpeed, misalignment);
         }
 
         if (misalignment > MaxMisalignment)
         {
-            return new DockingReport(false, "not aligned with the port", range, lateralOffset, closingSpeed, misalignment);
+            return new DockingReport(false, false, "not aligned with the port", range, lateralOffset, closingSpeed, misalignment);
         }
 
-        return new DockingReport(true, string.Empty, range, lateralOffset, closingSpeed, misalignment);
+        // Inside every tolerance. Whether the approach is over depends on how close the ship is:
+        // the tolerances say what the latches can hold, and `ContactRange` says what counts as
+        // being at the port. This returned a hard-coded false for a while, which made the flag
+        // unreachable and had the approach law hovering eight millimetres from the port waiting
+        // for a latch that could never be reported.
+        return new DockingReport(
+            true, range <= ContactRange, string.Empty, range, lateralOffset, closingSpeed, misalignment);
     }
 
     /// <summary>

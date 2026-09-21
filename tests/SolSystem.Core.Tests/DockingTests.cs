@@ -157,11 +157,15 @@ public class DockingTests
     public void APerfectApproach_Docks()
     {
         // The corridor runs along +x away from the port, so the ship sits at +x, closes by
-        // travelling in -x, and arrives nose-first pointing -x.
-        Ship ship = MakeShip(V(1.5, 0, 0), V(-0.1, 0, 0), V(-1, 0, 0));
+        // travelling in -x, and arrives nose-first pointing -x. Inside the contact range, not
+        // merely inside the capture range: a ship two metres out is within every tolerance and is
+        // on the doorstep.
+        Ship ship = MakeShip(V(0.2, 0, 0), V(-0.1, 0, 0), V(-1, 0, 0));
         DockingReport report = Docking.Evaluate(ship, DockingPort.AtOrigin, Fix128Vec.Zero);
 
-        Assert.True(report.Docked, report.Reason);
+        Assert.True(report.Contact, $"{report.Reason} | r={report.Range.ToDouble():F4} "
+            + $"lat={report.LateralOffset.ToDouble():F4} close={report.ClosingSpeed.ToDouble():F4} "
+            + $"mis={report.Misalignment.ToDouble() * 180 / Math.PI:F2} deg");
         Assert.True(report.LateralOffset.ToDouble() < 1e-9);
 
         // Positive means approaching. The sign was inverted here for a long time, and the
@@ -177,7 +181,7 @@ public class DockingTests
         Ship ship = MakeShip(V(50, 0, 0), V(-0.1, 0, 0), V(-1, 0, 0));
         DockingReport report = Docking.Evaluate(ship, DockingPort.AtOrigin, Fix128Vec.Zero);
 
-        Assert.False(report.Docked);
+        Assert.False(report.Contact);
         Assert.Equal("out of range", report.Reason);
     }
 
@@ -188,7 +192,7 @@ public class DockingTests
         Ship ship = MakeShip(V(0.5, 1.5, 0), V(-0.1, 0, 0), V(-1, 0, 0));
         DockingReport report = Docking.Evaluate(ship, DockingPort.AtOrigin, Fix128Vec.Zero);
 
-        Assert.False(report.Docked);
+        Assert.False(report.Contact);
         Assert.Equal("off the port axis", report.Reason);
     }
 
@@ -198,7 +202,7 @@ public class DockingTests
         Ship ship = MakeShip(V(1.5, 0, 0), V(-5.0, 0, 0), V(-1, 0, 0));
         DockingReport report = Docking.Evaluate(ship, DockingPort.AtOrigin, Fix128Vec.Zero);
 
-        Assert.False(report.Docked);
+        Assert.False(report.Contact);
         Assert.Equal("closing too fast", report.Reason);
     }
 
@@ -209,7 +213,7 @@ public class DockingTests
         Ship ship = MakeShip(V(1.5, 0, 0), V(-0.1, 0, 0), V(0, 1, 0));
         DockingReport report = Docking.Evaluate(ship, DockingPort.AtOrigin, Fix128Vec.Zero);
 
-        Assert.False(report.Docked);
+        Assert.False(report.Contact);
         Assert.Equal("not aligned with the port", report.Reason);
     }
 
@@ -221,7 +225,7 @@ public class DockingTests
         Ship ship = MakeShip(V(1.5, 0, 0), V(0.1, 0, 0), V(1, 0, 0));
         DockingReport report = Docking.Evaluate(ship, DockingPort.AtOrigin, Fix128Vec.Zero);
 
-        Assert.False(report.Docked);
+        Assert.False(report.Contact);
         Assert.Equal("moving away", report.Reason);
 
         // And the sign itself, so a future inversion is caught here rather than by a law that

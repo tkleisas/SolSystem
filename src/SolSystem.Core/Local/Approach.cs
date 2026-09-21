@@ -39,11 +39,8 @@ internal struct Approach
     /// <summary>Which part of the manoeuvre the ship is in.</summary>
     internal enum Stage
     {
-        /// <summary>Burning toward the port.</summary>
+        /// <summary>Running the corridor down at the profile speed.</summary>
         Closing,
-
-        /// <summary>Coming about, then burning to shed speed.</summary>
-        Braking,
 
         /// <summary>Creeping the last metres into the capture envelope.</summary>
         Terminal,
@@ -98,8 +95,6 @@ internal struct Approach
     /// </remarks>
     private const double LateralShare = 0.10;
 
-    /// <summary>Speed below which braking is considered finished, in m/s.</summary>
-    private const double BrakeComplete = 0.05;
 
     /// <summary>Speed the terminal phase holds, in m/s.</summary>
     private const double CreepSpeed = 0.05;
@@ -113,8 +108,6 @@ internal struct Approach
     /// </remarks>
     private const double HoldSpeed = 0.02;
 
-    /// <summary>Fastest the closing phase will ask for, in m/s.</summary>
-    private const double ClosingSpeedCap = 10.0;
 
     /// <summary>
     /// Fastest the terminal phase will ask for, in m/s.
@@ -129,8 +122,12 @@ internal struct Approach
     /// </remarks>
     private const double TerminalSpeedCap = 0.12;
 
-    /// <summary>Closing speed per metre of corridor still to run.</summary>
-    private const double ApproachGain = 0.04;
+
+    /// <summary>
+    /// Range over which the helm blends from the bearing to the port onto the corridor axis.
+    /// </summary>
+    private const double CorridorBlendRange = 10.0;
+
 
     /// <summary>Helm gain: radians of commanded rate per radian of pointing error.</summary>
     private const double AttitudeGain = 2.0;
@@ -139,30 +136,38 @@ internal struct Approach
     /// Helm damping: how much of the current rate is subtracted from the command.
     /// </summary>
     /// <remarks>
-    /// Critical damping is <c>2·sqrt(gain)</c>, which for a gain of 2 is 2.83; a little under
-    /// that leaves the turn brisk without overshooting.
+    /// Critical damping is <c>2·sqrt(gain)</c>, which for a gain of 2 is 2.83. It was 2.4, a
+    /// little under, which left the turn brisk and also left a residual oscillation that the
+    /// deadband now handles; at 2.9 the response is very slightly over-damped, which is what a
+    /// docking wants and almost nothing else does.
     /// </remarks>
-    private const double AttitudeDamping = 2.4;
-
-    /// <summary>How hard the closing phase chases its target speed.</summary>
-    private const double ClosingGain = 0.5;
+    private const double AttitudeDamping = 2.9;
 
     /// <summary>
-    /// Range inside which the ship stops flying a profile and starts settling, in metres.
+    /// Target closing speed per metre of corridor still to run.
     /// </summary>
     /// <remarks>
-    /// The last phase, and it exists because every law before it oscillates. Chasing a speed
-    /// proportional to the distance left cannot stop on a mark: the ship crosses the capture
-    /// envelope at a few centimetres a second, the desired speed falls below what it is doing,
-    /// the law brakes, it drifts back out, and it repeats — the *right* speed and the *right*
-    /// range never coincide for long enough to be caught. The tests saw it park at 0.527 m with
-    /// a closing speed of zero, and at 0.182 m the test that flies two kilometres was still
-    /// going after four hundred thousand ticks.
+    /// A tenth: a metre a second from ten metres out, and five centimetres at the floor. Low
+    /// enough that the ship is always slowing as it arrives, which is what stops the reversal
+    /// oscillation — the failure mode of every symmetric law in this file is that braking flips
+    /// the nose one way and the correction flips it back, and a ship that never needs to
+    /// re-accelerate near the port never flips at all.
     /// </remarks>
-    private const double HoldRange = 1.2;
+    private const double ApproachGain = 0.1;
 
-    /// <summary>Alignment above which the engine is allowed to fire.</summary>
-    private const double Firing = 0.90;
+
+    /// <summary>
+    /// Alignment above which the engine is allowed to fire.
+    /// </summary>
+    /// <remarks>
+    /// Half, which is sixty degrees off the commanded direction and much looser than it sounds.
+    /// The gate exists so the ship does not burn fuel pushing sideways while it comes about, and
+    /// the thrust along the nose is already scaled by the alignment in the ship's own step — so a
+    /// tight gate buys nothing and costs the endgame. At 0.9 the engine stayed shut through the
+    /// last half metre, where the commanded direction flips as the ship nudges across the axis,
+    /// and the ship hovered four centimetres from the port with a closing speed of zero.
+    /// </remarks>
+    private const double Firing = 0.50;
 
     /// <summary>
     /// The brake trigger, which is not a stopping distance.
@@ -248,13 +253,22 @@ internal struct Approach
         double accel = ship.Engine.ThrustKilonewtons.ToDouble() / ship.Mass.ToDouble();
         accel = Math.Min(accel, ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble());
 
-        // Capture: once the envelope is satisfied, hold the ship there.
+        // Capture: the latches have it, so stop manoeuvring.
         //
-        // The last stage, and the only one that is a latch rather than a law. Everything before
-        // it is trying to reach a state; this is the state. Left flying, the approach law keeps
+        // The last stage, and the only one that is a latch rather than a law. Everything before it
+        // is trying to reach a state; this is the state. Left flying, the approach law keeps
         // correcting, and a correction at a few centimetres is a charge through the port and out
         // the other side.
-        if (Phase != Stage.Hold && Docking.Evaluate(ship, port, Fix128Vec.Zero).Docked)
+        //
+        // The envelope being satisfied is necessary and not sufficient. Its tolerances say what
+        // the latches can *hold*, not how close a ship should try to get: a hull two metres out,
+        // closing at a third of a metre a second and pointing the right way is inside every
+        // tolerance and is not docked, it is hovering on the doorstep. Requiring contact as well
+        // is the difference — an earlier version latched on the envelope alone and reported every
+        // arrival at 1.997 m, which is exactly the edge of the capture range and a suspiciously
+        // exact number to see four times.
+        if (Phase != Stage.Hold
+            && Docking.Evaluate(ship, port, Fix128Vec.Zero).Contact)
         {
             Phase = Stage.Hold;
         }
@@ -267,83 +281,58 @@ internal struct Approach
         double maxTurnRate = Attitude.CrewedMaxTurnRate.ToDouble();
         double turnSeconds = maxTurnRate <= 0.0 ? 0.0 : Math.PI / maxTurnRate;
 
-        // The physics that make this a manoeuvre rather than a translation: the reversal and
-        // the gate ramp, both paid for in distance before the decision is taken. See
-        // GateRampFactor.
-        double stopping = closing * closing / (2.0 * accel);
-        double turnPenalty = closing * turnSeconds * GateRampFactor;
+        // Whether the ship is over the cruise speed, which is the only thing the stage latch needs.
+        bool overProfile = closing > CruiseSpeed;
 
-        // The latch. Once committed, committed: see the class remarks.
+        // The ship is over the profile, so the approach is a braking problem rather than a cruise.
+        // Latched: a trigger re-tested every tick re-arms itself as the ship slows.
         //
-        // And once Braking has had its go, the law does not accelerate down the corridor again:
-        // it goes straight to the terminal approach. See the note at the transition below.
-        //
-        // And it requires the ship to actually be moving toward the port. At rest the two
-        // distances are both zero, so `range <= 0` is false at any real standoff and the
-        // condition looks safe — but the margin multiplies the stopping distance, and a ship
-        // that has just arrived at zero closing speed still satisfies `range <= 0 * margin`.
-        // It then latches into braking with nothing to brake, commands a reversal, loses its
-        // alignment gate, and never moves again. Requiring way on is what makes the decision
-        // mean what it says.
-        if (Phase == Stage.Closing
-            && closing > BrakeComplete
-            && range <= stopping + turnPenalty)
+        // The two phases fly the SAME law — the profile governs the whole approach from two
+        // kilometres out — and the stage exists only so the helm knows how much corridor is left
+        // to blend onto. An earlier version let the closing phase accelerate freely and handed over
+        // to the profile at thirty metres, which meant the ship arrived at the handover doing
+        // twelve metres a second with the throttle gated shut while it turned round.
+        if (Phase == Stage.Closing && overProfile)
         {
-            Phase = Stage.Braking;
-        }
-        else if (Phase == Stage.Terminal && range <= HoldRange)
-        {
-            Phase = Stage.Hold;
-        }
-        else if (Phase == Stage.Braking && closing <= BrakeComplete)
-        {
-            // Braking has done what it can, wherever that is, and from here the ship flies the
-            // terminal approach.
-            //
-            // There used to be a `TerminalRange` of twenty metres and a fourth phase for the
-            // case where braking stopped further out. Both are gone, and the plot is why.
-            // Braking shed 8.1 m/s and stopped at 115 m — outside the twenty — so the law
-            // entered the fourth phase, which commanded only a creep and had no braking
-            // authority at all. The ship had meanwhile been left pointing the wrong way, the
-            // speed error built while the helm took thirty seconds to come round, and by the
-            // time it pointed the right way it was doing 2.3 m/s and the alignment gate had shut
-            // the throttle. It then coasted outward for a quarter of a million ticks with the
-            // throttle at zero and the range climbing past a hundred kilometres.
-            //
-            // The terminal law needs no range gate. Its target speed is proportional to what is
-            // left and it has full authority both ways, so it brakes when hot and accelerates
-            // when slow. One phase, entered once.
             Phase = Stage.Terminal;
         }
 
         // The acceleration the ship needs along the corridor, in its own frame.
+        // The speed the approach is aiming for at this range, and the distance needed to get down
+        // to it. Both are functions of what is left, and together they are the whole law.
+        //
+        // The target is proportional to the distance with a floor, so it never asks the ship to
+        // stop and it never asks it to creep: at a hundred metres it wants a metre a second, at a
+        // metre it wants a tenth, and at the floor it wants five centimetres. The braked distance
+        // includes the reversal, because coming about costs thirty seconds of coasting and the
+        // ship has to have the corridor for it.
+        double target = Math.Max(CreepSpeed, range * ApproachGain);
+        double stopping = ((closing * closing) - (target * target)) / (2.0 * accel)
+            + (closing * Math.PI / Attitude.CrewedMaxTurnRate.ToDouble());
+
         double along;
-        if (Phase == Stage.Closing)
+        if (Phase == Stage.Hold)
         {
-            // Toward a target speed, not at full thrust. "Closing" used to mean "burn", which
-            // is right on the way in and badly wrong on the way back: after a long brake the
-            // ship arrives at the port slowly, the latch releases into Closing, Closing
-            // commands full thrust toward a port a hundred metres away, and the ship
-            // re-accelerates into a second approach it did not need. The target climbs with
-            // the distance left so the law is continuous at both ends.
-            // Proportional on the speed error, NOT "burn at full thrust until the target is
-            // reached". The difference is the whole of this bug: a ship that has overshot reads
-            // a negative rate error, and a law that clamps a *positive* acceleration into the
-            // allowed range keeps the sign and accelerates away at full thrust. It reached ten
-            // metres a second, drifting outward, with "closing" and "target" both printing ten —
-            // which looks like perfect station-keeping and is a ship leaving at two kilometres a
-            // minute.
-            double desired = Math.Max(CreepSpeed, Math.Min(ClosingSpeedCap, range * ApproachGain));
-            along = Math.Clamp((desired - closing) * ClosingGain, -accel, accel);
+            along = Math.Clamp((HoldSpeed - closing) * 3.0, -accel, accel);
         }
-        else if (Phase == Stage.Braking)
+        else if (stopping >= 0.0 && closing > target)
         {
+            // Hot: brake.
             along = -accel;
+        }
+        else if (closing < target)
+        {
+            // Slow: close. A proportional term rather than full thrust, because near the port the
+            // target is a few centimetres a second and full thrust overshoots it by more than the
+            // target itself. A law that jumps between full authority in both directions when the
+            // quantity it is regulating is five centimetres a second cannot settle: it nudges the
+            // ship to eight millimetres from the port and coasts there, never closing and never
+            // being captured, for three hundred thousand ticks.
+            along = Math.Clamp((target - closing) * 0.5, -accel, accel);
         }
         else
         {
-            // The damped position law, which is the same in both. See ApproachAcceleration.
-            along = ApproachAcceleration(range, closing, accel);
+            along = 0.0;
         }
 
         // A little of the lateral error, or the ship drifts off the centreline. Bounded by
@@ -367,25 +356,19 @@ internal struct Approach
             sideways = lateralDirection * Fix128.FromDouble(lateralAccel);
         }
 
-        // The commanded acceleration, then the engine direction that produces it. The gravity
-        // term is what makes this a rendezvous rather than a collision in any frame where the
-        // pull is not cancelled: the engine has to supply `wanted - g`, not `wanted`.
-        // The command is along the LIVE bearing, not the fixed corridor axis, and that is what
-        // makes an overshoot recoverable. A signed acceleration applied along a fixed axis
-        // cannot tell "close faster" from "back away": past the port the two swap meanings, the
-        // law reads a large positive rate error, and it accelerates into the distance at
-        // forty-four metres a second. Along the bearing, a negative `along` means "toward the
-        // port" wherever the ship happens to be, so overshooting simply turns the ship round.
-        // The command is along the direction TO the port, live.
+        // The commanded acceleration, then the engine direction that produces it. The gravity term
+        // is what makes this a rendezvous rather than a collision in any frame where the pull is
+        // not cancelled: the engine has to supply `wanted - g`, not `wanted`.
         //
-        // This is the bug the plot found, after seven traces had missed it. `inward` is the
-        // corridor direction the ship travelled on the way in, and it is right until the ship
-        // passes the port — at which point a *negative* `along` (brake) pushes it further past
-        // instead of back. The plot of one approach shows the ship reaching 2 m at the closest
-        // approach and then, with the throttle pinned at 1.0 and the nose dead ahead, being
-        // driven out to a hundred kilometres over the next quarter of a million ticks. Every
-        // number in the trace was self-consistent; only the picture showed the sign was wrong.
-        Fix128Vec line = range > 1e-9 ? toPort : inward;
+        // `along` is signed in the CORRIDOR sense — positive means toward the port, negative means
+        // away — so the direction it multiplies has to be the fixed corridor axis, not the live
+        // bearing to the port. Those two agree until the ship passes the port and then they are
+        // opposites, and a braking command along the live bearing accelerates the ship instead.
+        // The plot of a whole approach showed exactly that: two metres out, throttle pinned at
+        // maximum, driven a hundred kilometres over the next quarter of a million ticks, every
+        // number self-consistent. The live bearing is used only in the hold phase, where the
+        // command is a rate to kill and there is no sign to get wrong.
+        Fix128Vec line = Phase == Stage.Hold && range > 1e-9 ? toPort : inward;
         Fix128Vec wanted = line * Fix128.FromDouble(along) + sideways - frameGravity;
         if (wanted.IsZero)
         {
@@ -393,6 +376,22 @@ internal struct Approach
         }
 
         Fix128Vec direction = wanted.Normalized();
+
+        // Fold in the corridor alignment: below a metre of lateral offset the bearing to the
+        // port is dominated by whatever the last correction left behind, and a helm that chases
+        // it saws the nose back and forth. The plot of a docking shows about thirty degrees of
+        // chatter through the whole of the hold phase, with the throttle pulsing behind it.
+        //
+        // The corridor direction is blended in as the ship closes, so the aim is continuous: at
+        // ten metres it is the bearing, at ten centimetres it is the corridor, and in between it
+        // is a mix of the two.
+        if (Phase == Stage.Terminal || Phase == Stage.Hold)
+        {
+            double blend = Math.Clamp(range / CorridorBlendRange, 0.0, 1.0);
+            direction = (direction * Fix128.FromDouble(blend)
+                + inward * Fix128.FromDouble(1.0 - blend)).Normalized();
+        }
+
         Fix128Vec turn = TurnTowards(ship.Attitude, direction);
         double alignment = Dot(ship.Attitude.Forward, direction).ToDouble();
 
@@ -401,55 +400,29 @@ internal struct Approach
             ? Fix128.FromDouble(Math.Clamp(needed / accel, 0.0, 1.0))
             : Fix128.Zero;
 
+
         return new Command(direction, throttle, turn);
     }
 
     /// <summary>
-    /// The acceleration that brings the ship onto the port at a speed it can be caught at.
+    /// The fastest the approach will run, in m/s.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>a = (v² − v_target²) / 2s</c>, negated, so the ship brakes whenever it is travelling
-    /// faster than the speed that would let it stop in the distance left, and accelerates when it
-    /// is slower. Three earlier forms of this are worth recording because each failed in a
-    /// different way:
+    /// A number about the game rather than about the maths: a hundred-tonne crewed hull crossing a
+    /// two-kilometre corridor at ten metres a second takes three and a half minutes, which is a
+    /// dock you can watch. Everything above it is the physics refusing to be hurried.
     /// </para>
-    /// <list type="bullet">
-    /// <item>A speed error times a gain. Dimensionally a frequency, unrelated to the drive: an
-    /// error of a metre a second times four asks for 4 m/s² from an engine that makes 0.039, so
-    /// every correction was a full-thrust lunge and the approach became a series of overshoots
-    /// that threw the ship between 2 m and 17 m.</item>
-    /// <item>The same energy form with the target taken as a fraction of the range. Correct in
-    /// form, but past the port the sign of the rate was no longer the sign of the distance and
-    /// it accelerated away, sixty kilometres of it.</item>
-    /// <item>A spring and damper on the distance. Stable by construction and over-damped here:
-    /// at 115 m the commanded acceleration was 3 m/s² against a drive that makes 0.039, so it
-    /// saturated in the wrong direction and the ship hung motionless.</item>
-    /// </list>
     /// <para>
-    /// What is left is the braking law with the target speed capped, and the cap is what does the
-    /// work: it is set well inside the envelope so the arrival is catchable, and it is a floor on
-    /// the approach rather than a target to hit exactly, so the ship always keeps leaning on the
-    /// port.
+    /// It barely matters, which is worth knowing. Halving it to five costs fifteen seconds of
+    /// approach, because the corridor is dominated by the braking and the reversal rather than by
+    /// the cruise. What it must not exceed is what the corridor can afford: at four milligee a
+    /// reversal costs thirty seconds of coasting, so braking from <c>v</c> needs
+    /// <c>v²/2a + 30v</c> metres — 1 575 m from ten metres a second, 469 from five, and 324 from
+    /// four. A ship faster than its corridor allows cannot stop in it.
     /// </para>
     /// </remarks>
-    private static double ApproachAcceleration(double range, double closing, double accel)
-    {
-        // The speed that can still be shed in the distance remaining.
-        double stopSpeed = Math.Sqrt(2.0 * accel * Math.Max(range, 1e-9));
-
-        // Never faster than the envelope will catch, and never slower than the creep.
-        double target = Math.Min(stopSpeed, TerminalSpeedCap);
-        target = Math.Max(target, CreepSpeed);
-
-        // Brake toward the target when hot, and close the gap when slow.
-        double error = closing - target;
-        double commanded = error > 0.0
-            ? -(closing * closing - target * target) / (2.0 * Math.Max(range, 1e-9))
-            : accel * 0.25;
-
-        return Math.Clamp(commanded, -accel, accel);
-    }
+    private const double CruiseSpeed = 10.0;
 
     /// <summary>
     /// Angular velocity that swings the ship's nose onto <paramref name="direction"/>.
@@ -496,16 +469,48 @@ internal struct Approach
             error += 2.0 * Math.PI;
         }
 
-        // A proportional-derivative loop, and the derivative term is not optional.
-        //
-        // Asking for the whole error over a tenth of a second and letting the hull's rate limit
-        // do the rest is unstable: the helm overshoots, the error reverses, and at 120 Hz the
-        // ship slews back and forth through ±0.1 rad every tick without ever settling. The
-        // trace of a docking in its last metres showed the nose at -0.42, then +0.99, then
-        // -0.64 within two seconds, with the throttle slamming open and shut behind it and the
-        // range wandering between 1.2 m and 7.5 m. It approached nothing.
         double rate = attitude.AngularVelocity.Z.ToDouble();
-        double command = error * AttitudeGain - rate * AttitudeDamping;
+
+        // Proportional only, plus a brake when the error is inside the deadband. The damping
+        // term is gone and that is the whole fix.
+        //
+        // <para>
+        // A P-D helm with a rate-limited actuator does not settle, it oscillates — and the
+        // oscillation is violent and easy to miss, because it happens at the tick rate. The
+        // command is gain times the error minus damping times the rate; once the actuator
+        // saturates, the rate stops changing while the error keeps falling, so the damping term
+        // takes over and reverses the command. The measurement at 120 Hz, with a 7-degree error:
+        // </para>
+        // <code>
+        //   t=3551  turn=-0.060  w=-0.060
+        //   t=3552  turn=+0.420  w=+0.105   (clamped)
+        //   t=3553  turn=-0.061  w=-0.061
+        //   t=3554  turn=+0.421  w=+0.105   (clamped)
+        // </code>
+        // <para>
+        // The ship flips its rotation direction every 8 ms and makes no progress at all. On the
+        // plot of a whole docking this is the thirty degrees of chatter through the brake and the
+        // hold, with the throttle pulsing behind it.
+        // </para>
+        // <para>
+        // Proportional alone cannot overshoot here the way it would in a damped system: a ship in
+        // vacuum has no rotational drag, so a hull that stops commanding stops turning in the
+        // same tick. The error therefore falls monotonically and the only question is when to
+        // stop. The deadband answers that, and a brake handles the case where the ship is already
+        // turning too fast to stop inside it.
+        // </para>
+        const double ErrorDeadband = 0.005;     // a third of a degree
+        const double RateDeadband = 0.002;      // rad/s
+
+        if (Math.Abs(error) < ErrorDeadband)
+        {
+            // Inside the deadband: kill any residual rate, then leave it alone.
+            return Math.Abs(rate) < RateDeadband
+                ? Fix128Vec.Zero
+                : new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.FromDouble(-rate * 4.0));
+        }
+
+        double command = error * AttitudeGain;
 
         return new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.FromDouble(command));
     }

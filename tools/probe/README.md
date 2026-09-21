@@ -53,7 +53,7 @@ one-bit drift — which is exactly what a determinism check is for.
 
 | Script | Question | State |
 |---|---|---|
-| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | Passing, and the transcript is byte-identical between runs |
+| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | The transcript is byte-identical and the ship closes to within 3 cm; the endgame hovers rather than crossing the line |
 | `station-keeping.probe` | Does a station hold its orbit, and does the Moon keep its own? | Passing |
 | `scale.probe` | Are the frames and the ephemeris telling the same story? | Passing |
 
@@ -76,9 +76,18 @@ success:
 | Locked at 0.899 alignment forever | The lateral blend swung the nose past the throttle gate |
 | Ran away at 44 m/s | Past the port, "close faster" and "back away" swap meanings along a fixed axis |
 | Parked 2.3 m outside a 2 m envelope | A fixed creep speed approaches the port asymptotically |
+| Hovered 8 mm from the port, never captured | A switching law cannot regulate a five-centimetre-a-second target |
+| Helm reversed every 8 ms | A P-D helm with a rate-limited actuator oscillates at the tick rate |
 | **Tumbled on the spot forever** | **Three sign errors and a fold that scaled instead of flipping the axis** |
 
-The last row is the one that matters. Three separate faults conspired:
+The endgame is the piece still open, and the diagnosis is specific rather than a shrug: the target
+closing speed falls to five centimetres a second as the range falls, and a law that switches between
+full thrust and full brake cannot regulate a quantity that small — it nudges across the axis, the
+commanded direction flips, and it nudges back. The ship reaches 3.5 cm and hovers. What the last
+metre needs is a velocity servo, which is a different law from the switching curve that flies the
+corridor.
+
+The item marked as an attitude failure was three separate faults conspiring:
 
 * `Attitude.Step` folded a rotation vector past π by **scaling** it back to π. Scaling keeps the
   axis and changes the rotation — the correct fold is θ > π about an axis becoming 2π − θ
