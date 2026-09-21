@@ -226,6 +226,32 @@ internal sealed class FlightSession
         Recompose(earth);
     }
 
+    /// <summary>
+    /// Where the observer sits relative to the station's port, in metres.
+    /// </summary>
+    /// <remarks>
+    /// The local frame, and the frame the player's ship flies in. Exposed so that a client can drive
+    /// the observer from the ship rather than the other way round — which is the way it has to be if
+    /// the camera is going to be inside the thing being flown.
+    /// </remarks>
+    internal Fix128Vec LocalOffset => _localOffset;
+
+    /// <summary>Moves the observer within the station's local frame, in metres.</summary>
+    internal void SetLocalOffset(Fix128Vec offset, Fix128Vec velocity, Ephemeris.State earth)
+    {
+        _localOffset = offset;
+        _localVelocity = velocity;
+        Recompose(earth);
+    }
+
+    /// <summary>The Earth's state at the session's current time.</summary>
+    internal Ephemeris.State Earth()
+    {
+        var system = new SolarSystem();
+        system.SetTime((JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        return system.Heliocentric(Ephemeris.Body.Earth);
+    }
+
     /// <summary>The direction from the observer to a heliocentric point, as a unit vector.</summary>
     internal Fix128Vec DirectionTo(Fix128Vec heliocentricPoint)
     {

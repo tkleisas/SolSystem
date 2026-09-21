@@ -11,6 +11,14 @@
 
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
+
+    <!-- Runs mgcb over Content/Content.mgcb during the build, so a shader is compiled as part of
+         the project rather than by a step somebody has to remember. -->
+    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Content/Content.mgcb" />
   </ItemGroup>
 
   <ItemGroup>

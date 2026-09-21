@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The heads-up display's font.
+
+  A monospaced face, because the numbers on a flight display are read as columns and a proportional
+  one makes a value that changes length jitter sideways every frame. DejaVu Sans Mono is in every
+  Linux distribution's font package and its licence permits redistribution.
+-->
+<XnaContent xmlns:Graphics="Microsoft.Xna.Framework.Content.Pipeline.Graphics">
+  <Asset Type="Graphics:FontDescription">
+    <FontName>DejaVu Sans Mono</FontName>
+    <Size>15</Size>
+    <Spacing>0</Spacing>
+    <UseKerning>false</UseKerning>
+    <Style>Regular</Style>
+    <CharacterRegions>
+      <CharacterRegion>
+        <Start>&#32;</Start>
+        <End>&#126;</End>
+      </CharacterRegion>
+      <!-- The few symbols a flight display needs beyond ASCII: the degree sign, the middle dot,
+           and the two arrows the docking corridor uses for its axes. -->
+      <CharacterRegion>
+        <Start>&#176;</Start>
+        <End>&#176;</End>
+      </CharacterRegion>
+      <CharacterRegion>
+        <Start>&#183;</Start>
+        <End>&#183;</End>
+      </CharacterRegion>
+      <CharacterRegion>
+        <Start>&#8593;</Start>
+        <End>&#8595;</End>
+      </CharacterRegion>
+    </CharacterRegions>
+  </Asset>
+</XnaContent>

@@ -896,14 +896,20 @@ rescues it.**
       metres — 1 575 m from ten metres a second, 324 from four. Known limitation: a 500 m corridor
       reaches 0.47 m and stops, four centimetres outside the contact range. See `docs/TRIP-ENERGY.md`
       §17
-- [x] **One flyable ship** — `SolSystem.Client`, a MonoGame window onto the simulation. The sky is
+- [x] **One flyable ship** — `SolSystem.Client`, a MonoGame window onto the simulation, flying the
+      Illuminus courier from the modelled `.glb`: a chase camera, throttle and helm on the keyboard,
+      and a flight display. The Sun is a shader — a limb-darkened disc inside a radiating corona,
+      because a lit sphere gives a cue ball with a hard edge and a star is a source. The sky is
       the real catalogue, the Sun and the planets are placed by the same ephemeris that flies the
       ships and lit by the Sun alone, and the Earth is a textured sphere turning on its axis at the
       real sidereal rate and tilted by the real obliquity. `--shot` renders one frame to a PNG, which
       is what makes any of it checkable: `art/previews/flight/` holds three views from a station in
       low Earth orbit. What is *not* there yet is the ship itself — the models are built and exported
       but nothing loads a GLB — and there are no flight controls beyond the clock
-- [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
+- [x] **Fuel as delta-v** — the flight display shows delta-v first and the propellant and burn time
+      it buys beside it, because "four hundred kilometres a second" means nothing until it is also
+      "a hundred days of full throttle". The number is the rocket equation on the live mass, so it
+      falls as the tanks empty
 - [x] **The sky, drawn** — 11 558 real stars from the HYG catalogue, packed to 188 kB and loaded
       once; the Milky Way as the great circle it physically is, brightest towards the galactic
       centre; and the Sun and planets placed by the same ephemeris that flies the ships, so they
