@@ -72,8 +72,26 @@ internal sealed class Camera
     private const float LookRate = 0.0055f;
 
     private Mode _mode = Mode.Chase;
+
+    /// <summary>Where the view is AIMED, relative to straight ahead.</summary>
+    /// <remarks>
+    /// Two angles and one meaning: the camera keeps its place and the view swings. This is what a
+    /// drag does, and the distinction from an orbit is the whole of a reported bug — see
+    /// <see cref="Build"/>.
+    /// </remarks>
     private float _yaw;
-    private float _pitch = 0.28f;
+    private float _pitch;
+
+    /// <summary>
+    /// How far the camera has been swung round the hull, for the right button.
+    /// </summary>
+    /// <remarks>
+    /// The other thing a drag can mean: travelling round the subject rather than turning to look.
+    /// Kept separate from the aim because they are different motions and mixing them into one pair
+    /// of angles is what made a drag look like the ship spinning.
+    /// </remarks>
+    private float _orbitYaw;
+    private float _orbitPitch = 0.28f;
     private float _orbitDistance = DefaultOrbitDistance;
     private float _cockpitYaw;
     private float _cockpitPitch;
@@ -123,7 +141,11 @@ internal sealed class Camera
 
     internal float OrbitDistance => _orbitDistance;
 
-    /// <summary>Cycles to the next mode.</summary>
+    /// <summary>Cycles to the next mode, looking ahead again.</summary>
+    /// <remarks>
+    /// The view recentres on the way, so that changing camera never leaves the pilot staring at
+    /// empty sky with no idea which way the ship was pointing when they looked away.
+    /// </remarks>
     internal void Next()
     {
         _mode = _mode switch
@@ -133,15 +155,27 @@ internal sealed class Camera
             Mode.Cockpit => Mode.Port,
             _ => Mode.Chase,
         };
+
+        Recentre();
     }
 
     /// <summary>
-    /// Turns the camera, from a mouse delta in pixels.
+    /// Aims the view: a drag with the left button.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// The camera stays where it is and the view swings, which is what "look around" means
+    /// everywhere except in a third-person orbit. Reported as <i>"dragging the mouse instead of
+    /// rotating the view, rotates the ship"</i> — and it did: the old drag travelled the camera round
+    /// the hull at a fixed radius, so the ship stayed pinned in the middle of the frame and the sky
+    /// whirled around it. Nothing was rotating but the camera, and the only thing that looked like it
+    /// was moving was the ship.
+    /// </para>
+    /// <para>
     /// The pitch is clamped just short of the poles. At exactly vertical the up vector and the view
     /// direction are parallel, the cross product that builds the basis is zero, and the frame turns
     /// into a single flat colour — which reads as a rendering failure and is a sign convention.
+    /// </para>
     /// </remarks>
     internal void Look(float dx, float dy)
     {
@@ -152,8 +186,45 @@ internal sealed class Camera
             return;
         }
 
-        _yaw -= dx * LookRate;
+        _yaw = Wrap(_yaw - (dx * LookRate));
         _pitch = Math.Clamp(_pitch + (dy * LookRate), -1.45f, 1.45f);
+    }
+
+    /// <summary>
+    /// Travels the camera round the hull: a drag with the right button.
+    /// </summary>
+    /// <remarks>
+    /// The motion the left button used to make. It is worth having — walking round your own ship is
+    /// how you look at it — and it is not what a left drag should do.
+    /// </remarks>
+    internal void Orbit(float dx, float dy)
+    {
+        _orbitYaw = Wrap(_orbitYaw - (dx * LookRate));
+        _orbitPitch = Math.Clamp(_orbitPitch + (dy * LookRate), -1.45f, 1.45f);
+    }
+
+    /// <summary>Puts the view back ahead and the camera back behind.</summary>
+    internal void Recentre()
+    {
+        _yaw = 0f;
+        _pitch = 0f;
+        _cockpitYaw = 0f;
+        _cockpitPitch = 0f;
+    }
+
+    private static float Wrap(float radians)
+    {
+        while (radians > MathF.PI)
+        {
+            radians -= MathF.Tau;
+        }
+
+        while (radians < -MathF.PI)
+        {
+            radians += MathF.Tau;
+        }
+
+        return radians;
     }
 
     /// <summary>How far the camera currently is from the hull, for the display.</summary>
@@ -249,13 +320,25 @@ internal sealed class Camera
                 // disorienting in a way that is hard to attribute to the camera.
                 Vector3 right = Vector3.Normalize(Vector3.Cross(nose, deck));
 
-                Vector3 offset = (nose * -MathF.Cos(_pitch) * distance)
-                    + (deck * MathF.Sin(_pitch) * distance)
-                    + (right * MathF.Sin(_yaw) * distance)
+                // WHERE THE CAMERA IS, which only the right button moves.
+                eye = (nose * -MathF.Cos(_orbitPitch) * distance)
+                    + (deck * MathF.Sin(_orbitPitch) * distance)
+                    + (right * MathF.Sin(_orbitYaw) * distance)
                     + (deck * lift);
 
-                eye = offset;
-                target = _mode == Mode.Chase ? nose * ChaseLead : Vector3.Zero;
+                // AND WHERE IT IS AIMED, which only the left one does. The two are separate so that
+                // looking around does not walk the camera anywhere: the view swings past the ship and
+                // the ship stays where it is in the world, which is the whole difference between
+                // turning to look and travelling round the subject.
+                //
+                // The aim starts at the DEFAULT target rather than straight ahead, so that a view
+                // which has not been dragged frames exactly what it framed before the look and the
+                // orbit were separated. Aiming along the nose instead put the camera's own height
+                // above the hull into the shot and pushed the ship off the top of the frame.
+                Vector3 resting = _mode == Mode.Chase ? nose * ChaseLead : Vector3.Zero;
+                Vector3 aimed = Rotate(resting - eye, deck, right, _yaw, _pitch);
+
+                target = eye + aimed;
                 up = deck;
                 break;
             }
@@ -268,6 +351,20 @@ internal sealed class Camera
         Vector3 forward = Vector3.Normalize(target - eye);
 
         return (view, ToFix(forward), ToFix(up));
+    }
+
+    /// <summary>Turns a direction by a yaw about an axis and a pitch about another.</summary>
+    /// <remarks>
+    /// Two rotations about the hull's own axes rather than a spherical pair about the camera's, so
+    /// that the view stays level with the deck at every angle and a drag of a given size always turns
+    /// the same amount.
+    /// </remarks>
+    private static Vector3 Rotate(Vector3 direction, Vector3 up, Vector3 right, float yaw,
+        float pitch)
+    {
+        Vector3 result = Vector3.Transform(direction, Matrix.CreateFromAxisAngle(up, yaw));
+        return Vector3.Normalize(
+            Vector3.Transform(result, Matrix.CreateFromAxisAngle(right, pitch)));
     }
 
     private static Fix128Vec ToFix(Vector3 v) => new(
@@ -283,10 +380,10 @@ internal sealed class Camera
     /// </remarks>
     internal string Describe() => _mode switch
     {
-        Mode.Chase => $"CHASE {_chaseDistance:F0} m  yaw {Degrees(_yaw):F0}  pitch {Degrees(_pitch):F0}",
-        Mode.Orbit => $"ORBIT {_orbitDistance:F0} m  yaw {Degrees(_yaw):F0}  pitch {Degrees(_pitch):F0}",
-        Mode.Cockpit => $"COCKPIT  yaw {Degrees(_cockpitYaw):F0}  pitch {Degrees(_cockpitPitch):F0}",
-        _ => $"PORT {PortStandoff:F0} m  yaw {Degrees(_yaw):F0}  pitch {Degrees(_pitch):F0}",
+        Mode.Chase => $"CHASE {_chaseDistance:F0} m  look {Degrees(_yaw):F0},{Degrees(_pitch):F0}",
+        Mode.Orbit => $"ORBIT {_orbitDistance:F0} m  look {Degrees(_yaw):F0},{Degrees(_pitch):F0}",
+        Mode.Cockpit => $"COCKPIT  look {Degrees(_cockpitYaw):F0},{Degrees(_cockpitPitch):F0}",
+        _ => $"PORT {PortStandoff:F0} m  look {Degrees(_yaw):F0},{Degrees(_pitch):F0}",
     };
 
     private static float Degrees(float radians) => radians * 180f / MathF.PI;

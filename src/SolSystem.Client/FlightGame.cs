@@ -394,13 +394,23 @@ internal sealed class FlightGame : Game
 
     private void ReadCamera(KeyboardState keys, MouseState mouse, double seconds)
     {
+        float dx = mouse.X - _previousMouse.X;
+        float dy = mouse.Y - _previousMouse.Y;
+
+        // LOOK with the left button, ORBIT with the right. They were both the left one, and the
+        // left one was the orbit — so a drag swung the camera round the hull instead of turning the
+        // view, which reads as the ship rotating.
         if (mouse.LeftButton == ButtonState.Pressed
             && _previousMouse.LeftButton == ButtonState.Pressed)
         {
-            float dx = mouse.X - _previousMouse.X;
-            float dy = mouse.Y - _previousMouse.Y;
-
             _camera.Look(dx, dy);
+            _dragPixels += Math.Abs(dx) + Math.Abs(dy);
+        }
+
+        if (mouse.RightButton == ButtonState.Pressed
+            && _previousMouse.RightButton == ButtonState.Pressed)
+        {
+            _camera.Orbit(dx, dy);
             _dragPixels += Math.Abs(dx) + Math.Abs(dy);
         }
 
@@ -1080,7 +1090,7 @@ internal sealed class FlightGame : Game
             + $"wheel {_wheelNotches,4:F0}   {(IsActive ? "window active" : "WINDOW NOT FOCUSED")}",
             at, IsActive ? dim : warn);
         at.Y += Line;
-        _sprites.DrawString(_hud, "  C view   drag look   wheel zoom", at, dim);
+        _sprites.DrawString(_hud, "  C view   L-drag look   R-drag orbit   wheel zoom", at, dim);
         at.Y += Line;
         _sprites.DrawString(_hud, "  W/S throttle   A/D yaw   R/F pitch", at, dim);
         at.Y += Line;

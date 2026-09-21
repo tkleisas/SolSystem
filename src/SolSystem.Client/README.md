@@ -68,9 +68,19 @@ two ways.
 | Input | What it does exactly |
 |---|---|
 | `C` | Cycles chase → orbit → cockpit → port. |
-| Drag (left button) | Looks around: 0.315° per pixel. In cockpit it turns your head; in chase, orbit and port it swings the camera round the ship. |
+| **Drag (left button)** | **Looks around** — 0.315° per pixel. The camera stays put and the view swings past the ship. |
+| Drag (right button) | Orbits: travels the camera round the hull. Walking round your own ship, which is a different motion and now a different button. |
 | Wheel | Zooms the camera you are in: ×1.18 a notch, clamped to 25 m – 4 km. |
 | `Up` / `Down` | *(ship controls — they do not move the camera)* |
+
+**Look and orbit are two different motions and were one button.** The left drag travelled the camera
+round the hull at a fixed radius, so the ship stayed pinned in the middle of the frame and the sky
+whirled around it — reported, exactly rightly, as *"dragging the mouse instead of rotating the view,
+rotates the ship"*. Nothing was rotating but the camera, and the only thing that looked like it was
+moving was the ship. Left drag now aims the view; right drag walks round the ship.
+
+Changing camera mode with `C` recentres the view, so you are never left staring at empty sky with no
+idea which way the ship was pointing when you looked away.
 
 **The wheel used to work in one mode out of four.** It moved the orbit distance and nothing else, and
 the chase camera ignored it — so in the default view it did nothing at all. A zoom control that works
