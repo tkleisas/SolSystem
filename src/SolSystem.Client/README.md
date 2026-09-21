@@ -23,12 +23,18 @@ was then added underneath it and nobody ran `dotnet run` with no arguments again
 | `A` / `D` | Yaw left / right, at the helm's maximum. |
 | `R` / `F` | Pitch up / down. |
 | `Q` / `E` | Roll left / right. |
-| `Up` / `Down` | Time compression: ×60 or ×0.1, from the base rate. Not cumulative. |
+| `Up` / `Down` | Time compression: one rung per press up or down a ladder of ×0.1, ×1, ×10, ×100, ×1000. |
 | `Esc` | Quit. |
 
 **The engine fires along the nose.** `W` does not push the ship in the direction it is drifting; it
 pushes it in the direction it is *pointing*. So the throttle and the helm are one control, and going
 anywhere is a two-part decision — where to point, then how hard to burn.
+
+**Roll does not move the nose.** `E` and `Q` turn the ship about its own long axis, so the nose stays
+where it is and the deck goes round. That sounds obvious and it was not: roll used to be a rotation
+about the *world* z-axis, which does not roll a ship at all — it swings the nose sideways. So `Q`/`E`
+and `A`/`D` did the same thing and there was no roll. And `D` turned *left*, because the yaw axis was
+the wrong way round.
 
 **The helm is six degrees a second, and that is a hard limit.** Every turn key commands the maximum
 and the ship clamps it, so:
@@ -97,13 +103,26 @@ numbers settle it.
 | **Cockpit** | 34 m forward of the origin, on the nose, nothing of the ship in view | the only view where the reticle means anything |
 | **Port** | 230 m off the far side of the hull, looking back along the docking corridor | judging an approach |
 
+### Time compression
+
+`Up` and `Down` step one rung per press:
+
+| | ×0.1 | ×1 | ×10 | ×100 | ×1000 |
+|---|---|---|---|---|---|
+| one second of real time is | 0.1 s | 1 s | 10 s | 1 m 40 s | 16 m 40 s |
+
+The rate is on the flight display, because **a clock running at a thousand times real time and a
+clock running at one look exactly the same** until you have watched one of them for a minute. The
+first version multiplied the rate by sixty for as long as the key was held, which has two faults: no
+way to ask for twice, and no way to know what you got.
+
 ### Two things the controls do not do
 
 - **No gentle turn.** The keys are on or off, so every rotation is at the six-degree limit. A finer
   helm is a thing a docking pilot would want and it is not there yet.
 - **Time compression saturates.** The ship steps at a fixed 120 Hz and at most 240 ticks a frame, so
   above two seconds of simulated time per frame the clock advances faster than the ship flies. At
-  ×60 that needs 30 fps; below it, the sky runs ahead of the hull.
+  ×100 that needs 50 fps; below it, the sky runs ahead of the hull.
 
 ## Why the camera matters more than it looks
 

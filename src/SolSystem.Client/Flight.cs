@@ -127,29 +127,41 @@ internal sealed class Flight
             _throttle = 1.0;
         }
 
-        // The helm. Each axis is commanded as a fraction of the crewed maximum, and the ship clamps
-        // it — so a player who holds a key turns at exactly six degrees a second and no faster.
+        // THE HELM, in the hull's own frame, and every one of the three axes was wrong or
+        // half-right before this.
+        //
+        // A rotation command is an angular velocity in radians a second. Which AXIS it is about is
+        // the whole content of the control, and the three are the ship's own:
+        //
+        //     pitch   about the STARBOARD axis   the nose goes up or down
+        //     yaw     about the ship's DOWN axis the nose goes left or right
+        //     roll    about the NOSE             the deck goes round, and the nose does not move
+        //
+        // The first version had two faults and they compounded. Roll was a rotation about the WORLD
+        // z-axis -- the ecliptic pole -- which does not roll the ship at all: it swings the nose
+        // sideways, which is a yaw. So Q/E and A/D did THE SAME THING, and there was no roll. And
+        // yaw was about +deck, which by the right-hand rule takes the nose towards PORT, so D turned
+        // left and A turned right.
+        //
+        // Pitch was the one that happened to be right, and it was right by accident: the axis was
+        // built as cross(deck, nose), which is minus starboard, and then negated again by the sign
+        // on the pitch term.
         double yaw = Axis(keys, Keys.D, Keys.A);
         double pitch = Axis(keys, Keys.R, Keys.F);
         double roll = Axis(keys, Keys.E, Keys.Q);
 
-        var turn = new Fix128Vec(
-            Fix128.Zero,
-            Fix128.Zero,
-            Fix128.FromDouble(roll * TurnCommand));
-
-        // Yaw and pitch are rotations about the ship's own up and right, which is why they are
-        // composed here rather than written into the rotation vector directly.
-        // The hull's own axes. The nose is +x in the ship's frame and the deck is +z, which is the
-        // convention the model was built in — so a turn command is a rotation about one of those two
-        // rather than about a world axis, and the ship rolls as it turns the way a ship does.
         Fix128Vec nose = _ship.Attitude.Forward;
-        Fix128Vec up = _ship.Attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
+        Fix128Vec deck = _ship.Attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
 
-        Fix128Vec lateral = FlightSession.Cross(up, nose).Normalized();
+        // The ship's own axes, as directions in the world. `starboard` is cross(nose, deck), which
+        // for the simulation's frame -- nose on +x, deck on +z -- comes out on -y.
+        Fix128Vec starboard = FlightSession.Cross(nose, deck).Normalized();
 
-        turn += up * Fix128.FromDouble(yaw * TurnCommand);
-        turn += lateral * Fix128.FromDouble(-pitch * TurnCommand);
+        // D turns right, which is a rotation about the ship's DOWN axis: about +deck the nose goes
+        // to port, so the sign is the whole of it.
+        Fix128Vec turn = (deck * Fix128.FromDouble(-yaw * TurnCommand))
+            + (starboard * Fix128.FromDouble(pitch * TurnCommand))
+            + (nose * Fix128.FromDouble(roll * TurnCommand));
 
         var thrust = _throttle > 0.0 ? nose : Fix128Vec.Zero;
 

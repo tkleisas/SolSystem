@@ -71,9 +71,16 @@ internal sealed class FlightGame : Game
     private Plume _plume = null!;
     private MouseState _previousMouse;
 
+    /// <summary>The attitude the run started with, so a held key can be measured against it.</summary>
+    private Fix128Vec _startNose;
+    private Fix128Vec _startDeck;
+
     /// <summary>Pixels dragged and notches scrolled, cumulative, for the display.</summary>
     private double _dragPixels;
     private double _wheelNotches;
+
+    /// <summary>The compression in force, for the display.</summary>
+    private double _timeRate = 1.0;
 
     /// <summary>One navigation tick: 120 Hz, the rate the whole local frame was written for.</summary>
     private const double TickSeconds = 1.0 / 120.0;
@@ -92,6 +99,20 @@ internal sealed class FlightGame : Game
     private KeyboardState _previousKeys;
     private double _simulatedSeconds;
     private int _frame;
+
+    /// <summary>
+    /// The time compression ladder.
+    /// </summary>
+    /// <remarks>
+    /// A LADDER, stepped one rung per press, rather than a multiplier held down. The first version
+    /// multiplied the rate by sixty for as long as the key was held, which has two faults: there is
+    /// no way to ask for twice, and there is no way to know what you got, because nothing displayed
+    /// it. A player reported exactly that. Five rungs is a range from slow enough to watch a docking
+    /// to fast enough to cross to Jupiter, and every one of them fits on the display.
+    /// </remarks>
+    private static readonly double[] TimeRates = [0.1, 1.0, 10.0, 100.0, 1000.0];
+
+    private int _timeRateIndex = 1;
 
     internal FlightGame(LaunchOptions options)
     {
@@ -184,6 +205,16 @@ internal sealed class FlightGame : Game
 
         _flight.SetThrottle(_options.Throttle);
 
+        if (_options.Hold.Length > 0)
+        {
+            _startNose = _flight.Ship.Attitude.Forward;
+            _startDeck = _flight.Ship.Attitude.Rotate(
+                new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
+
+            Console.WriteLine($"  holding {_options.Hold}");
+            Console.WriteLine($"    at start: nose {Describe(_startNose)}  deck {Describe(_startDeck)}");
+        }
+
         // The body report is worth reading when a frame looks wrong, and noise otherwise, so it is
         // asked for rather than volunteered.
         if (_options.Headless && _options.Verbose)
@@ -199,15 +230,29 @@ internal sealed class FlightGame : Game
 
     protected override void Update(GameTime gameTime)
     {
-        KeyboardState keys = Keyboard.GetState();
+        KeyboardState keys = KeysWithHolds(Keyboard.GetState());
         MouseState mouse = Mouse.GetState();
+
+        // The time compression, read here rather than inside the interactive path, so that a
+        // headless run can be told to hold Up and the ladder can be checked. It could not be,
+        // before, and an untestable control is an unverified one.
+        ReadTimeCompression(keys);
 
         if (_options.Headless)
         {
             // No keyboard, and a fixed step, so that frame N is at N/60 of a second and two renders
-            // of the same frame are the same image.
-            _simulatedSeconds += ShotSeconds;
-            _session.Advance(ShotSeconds);
+            // of the same frame are the same image. The compression still applies to it.
+            double step = ShotSeconds * _timeRate;
+
+            _simulatedSeconds += step;
+            _session.Advance(step);
+
+            // A held key flies the ship, so that a control can be checked by what it does rather
+            // than by what a still frame of it looks like.
+            if (_options.Hold.Length > 0)
+            {
+                SimulateTicks(keys, step);
+            }
         }
         else
         {
@@ -238,6 +283,29 @@ internal sealed class FlightGame : Game
     /// watch the Sun come round.
     /// </remarks>
     /// <summary>
+    /// Steps the ship, at the rate the physics was written for.
+    /// </summary>
+    /// <remarks>
+    /// The clock runs at whatever rate the player asked for; the ship always steps at 120 Hz,
+    /// because a fixed step is what makes the same inputs give the same flight. The number of ticks
+    /// is capped, so at high time compression on a slow machine the clock and the hull come apart —
+    /// see the note in the README.
+    /// </remarks>
+    private void SimulateTicks(KeyboardState keys, double seconds)
+    {
+        Command command = _flight.Read(keys, seconds);
+
+        Span<GravitySource> sources = stackalloc GravitySource[1];
+        sources[0] = _session.Station.GravitySource;
+
+        int ticks = Math.Clamp((int)Math.Round(seconds / TickSeconds), 0, 240);
+        for (int i = 0; i < ticks; i++)
+        {
+            _flight.Step(sources, TickSeconds, command);
+        }
+    }
+
+    /// <summary>
     /// The camera's own controls, which are separate from the ship's.
     /// </summary>
     /// <remarks>
@@ -246,6 +314,42 @@ internal sealed class FlightGame : Game
     /// from the window spins the ship's view is a space game that cannot be paused by looking away
     /// from it.
     /// </remarks>
+    /// <summary>
+    /// The keyboard the ship sees: the real one, plus anything <c>--hold</c> asked for.
+    /// </summary>
+    /// <remarks>
+    /// A headless run has no window to press, so a held key is pressed here instead. This goes in
+    /// through the same <see cref="KeyboardState"/> the ship already reads, which means the test
+    /// exercises the real control path rather than a parallel one written for testing.
+    /// </remarks>
+    private KeyboardState KeysWithHolds(KeyboardState keys)
+    {
+        if (_options.Hold.Length == 0 || !_options.Headless)
+        {
+            return keys;
+        }
+
+        var pressed = new List<Keys>();
+
+        // Comma-separated, and each token is either a single character or a key's own name — so
+        // `--hold D` is the letter and `--hold Up` is the arrow. Single characters only was the
+        // first version, and it meant the letter U rather than the Up arrow, which is a difference
+        // that silently tests nothing at all.
+        foreach (string token in _options.Hold.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (Enum.TryParse(token, ignoreCase: true, out Keys key))
+            {
+                pressed.Add(key);
+            }
+            else
+            {
+                Console.WriteLine($"  note: '{token}' is not a key");
+            }
+        }
+
+        return new KeyboardState([.. pressed]);
+    }
+
     private void ReadCamera(KeyboardState keys, MouseState mouse, double seconds)
     {
         if (mouse.LeftButton == ButtonState.Pressed
@@ -273,37 +377,29 @@ internal sealed class FlightGame : Game
         _ = seconds;
     }
 
+    /// <summary>Steps the compression ladder, one rung per press.</summary>
+    private void ReadTimeCompression(KeyboardState keys)
+    {
+        if (JustPressed(keys, Keys.Up))
+        {
+            _timeRateIndex = Math.Min(_timeRateIndex + 1, TimeRates.Length - 1);
+        }
+
+        if (JustPressed(keys, Keys.Down))
+        {
+            _timeRateIndex = Math.Max(_timeRateIndex - 1, 0);
+        }
+
+        _timeRate = TimeRates[_timeRateIndex] * _options.TimeRate;
+    }
+
     private void Simulate(GameTime gameTime, KeyboardState keys)
     {
-        double rate = _options.TimeRate;
-
-        if (keys.IsKeyDown(Keys.Up))
-        {
-            rate *= 60.0;
-        }
-
-        if (keys.IsKeyDown(Keys.Down))
-        {
-            rate *= 0.1;
-        }
-
-        double seconds = gameTime.ElapsedGameTime.TotalSeconds * rate;
+        double seconds = gameTime.ElapsedGameTime.TotalSeconds * _timeRate;
         _simulatedSeconds += seconds;
         _session.Advance(seconds);
 
-        // One tick of the simulation, at the rate the physics was written for. The clock runs at
-        // whatever rate the player asked for; the ship always steps at 120 Hz, because a fixed step
-        // is what makes the same inputs give the same flight.
-        Command command = _flight.Read(keys, seconds);
-
-        Span<GravitySource> sources = stackalloc GravitySource[1];
-        sources[0] = _session.Station.GravitySource;
-
-        int ticks = Math.Clamp((int)Math.Round(seconds / TickSeconds), 0, 240);
-        for (int i = 0; i < ticks; i++)
-        {
-            _flight.Step(sources, TickSeconds, command);
-        }
+        SimulateTicks(keys, seconds);
 
         // The camera is inside the ship, so the ship drives the observer and not the reverse. The
         // session wants an offset from the station's centre and the ship's position is measured from
@@ -569,6 +665,13 @@ internal sealed class FlightGame : Game
 
         // The clock, because the sky turns and the player should be able to see it turn.
         _sprites.DrawString(_hud, $"EPOCH JD   {_session.JulianDate,10:F4}", at, dim);
+        at.Y += Line;
+
+        // Time compression, on the display, because a clock running at a thousand times real time
+        // and a clock running at one look exactly the same until you have watched one of them for a
+        // minute.
+        _sprites.DrawString(_hud, $"TIME       {DescribeRate(_timeRate),10}", at,
+            _timeRateIndex == 1 ? dim : ink);
         at.Y += Line * 1.6f;
 
         // Delta-v first among the propellant figures, and deliberately: it is the one that decides
@@ -891,6 +994,16 @@ internal sealed class FlightGame : Game
     private const float ChaseLift = 42f;
     private const float ChaseLead = 40f;
 
+    /// <summary>A time rate, in the unit a person reads it in.</summary>
+    private static string DescribeRate(double rate) => rate switch
+    {
+        >= 1.0 => $"x{rate:F0}",
+        _ => $"x{rate:F1}",
+    };
+
+    private static string Describe(Fix128Vec v) =>
+        $"({v.X.ToDouble(),6:F3},{v.Y.ToDouble(),6:F3},{v.Z.ToDouble(),6:F3})";
+
     private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
         (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
 
@@ -913,7 +1026,25 @@ internal sealed class FlightGame : Game
         if (_options.Verbose)
         {
             Console.WriteLine($"  frame {_frame} at t = {_simulatedSeconds:F3} s, "
-                + $"nav lights lit {_hulls.LightsLit}");
+                + $"time {DescribeRate(_timeRate)}, nav lights lit {_hulls.LightsLit}");
+
+            if (_options.Hold.Length > 0)
+            {
+                Attitude attitude = _flight.Ship.Attitude;
+
+                Fix128Vec nose = attitude.Forward;
+                Fix128Vec deck = attitude.Rotate(
+                    new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
+                Fix128Vec starboard = FlightSession.Cross(nose, deck).Normalized();
+
+                Console.WriteLine($"    nose {Describe(nose)}  deck {Describe(deck)}");
+
+                // Against the axes the ship STARTED with, not its own — dotting a vector with a
+                // basis built from itself is identically zero, which is a diagnostic that reports
+                // "no rotation" for every input. It did, and it cost an hour.
+                Console.WriteLine($"      from start: nose {Describe(nose - _startNose)}"
+                    + $"  deck {Describe(deck - _startDeck)}");
+            }
         }
     }
 

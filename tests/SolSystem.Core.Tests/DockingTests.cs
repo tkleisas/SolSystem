@@ -394,10 +394,58 @@ public class DockingTests
         Assert.Fail($"the ship never completed a half turn; nose at {attitude.Forward.X.ToDouble():F6}, "
             + $"rotation {attitude.RotationVector.Length.ToDouble():F6}");
     }
+    [Fact]
+    public void ARotationIsComposed_NotAdded()
+    {
+        // The bug this exists for: `RotationVector += omega*dt` is exact only to first order, and the
+        // error is the Baker-Campbell-Hausdorff commutator term, of order |delta|*|v|. It is
+        // negligible while the accumulated rotation is small -- which is why it survived every
+        // docking test, because a ship on final approach barely rotates -- and it is catastrophic at
+        // pi, which is exactly where a ship that has turned to face its port is sitting.
+        //
+        // At |v| = pi and a full-rate tick of six degrees, the error is nine degrees, about an axis
+        // with nothing to do with the one commanded. Rolling the ship about its own nose moved the
+        // nose instead.
+        //
+        // THE NOSE CANNOT SHOW THIS. At a rotation of exactly pi about any axis perpendicular to it,
+        // +x goes to -x whatever the axis is, so the nose sits still under both the right answer and
+        // the wrong one. The DECK is the vector that carries the information, and it is the one the
+        // first version of this test did not look at.
+        var attitude = new Attitude(
+            new Fix128Vec(Fix128.Zero, Fix128.Zero, F(Math.PI)), Fix128Vec.Zero);
+
+        double step = 6.0 * Math.PI / 180.0;
+
+        // Command a rotation about world x for one second at that rate. The ship's nose is along
+        // -x, so this is a rotation about its own long axis: a ROLL.
+        attitude.AngularVelocity = new Fix128Vec(F(step), Fix128.Zero, Fix128.Zero);
+        attitude.Step(Fix128.One);
+
+        Fix128Vec nose = attitude.Forward;
+        Fix128Vec deck = attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
+
+        // The nose is unmoved, because a roll does not move the nose. Under addition it would have
+        // swung 2*step/pi towards +x, which is a quarter of the commanded angle about an axis at
+        // right angles to the one asked for.
+        Assert.True(Math.Abs(nose.X.ToDouble() + 1.0) < 1e-6,
+            $"a roll must leave the nose alone; it is at ({nose.X.ToDouble():F6},"
+            + $"{nose.Y.ToDouble():F6},{nose.Z.ToDouble():F6})");
+
+        // The deck carries the roll: it tips towards -y by sin(step).
+        double composed = Math.Sin(step);
+        Assert.True(Math.Abs(deck.Y.ToDouble() + composed) < 1e-6,
+            $"the deck should tip {composed:F6} towards -y and it is at {deck.Y.ToDouble():F6}");
+
+        // And the rotation is still a rotation.
+        Assert.Equal(1.0, nose.Length.ToDouble(), 9);
+        Assert.Equal(1.0, deck.Length.ToDouble(), 9);
+    }
+
 }
 
 /// <summary>Test-only helpers on <see cref="Ship"/>.</summary>
 internal static class ShipTestExtensions
 {
     internal static double RangeToOrigin(this Ship ship) => ship.Position.Length.ToDouble();
+
 }

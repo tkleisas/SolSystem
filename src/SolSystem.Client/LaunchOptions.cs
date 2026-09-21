@@ -85,6 +85,17 @@ internal sealed class LaunchOptions
     /// <summary>Throttle to start at, 0 to 1. For rendering the plume without a keyboard.</summary>
     internal double Throttle { get; private set; }
 
+    /// <summary>
+    /// Keys to hold down for the whole run, e.g. <c>--hold D</c>.
+    /// </summary>
+    /// <remarks>
+    /// The reason this exists is that "the controls do not work correctly" is not a thing a still
+    /// frame can answer. Holding a key and printing the attitude afterwards turns it into a number:
+    /// D must move the nose towards starboard, R must move it towards the deck, and E must leave the
+    /// nose alone and turn the deck.
+    /// </remarks>
+    internal string Hold { get; private set; } = string.Empty;
+
     /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
     internal double CameraYaw { get; private set; }
 
@@ -113,6 +124,7 @@ internal sealed class LaunchOptions
           --frames <n>         run the interactive loop for n frames, then exit
           --camera <mode>      chase, orbit, cockpit or port (default chase)
           --throttle <0-1>     start with the engine lit, for rendering the plume
+          --hold <keys>        hold these keys down, e.g. --hold D
           --camera-yaw <deg>   start the camera at this yaw
           --camera-pitch <deg> start the camera at this pitch
           --camera-distance <m> start the camera at this distance
@@ -165,6 +177,10 @@ internal sealed class LaunchOptions
 
                 case "--throttle":
                     options.Throttle = Number(args, ref i, 0.0, 1.0);
+                    break;
+
+                case "--hold":
+                    options.Hold = Require(args, ref i);
                     break;
 
                 case "--camera-yaw":

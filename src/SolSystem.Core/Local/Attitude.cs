@@ -63,7 +63,35 @@ internal struct Attitude
         return commanded * (maxRate / speed);
     }
 
-    /// <summary>Advances the attitude by one tick.</summary>
+    /// <summary>
+    /// Advances the attitude by one tick, composing the commanded rotation properly.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The rotation is composed, not added, and adding it was wrong everywhere but worst at the
+    /// ship's own starting attitude.</b>
+    /// </para>
+    /// <para>
+    /// The old form was <c>RotationVector += ω·dt</c>, justified as exact for small steps. It is
+    /// exact to first order in <c>δ = ω·dt</c>, and the error is of order <c>|δ|·|v|</c> — the
+    /// Baker–Campbell–Hausdorff commutator term, <c>log(exp(δ)·exp(v)) = δ + v + ½[δ,v] + …</c>.
+    /// That error is negligible while the accumulated rotation is small, which is why it survived
+    /// the docking tests: a ship on final approach is barely rotating.
+    /// </para>
+    /// <para>
+    /// But a ship that has turned to face its docking port is at <b>exactly π</b>, and π is the
+    /// worst place there is. At <c>|v| = π</c> and a full-rate tick of six degrees, the error term
+    /// is <c>½ · 0.105 · 3.14 = 0.165</c> radians — <b>nine degrees of error from a six-degree
+    /// command</b>, about an axis that has nothing to do with the one asked for. Rolling the ship
+    /// about its own nose moved the nose instead.
+    /// </para>
+    /// <para>
+    /// So the two rotations are composed as quaternions — <c>R_new = exp(δ) ∘ R</c>, which is what
+    /// a world-frame angular velocity means — and the result is converted back to the axis-angle
+    /// form the rest of the engine reads. The conversions are well conditioned everywhere except
+    /// the identity, which is handled separately.
+    /// </para>
+    /// </remarks>
     internal void Step(Fix128 dt)
     {
         if (AngularVelocity.IsZero)
@@ -71,33 +99,72 @@ internal struct Attitude
             return;
         }
 
-        // The rotation vector advances by ω·dt, and because it is a vector along the
-        // rotation axis its magnitude is the angle, the addition is exact for small steps.
-        RotationVector += AngularVelocity * dt;
+        Fix128Vec delta = AngularVelocity * dt;
 
-        // Keep the magnitude inside pi so the axis-angle pair stays unique.
-        Fix128 angle = RotationVector.Length;
-        if (angle > Pi)
+        (Fix128 deltaW, Fix128Vec deltaV) = ToQuaternion(delta);
+
+        if (deltaW == Fix128.One && deltaV.IsZero)
         {
-            // Fold back into the unique range, and note that folding is not scaling.
-            //
-            // A rotation of theta > pi about an axis is the same rotation as 2pi - theta
-            // about the OPPOSITE axis. Scaling the vector down to pi keeps the axis and
-            // changes the rotation, which is a different thing entirely — and it is a trap
-            // that took three attempts to see, because the scaled version looks like the
-            // obvious way to "keep it under pi" and every value it produces is in range.
-            //
-            // What it does in practice is pin a reversing ship at the limit forever. The
-            // commanded rotation advances the vector past pi; the fold hauls it back to just
-            // under pi; the command is still lit, so the next tick advances it past pi again.
-            // The ship sits at exactly half a turn, nose at -x, and never moves, while the
-            // pilot waits for an alignment that cannot come.
-            //
-            // Half a turn is the degenerate case of this: at exactly pi both axes describe
-            // the same rotation, so nothing is lost by leaving the axis alone there.
-            Fix128 folded = TwoPi - angle;
-            RotationVector = RotationVector * (-(folded / angle));
+            return;
         }
+
+        (Fix128 rotationW, Fix128Vec rotationV) = ToQuaternion(RotationVector);
+
+        // q_new = q_delta * q_rotation, in that order: the commanded rotation is in world axes, so
+        // it applies on the LEFT of the attitude the ship already has.
+        Fix128 w = (deltaW * rotationW) - Dot(deltaV, rotationV);
+        Fix128Vec v = (rotationV * deltaW) + (deltaV * rotationW) + Cross(deltaV, rotationV);
+
+        RotationVector = ToRotationVector(w, v);
+    }
+
+    /// <summary>A unit quaternion for a rotation vector: <c>(cos θ/2, n·sin θ/2)</c>.</summary>
+    private static (Fix128 W, Fix128Vec V) ToQuaternion(Fix128Vec rotationVector)
+    {
+        Fix128 angle = rotationVector.Length;
+        if (angle == Fix128.Zero)
+        {
+            return (Fix128.One, Fix128Vec.Zero);
+        }
+
+        Fix128 half = angle * Fix128.FromDouble(0.5);
+        Fix128 turns = half / TwoPi;
+
+        return (Trig128.CosTurn(turns), rotationVector * (Trig128.SinTurn(turns) / angle));
+    }
+
+    /// <summary>
+    /// The shortest rotation vector for a quaternion.
+    /// </summary>
+    /// <remarks>
+    /// <c>q</c> and <c>−q</c> are the same rotation, so the representative with a non-negative real
+    /// part is taken first — which is what keeps the magnitude at or below π and the answer unique.
+    /// Without it the ship would flip between two axis-angle descriptions of one orientation, and
+    /// every interpolation and every comparison would be wrong half the time.
+    /// </remarks>
+    private static Fix128Vec ToRotationVector(Fix128 w, Fix128Vec v)
+    {
+        if (w < Fix128.Zero)
+        {
+            w = -w;
+            v = -v;
+        }
+
+        Fix128 length = v.Length;
+        if (length == Fix128.Zero)
+        {
+            return Fix128Vec.Zero;
+        }
+
+        // For a small angle, sin(θ/2) ≈ θ/2, so θ·v/|v| ≈ 2v. Below this threshold the division
+        // and the arctangent both lose more than they give.
+        if (length < Fix128.FromDouble(1e-9))
+        {
+            return v * Fix128.FromDouble(2.0);
+        }
+
+        Fix128 angle = Fix128.Atan2(length, w) * Fix128.FromDouble(2.0);
+        return v * (angle / length);
     }
 
     /// <summary>Rotates a vector by this attitude, using Rodrigues' formula.</summary>
