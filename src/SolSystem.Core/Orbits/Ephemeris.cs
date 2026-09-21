@@ -122,6 +122,14 @@ internal static class Ephemeris
         Saturn,
         Uranus,
         Neptune,
+
+        /// <summary>
+        /// The largest asteroid, and the setting's cheapest source of volatiles.
+        /// </summary>
+        /// <remarks>
+        /// Not one of the eight, and not from the same table — see the note on its row.
+        /// </remarks>
+        Ceres,
     }
 
     /// <summary>
@@ -159,6 +167,21 @@ internal static class Ephemeris
         // Neptune
         new(30.06992276, 0.00026291, 0.00859048, 0.00005105, 1.77004347, 0.00035372,
             -55.12002969, 218.45945325, 44.96476227, -0.32241464, 131.78422574, -0.00508664),
+
+        // Ceres.
+        //
+        // NOT from the JPL table above, which covers the eight planets and stops there. These are
+        // the J2000 osculating elements from JPL's Small-Body Database, converted from the
+        // perihelion-and-mean-anomaly form it publishes into the mean-longitude form this table
+        // uses: ϖ = Ω + ω = 153.90322, L = M + ϖ = 343.17905.
+        //
+        // The two precession rates are ZERO, and that is an omission rather than a measurement.
+        // Ceres' node and perihelion do move, slowly, and this row does not carry it — so the
+        // further the date is from J2000 the more the orbit is out, in a way the eight planets'
+        // rows are not. Over the game's span it is a fraction of a degree; the row is marked so
+        // that nobody later mistakes it for the same quality of data as the ones above.
+        new(2.7669919, 0.0, 0.0784888, 0.0, 10.58688, 0.0,
+            343.17904, 7822.9, 153.90322, 0.0, 80.30553, 0.0),
     };
 
     /// <summary>Kilometres in one astronomical unit, the frame's unit.</summary>

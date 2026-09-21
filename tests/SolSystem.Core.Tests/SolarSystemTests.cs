@@ -171,12 +171,27 @@ public class SolarSystemTests
         Assert.Equal(Constants.EarthGmKm.ToDouble(), earth.GmKm, 3);
 
         // And every body in the table has a real one.
+        //
+        // The floors are a hundred kilometres and ten km3/s2 rather than anything planet-sized,
+        // because the table is no longer only planets. Ceres is 470 km across with a GM of 62.6 --
+        // a four-hundredth of the Moon's -- and a floor set for planets would have excluded the one
+        // body the setting most depends on. The thing worth asserting is that no row is a stub, and
+        // these numbers are small enough that only a stub fails them.
         foreach (SolarSystem.Body body in SolarSystem.Bodies)
         {
-            Assert.True(body.RadiusKm > 1000.0, $"{body.Name} has radius {body.RadiusKm}");
-            Assert.True(body.GmKm > 1e4, $"{body.Name} has GM {body.GmKm}");
+            Assert.True(body.RadiusKm > 100.0, $"{body.Name} has radius {body.RadiusKm}");
+            Assert.True(body.GmKm > 10.0, $"{body.Name} has GM {body.GmKm}");
             Assert.False(string.IsNullOrWhiteSpace(body.Name));
         }
+
+        // And Ceres is where Ceres is: 2.77 astronomical units out, which is the fact the whole
+        // setting's volatile economy rests on.
+        var system = new SolarSystem();
+        system.SetTime(0.0);
+        double ceresAu = system.Heliocentric(Ephemeris.Body.Ceres).Position.Length.ToDouble()
+            / 149_597_870.7;
+
+        Assert.True(ceresAu > 2.5 && ceresAu < 3.0, $"Ceres is {ceresAu:F3} AU from the Sun");
     }
 
     [Fact]

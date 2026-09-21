@@ -81,6 +81,10 @@ internal sealed class SolarSystem
         new(Ephemeris.Body.Saturn, "Saturn", 60_268.0, 3.7931187e7),
         new(Ephemeris.Body.Uranus, "Uranus", 25_559.0, 5.793939e6),
         new(Ephemeris.Body.Neptune, "Neptune", 24_764.0, 6.836529e6),
+
+        // The largest asteroid, and the setting's cheapest source of volatiles. Its GM is from the
+        // Dawn mission's mass determination, 9.38 x 10^20 kg.
+        new(Ephemeris.Body.Ceres, "Ceres", 469.7, 62.6289),
     };
 
     /// <summary>The Moon as a body entry, for the code that only needs a radius and a GM.</summary>

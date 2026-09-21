@@ -69,6 +69,34 @@ it lives in the simulation.
 
 Preview charts are in `art/previews/sky/`.
 
+## `blender/bake_bodies.py` and `pack_bodies.py`
+
+```sh
+blender --background --python tools/blender/bake_bodies.py   # bake, in Blender
+python3 tools/pack_bodies.py                                 # pack, in system Python
+```
+
+The Blender previews and the game client have to agree about what a body looks like, and the way to
+guarantee that is one implementation of each material. The Sun's photosphere, Ceres's regolith and
+Earth's cloud deck are procedural shaders that exist only inside their .blend files, so the client
+had nothing to load. These bake exactly those materials, with Blender's own shader, to
+equirectangular textures.
+
+Mars, the Moon and Mercury are baked too even though they are mapped, because their materials do
+more than sample the map — they tint it, they darken it along the coast, and Mars adds its polar
+caps by latitude. Baking the material carries all of that in one texture.
+
+**Two steps, not one, and that is not an oversight.** Blender's bundled Python has no imaging
+library, so a post-processing pass inside the bake script silently did nothing at all — three runs
+in a row — because `try: import PIL except ImportError: return` succeeds quietly. The bake writes;
+the packing turns the raw result into something a fixed-function renderer can draw: the cloud
+coverage becomes an alpha channel, and the Sun's photosphere is normalised so it saturates.
+
+**The UV convention is the client's**, `u = 0.5` at the map's prime meridian and `v = 1` at the
+north pole, and the half-turn that puts it there lives in the *geometry* rather than in the UVs —
+adding it to `u` instead sends half the sphere off the edge of the image and bakes a texture that is
+black down one side.
+
 ## `pack_earth.py`
 
 ```sh

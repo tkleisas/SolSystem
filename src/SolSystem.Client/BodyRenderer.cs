@@ -152,7 +152,8 @@ internal sealed class BodyRenderer : IDisposable
         double RadiusKilometres,
         Color Colour,
         bool Emissive,
-        string? TextureFile);
+        string? TextureFile,
+        string? CloudTexture);
 
     /// <summary>
     /// Loads a body texture, or null if there is not one.
@@ -228,25 +229,29 @@ internal sealed class BodyRenderer : IDisposable
 
         var bodies = new List<Body>
         {
-            new("Sun", Fix128Vec.Zero, 696_000.0, new Color(1.0f, 0.97f, 0.90f), true, null),
+            new("Sun", Fix128Vec.Zero, 696_000.0, new Color(1.0f, 0.97f, 0.90f), true,
+                "sun_photosphere.png", null),
             new("Moon", system.MoonHeliocentric().Position, 1_737.4, new Color(0.62f, 0.61f, 0.60f),
-                false, "moon_map.jpg"),
+                false, "moon_surface.png", null),
             new("Mercury", system.Heliocentric(Ephemeris.Body.Mercury).Position, 2_439.7,
-                new Color(0.55f, 0.52f, 0.50f), false, "mercury_map.jpg"),
+                new Color(0.55f, 0.52f, 0.50f), false, "mercury_surface.png", null),
             new("Venus", system.Heliocentric(Ephemeris.Body.Venus).Position, 6_051.8,
-                new Color(0.90f, 0.86f, 0.72f), false, "venus_map.jpg"),
+                new Color(0.90f, 0.86f, 0.72f), false, "venus_surface.png", null),
             new("Mars", system.Heliocentric(Ephemeris.Body.Mars).Position, 3_396.2,
-                new Color(0.72f, 0.38f, 0.24f), false, "mars_map.jpg"),
+                new Color(0.72f, 0.38f, 0.24f), false, "mars_surface.png", null),
+            new("Ceres", system.Heliocentric(Ephemeris.Body.Ceres).Position, 469.7,
+                new Color(0.42f, 0.41f, 0.40f), false, "ceres_surface.png", null),
             new("Jupiter", system.Heliocentric(Ephemeris.Body.Jupiter).Position, 71_492.0,
-                new Color(0.80f, 0.72f, 0.58f), false, null),
+                new Color(0.80f, 0.72f, 0.58f), false, null, null),
             new("Saturn", system.Heliocentric(Ephemeris.Body.Saturn).Position, 60_268.0,
-                new Color(0.82f, 0.76f, 0.60f), false, null),
+                new Color(0.82f, 0.76f, 0.60f), false, null, null),
         };
 
         // The Earth is drawn as the body the observer is orbiting, from the same table, rather than
-        // as a special case.
+        // as a special case — and it carries a cloud deck, which is a second sphere a fifth of a per
+        // cent larger, exactly as the Blender preview builds it.
         bodies.Add(new Body("Earth", system.Heliocentric(Ephemeris.Body.Earth).Position, 6_378.1,
-            new Color(0.24f, 0.42f, 0.72f), false, "earth_albedo.jpg"));
+            new Color(0.24f, 0.42f, 0.72f), false, "earth_albedo.jpg", "earth_clouds.png"));
 
         return bodies;
     }
@@ -334,6 +339,7 @@ internal sealed class BodyRenderer : IDisposable
                 (float)(offset.Z.ToDouble() * scale));
 
             Texture2D? texture = TextureFor(body.TextureFile);
+            Texture2D? clouds = TextureFor(body.CloudTexture);
             _effect.Texture = texture;
             _effect.TextureEnabled = texture is not null;
 
@@ -368,6 +374,33 @@ internal sealed class BodyRenderer : IDisposable
                 pass.Apply();
                 _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _sphereIndexCount / 3);
             }
+
+            if (clouds is not null && !body.Emissive)
+            {
+                // The cloud deck, as a sphere a fifth of a per cent larger carrying the baked
+                // coverage map as its alpha. It is drawn immediately after its body so painter's
+                // order still holds, and blended non-premultiplied because the mask is a plain
+                // alpha rather than a multiplied one — before that it was a solid white shell.
+                _effect.Texture = clouds;
+                _effect.TextureEnabled = true;
+                _effect.DiffuseColor = Vector3.One;
+                _effect.World = Matrix.CreateScale((float)body.RadiusKilometres * scale * 1.002f)
+                    * orientation
+                    * Matrix.CreateTranslation(centre);
+
+                _device.BlendState = BlendState.NonPremultiplied;
+
+                foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _device.DrawIndexedPrimitives(
+                        PrimitiveType.TriangleList, 0, 0, _sphereIndexCount / 3);
+                }
+
+                _device.BlendState = BlendState.Opaque;
+            }
+
+
 
             if (Verbose)
             {
