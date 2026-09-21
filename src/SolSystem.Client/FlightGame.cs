@@ -61,6 +61,8 @@ internal sealed class FlightGame : Game
     private SunRenderer _sun = null!;
     private HullRenderer _hulls = null!;
     private Hull _courier = null!;
+    private Hull _station = null!;
+    private Hull _freighter = null!;
     private Flight _flight = null!;
     private SpriteBatch _sprites = null!;
     private Texture2D _pixel = null!;
@@ -89,7 +91,15 @@ internal sealed class FlightGame : Game
         // A shot runs as fast as it can and exits; an interactive session is a game and should
         // behave like one.
         IsFixedTimeStep = !options.Headless;
-        Window.Title = "SolSystem — flight";
+        // ASCII ONLY in the window title, and it is not fussiness.
+        //
+        // This was "SolSystem — flight" with an em dash, and the title bar rendered it as
+        // "SolSystem ⯑⯑⯑ flight": three replacement glyphs, because SDL takes the title
+        // as UTF-8 and something between here and the window manager read those three bytes as three
+        // Latin-1 characters. The in-game type is unaffected — it goes through a sprite font this
+        // program built — but a title bar is not worth a fight with an encoding, and there is a
+        // hyphen on every keyboard.
+        Window.Title = "SolSystem - flight";
     }
 
     protected override void Initialize()
@@ -113,22 +123,32 @@ internal sealed class FlightGame : Game
         _courier = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "ships",
             "illuminus_courier.glb"));
 
-        Console.WriteLine($"  hull: {_courier.Size.X:F1} x {_courier.Size.Y:F1} x {_courier.Size.Z:F1} m, "
-            + $"{_courier.Parts.Count} parts");
+        _station = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "stations",
+            "meridian.glb"));
 
-        // The player's ship starts on the station's docking corridor, which is where the docking
-        // tests fly from, facing the port.
+        _freighter = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "ships",
+            "workers_freighter.glb"));
+
+        Console.WriteLine($"  courier: {Largest(_courier):F0} m, {_courier.Parts.Count} parts");
+        Console.WriteLine($"  meridian: {Largest(_station):F0} m, {_station.Parts.Count} parts");
+        Console.WriteLine($"  freighter: {Largest(_freighter):F0} m, {_freighter.Parts.Count} parts");
+
+        // The player's ship starts on the station's docking corridor, co-orbiting with the station.
         //
-        // The ship's position is measured FROM THE PORT, not from the station's centre and not from
-        // the Earth. That is the frame the docking corridor lives in — the corridor is a line through
-        // the port along its axis, and the guidance law, the envelope and the approach phases all
-        // work in it. Getting this wrong is not subtle in the numbers but is easy in the code: the
-        // station's centre is six thousand seven hundred and seventy-eight kilometres away from the
-        // port's own frame, so mixing the two puts the ship in the wrong orbit and reports a range
-        // of six thousand seven hundred and seventy-eight kilometres when it is four hundred metres.
+        // THE LOCAL FRAME'S ORIGIN IS THE CENTRE OF THE EARTH. That is what makes gravity a single
+        // point source at the origin, which is what `GravitySource.AtOrigin` means and what the
+        // station's own orbital state is expressed in. An earlier version of this measured the ship
+        // from the docking PORT instead — which is a perfectly good frame for the corridor, and the
+        // frame the docking law works in — and then pointed the gravity source at the origin anyway.
+        // The Earth's centre is six thousand seven hundred and seventy-eight kilometres from the
+        // port, so the ship was being pulled towards the port as though the entire mass of the planet
+        // were there: two and a half BILLION metres per second squared, and by the time anyone looked
+        // at the display the ship was ten thousand kilometres a second and most of a million
+        // kilometres away, which is what the range readout was showing.
         _flight = Flight.Start(
-            _session.Station.Port.Axis * Fix128.FromDouble(_options.Standoff),
-            Fix128Vec.Zero,
+            _session.Station.Port.Position
+                + (_session.Station.Port.Axis * Fix128.FromDouble(_options.Standoff)),
+            _session.Station.Velocity,
             FacingAlong(-_session.Station.Port.Axis));
 
         // The body report is worth reading when a frame looks wrong, and noise otherwise, so it is
@@ -207,11 +227,11 @@ internal sealed class FlightGame : Game
         }
 
         // The camera is inside the ship, so the ship drives the observer and not the reverse. The
-        // session wants an offset from the station's centre; the ship's position is from the port,
-        // so the port's own offset is what joins the two.
+        // session wants an offset from the station's centre and the ship's position is measured from
+        // the Earth's, so the station's own offset is what joins the two.
         _session.SetLocalOffset(
-            _session.Station.PortOffset + _flight.Ship.Position,
-            _flight.Ship.Velocity,
+            _flight.Ship.Position - _session.Station.Offset,
+            _flight.Ship.Velocity - _session.Station.Velocity,
             _session.Earth());
 
         if (JustPressed(keys, Keys.Escape))
@@ -293,7 +313,23 @@ internal sealed class FlightGame : Game
             0.5f,
             2.0e5f);
 
-        _hulls.Draw(_courier, ShipTransform(), ChaseCamera(), close, sunDirection);
+        if (_options.Lineup)
+        {
+            // The lineup replaces the flying view rather than being drawn over it. Drawing both was
+            // the first version, and the result was every asset superimposed on the one it was
+            // supposed to be measured against.
+            DrawLineup(close, sunDirection);
+        }
+        else
+        {
+            _hulls.Draw(_courier, ShipTransform(), ChaseCamera(), close, sunDirection);
+
+            // The station, in the same metre-scale pass, positioned relative to the ship. This is the
+            // frame that answers the only scale question that matters — whether the thing you are
+            // flying looks right beside the thing you are flying to — and it is why the two are drawn
+            // together rather than in separate passes at separate scales.
+            _hulls.Draw(_station, StationTransform(), ChaseCamera(), close, sunDirection);
+        }
 
         DrawHud();
 
@@ -397,15 +433,18 @@ internal sealed class FlightGame : Game
 
     private void DrawFlightPanel()
     {
-        // The ship's velocity is already relative to the station: it is the velocity in the local
-        // frame, which is the frame the station defines. Subtracting the station's orbital velocity
-        // from it — which is what this did — reports seven and a half kilometres a second for a ship
-        // sitting still beside the dock.
-        double speed = _flight.Ship.Velocity.Length.ToDouble();
+        // Speed relative to the station, which is the number that matters for a docking and the one
+        // that reads zero when the ship is holding station. Its speed relative to the EARTH is seven
+        // and a half kilometres a second and always will be, because that is what being in orbit is.
+        double speed = (_flight.Ship.Velocity - _session.Station.Velocity).Length.ToDouble();
 
-        // And the range is the distance from the port, which is the origin of the frame the ship
-        // flies in, so it is the length of its own position.
-        double range = _flight.Ship.Position.Length.ToDouble();
+        // Range from the ship to the docking port, both measured from the Earth's centre.
+        double range = (_flight.Ship.Position - _session.Station.Port.Position).Length.ToDouble();
+
+        // And the same thing along the corridor, signed: positive is outside the port, negative is
+        // past it. A range alone cannot tell a pilot which side of the dock they are on.
+        double along = Dot(_flight.Ship.Position - _session.Station.Port.Position,
+            _session.Station.Port.Axis).ToDouble();
 
         var ink = new Color(150, 220, 175);
         var dim = new Color(110, 150, 135);
@@ -420,6 +459,8 @@ internal sealed class FlightGame : Game
         _sprites.DrawString(_hud, $"SPEED      {speed,10:F1} m/s", at, ink);
         at.Y += Line;
         _sprites.DrawString(_hud, $"RANGE      {range,10:F0} m", at, ink);
+        at.Y += Line;
+        _sprites.DrawString(_hud, $"ON CORRIDOR{along,10:F0} m", at, dim);
         at.Y += Line;
 
         // The clock, because the sky turns and the player should be able to see it turn.
@@ -557,10 +598,116 @@ internal sealed class FlightGame : Game
             0f, 0f, 0f, 1f);
     }
 
+    /// <summary>
+    /// Where the station is and which way it points, relative to the ship, in metres.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every model in this project has its docking port or its engine plane at its origin and its
+    /// long axis along the model's own +Y — the ships because Blender's z-up becomes y-up on export,
+    /// and the station because it is rotated to match. So the transform here is entirely a matter of
+    /// where the port axis goes, and the other two axes are free: the station is a wheel and turns
+    /// about its spindle, so any perpendicular pair will do.
+    /// </para>
+    /// <para>
+    /// The first version of this put the station's spindle on x, which is the axis the *builder* laid
+    /// it out on, and the client drew a 2 km wheel edge-on as a vertical sliver.
+    /// </para>
+    /// </remarks>
+    private Matrix StationTransform()
+    {
+        Vector3 forward = Unit(_session.Station.Port.Axis);
+
+        Vector3 seed = MathF.Abs(forward.Y) > 0.9f ? Vector3.UnitX : Vector3.UnitY;
+        Vector3 side = Vector3.Normalize(Vector3.Cross(forward, seed));
+        Vector3 up = Vector3.Cross(side, forward);
+
+        Vector3 offset = Unit(_session.Station.Port.Position - _flight.Ship.Position);
+
+        return new Matrix(
+            side.X, side.Y, side.Z, 0f,
+            forward.X, forward.Y, forward.Z, 0f,
+            up.X, up.Y, up.Z, 0f,
+            offset.X, offset.Y, offset.Z, 1f);
+    }
+
+    /// <summary>
+    /// Every asset, at its true size, side by side.
+    /// </summary>
+    /// <remarks>
+    /// Laid out nose to tail along the view's right axis and all at the same distance from the
+    /// camera, which is the only arrangement in which relative size is readable. The separation is
+    /// half the largest asset, so nothing overlaps and the gaps are obviously gaps.
+    /// </remarks>
+    private void DrawLineup(Matrix projection, Vector3 sunDirection)
+    {
+        Vector3 nose = Unit(_flight.Ship.Attitude.Forward);
+        Vector3 up = Unit(_flight.Ship.Attitude.Rotate(
+            new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
+        Vector3 right = Vector3.Normalize(Vector3.Cross(nose, up));
+
+        (Hull Hull, string Name)[] assets =
+        [
+            (_courier, "courier"),
+            (_freighter, "freighter"),
+            (_station, "meridian"),
+        ];
+
+        // EVERY MODEL IS LONG ALONG ITS OWN +Y, so the lineup rotation is the one that puts the
+        // model's +Y on the screen's right axis — which makes every asset broadside to the camera
+        // and measured along the same direction. None is foreshortened into looking smaller.
+        //
+        // The first version used CreateRotationY(90 degrees), which is a rotation ABOUT y and
+        // therefore leaves y exactly where it was: every asset stayed pointed at the sky and the
+        // whole row rendered edge-on as a set of vertical slivers.
+        Vector3 row0 = -nose;
+        Vector3 row1 = right;
+        Vector3 row2 = Vector3.Cross(row0, row1);
+
+        Matrix facing = new(
+            row0.X, row0.Y, row0.Z, 0f,
+            row1.X, row1.Y, row1.Z, 0f,
+            row2.X, row2.Y, row2.Z, 0f,
+            0f, 0f, 0f, 1f);
+
+        const float Gap = 120f;
+        float span = assets.Sum(a => Largest(a.Hull)) + (Gap * (assets.Length - 1));
+
+        // The camera goes far enough back to hold the whole row. Derived from the span rather than
+        // fixed, because the span went from 700 m to 2 800 m when the station was rescaled and a
+        // fixed distance silently framed two thirds of it.
+        float distance = span * 0.85f;
+
+        // Centred: the row is built outward from the middle so that the largest thing, which is the
+        // one being judged, sits on the axis.
+        float at = -span * 0.5f;
+
+        foreach ((Hull hull, string name) in assets)
+        {
+            float size = Largest(hull);
+            Vector3 centre = (nose * distance) + (right * (at + (size * 0.5f)));
+
+            _hulls.Draw(hull, facing * Matrix.CreateTranslation(centre), ChaseCamera(), projection,
+                sunDirection);
+
+            Console.WriteLine($"  lineup: {name,-10} {size,7:F0} m wide, centred at {at + (size * 0.5f),8:F0} m");
+            at += size + Gap;
+        }
+
+        Console.WriteLine($"  lineup: span {span:F0} m, camera at {distance:F0} m");
+    }
+
+    /// <summary>The longest dimension of a hull, in metres.</summary>
+    private static float Largest(Hull hull) =>
+        MathF.Max(hull.Size.X, MathF.Max(hull.Size.Y, hull.Size.Z));
+
     /// <summary>How far behind and above the hull the chase camera sits, in metres.</summary>
     private const float ChaseDistance = 130f;
     private const float ChaseLift = 42f;
     private const float ChaseLead = 40f;
+
+    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
+        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
 
     private static Vector3 Unit(Fix128Vec v) => new(
         (float)v.X.ToDouble(), (float)v.Y.ToDouble(), (float)v.Z.ToDouble());
@@ -587,6 +734,8 @@ internal sealed class FlightGame : Game
         _sun.Dispose();
         _hulls.Dispose();
         _courier.Dispose();
+        _station.Dispose();
+        _freighter.Dispose();
         _sprites.Dispose();
         _pixel.Dispose();
         base.UnloadContent();

@@ -69,6 +69,26 @@ it lives in the simulation.
 
 Preview charts are in `art/previews/sky/`.
 
+## `blender/stations/`
+
+```sh
+blender --background --python tools/blender/stations/meridian.py
+```
+
+Meridian, the Earth-orbit wheel. Numbers and the reasoning behind them are in `docs/SETTING.md` §7;
+what matters for the pipeline is one convention:
+
+**Every model's long axis is Blender +Z, which is +Y in the export.** The ships are built nose-up
+about +z because that is the natural way to lay out a hull. Meridian is laid out along +x because that
+is the natural way to lay out a spindle, so the finished station is rotated a quarter turn before
+export. The client has one convention for "which way does this model point", and the first version of
+the station did not follow it — the client drew a 2 km wheel edge-on as a vertical sliver, which looks
+like a broken model and is a broken convention.
+
+**Camera clip planes are scaled to the shot.** Blender's default camera stops at 1 km, which nothing
+exceeded until an asset was 2.7 km across: framed at 5 km, it rendered as an empty frame. That looks
+exactly like a model that failed to build, and is not.
+
 ## `blender/bake_bodies.py` and `pack_bodies.py`
 
 ```sh

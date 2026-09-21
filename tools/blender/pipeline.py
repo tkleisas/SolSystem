@@ -522,6 +522,15 @@ def render_views(path, shots, resolution=1100, samples=64, ambient=0.05, glare=N
         cam.name = f"Cam_{name}"
         cam.rotation_euler = (centre - eye).normalized().to_track_quat('-Z', 'Y').to_euler()
         cam.data.lens = lens
+
+        # CLIP PLANES SCALED TO THE SHOT, and the first asset that needed this was a
+        # station 2.7 km across. Blender's default camera stops at 1 km, which nothing
+        # had ever exceeded -- a 67 m courier framed at 137 m is well inside it. A
+        # station seen from 5 km renders as an EMPTY FRAME, which looks exactly like a
+        # model that failed to build and is not.
+        cam.data.clip_start = max(distance / 2000.0, 0.05)
+        cam.data.clip_end = distance * 8.0
+
         bpy.context.scene.camera = cam
 
         target = path.replace(".png", f"_{name}.png")

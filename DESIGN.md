@@ -896,6 +896,9 @@ rescues it.**
       metres — 1 575 m from ten metres a second, 324 from four. Known limitation: a 500 m corridor
       reaches 0.47 m and stops, four centimetres outside the contact range. See `docs/TRIP-ENERGY.md`
       §17
+- [x] **Meridian** — the Earth-orbit station, modelled and in the client: a 2 km wheel turning at
+      0.95 rpm for one gravity at the rim, with a harbour inside the hub. Capacity ~230 000, population
+      ~40 000, and the gap between those two numbers is the setting — see `docs/SETTING.md` §7
 - [x] **One flyable ship** — `SolSystem.Client`, a MonoGame window onto the simulation, flying the
       Illuminus courier from the modelled `.glb`: a chase camera, throttle and helm on the keyboard,
       and a flight display. The Sun is a shader — a limb-darkened disc inside a radiating corona,

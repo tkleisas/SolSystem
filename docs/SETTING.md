@@ -388,3 +388,75 @@ forgery — the reaction to it is the story rather than the document).
 | F | Is Earth's decline related to either? | Whether the three worlds are one story or three |
 | G | Does the game ever confirm who started the Exchange? | Tone: a permanent wound, a campaign answer, or a lie (§5.2) |
 | H | What does the game say about the 900 million left on Earth? | Whether the loss condition is a countdown or a conscience |
+
+---
+
+## 7. Meridian
+
+**[DECIDED] The station in Earth orbit is a wheel 2 km across, and it is mostly empty.**
+
+| | |
+|---|---|
+| Wheel | 2 rings, 2 140 m across, 140 m tube, 20 decks |
+| Rotation | **0.946 rpm** at 1 000 m — under one, which is where Coriolis stops being a thing people notice |
+| Rim speed | 99 m/s |
+| Deck area | **13.9 million m²** |
+| Capacity | ~230 000 at 60 m² a person |
+| **Population in 2185** | **~40 000** |
+| Interior | a void 1 860 m across, open to space |
+| Harbour | 12 berths inside the hub, each taking a 180 m freighter with eleven times its length in clearance |
+
+### Why a wheel, and why that big
+
+A wheel is the only shape in which *down* is a direction a person can see. On a station
+with a spine, down is a corridor floor, and nobody standing in it can tell which way it
+points or that it is moving at all. On a wheel, down is outward, and the whole structure
+says so.
+
+**The radius is set by the rotation rate, and the rotation rate is set by comfort.** One
+gravity at radius *r* needs `ω = √(g/r)`. At 150 m that is 2.44 rpm, which is brisk; at
+1 000 m it is 0.95 rpm, which is under the threshold where most people stop noticing the
+turn at all. The radius is what buys comfort, and the reason to spend 2 km on it is that
+a station people choose to live on for thirty years is worth more than one they endure.
+
+**The tube is 140 m across because a hoop is not a place.** This is the detail most
+wheel designs get wrong. A ring of 1 000 m radius with a 7 m tube is a bicycle tyre, and
+a bicycle tyre does not read as somewhere to live. At 140 m the tube is twenty decks deep
+and the ring reads as a *building* bent into a circle.
+
+### Why it is mostly empty
+
+**Meridian was built for four times the people in it.** The deck area supports a quarter
+of a million; forty thousand live there.
+
+That is not an oversight and it is not decay. It is the same fact as everything else in
+this setting: the station is inherited. It was framed and skinned in the 2060s and 2070s
+for a civilisation that was still growing, it came through the Exchange with its structure
+intact and its supply chain gone, and the people who live in it now occupy the decks that
+work and seal the ones that do not. Whole rings of it are dark, pressurised, heated to
+just above freezing, and waiting.
+
+> **A quarter of a million people could live here. Forty thousand do.** The other
+> two hundred and ten thousand are the shape of what was lost, and you can walk through
+> them.
+
+This is also, mechanically, the most useful thing about the station: there is room in it
+for anything the game later needs to put there, and the reason is already written.
+
+### The harbour
+
+The hub is a cylinder 300 m across and 560 m long with an open mouth at the forward end,
+and ships fly in through the mouth and berth against the inside wall. Twelve berths, each
+with a cradle, a power trunk and guide rails, spaced so a 180 m freighter fits between
+any two.
+
+**This is the reason for the wheel being this size.** A 2 km wheel encloses a void 1.86 km
+wide, and the only reason to build one that big rather than something smaller is that the
+void is *useful*. A ship berths under cover for cargo transfer without ever being
+pressurised into the habitat, and the alternative — docking on the outside of the hub —
+means every tonne of cargo crosses vacuum twice.
+
+The small-craft port is at the very nose, on the axis: a 12 m bore with a 26 m funnel, for
+couriers and shuttles. Nothing that docks on the axis has to match the station's rotation,
+which is why nothing docks on the rim. A ship that did would have to meet a point moving
+at 99 m/s and then be lifted 1 000 m up a spoke.

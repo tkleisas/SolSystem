@@ -57,6 +57,17 @@ internal sealed class LaunchOptions
     /// </remarks>
     internal int Frames { get; private set; }
 
+    /// <summary>
+    /// Line every asset up at its true size and render that, instead of flying.
+    /// </summary>
+    /// <remarks>
+    /// The only honest way to judge whether a station is the right size for the ships that use it.
+    /// A chase camera puts the ship a hundred metres away and the station four hundred, and
+    /// perspective then makes a 56 m courier look like half the diameter of a 330 m wheel. It is not,
+    /// and no amount of looking at the flying view will say so.
+    /// </remarks>
+    internal bool Lineup { get; private set; }
+
     /// <summary>The command line, for when nobody knows what to type.</summary>
     internal const string Usage = """
         SolSystem.Client — fly a ship in the solar system
@@ -74,6 +85,7 @@ internal sealed class LaunchOptions
           --rate <n>           simulated seconds per real second (default 1)
           --verbose            print what each body resolved to
           --frames <n>         run the interactive loop for n frames, then exit
+          --lineup             draw every asset at true size, side by side
         """;
 
     internal enum ViewAim
@@ -118,6 +130,10 @@ internal sealed class LaunchOptions
 
                 case "--rate":
                     options.TimeRate = Number(args, ref i, 0.0, 1.0e6);
+                    break;
+
+                case "--lineup":
+                    options.Lineup = true;
                     break;
 
                 case "--frames":
