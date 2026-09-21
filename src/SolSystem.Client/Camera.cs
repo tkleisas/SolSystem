@@ -35,7 +35,7 @@ internal sealed class Camera
         /// <summary>Behind and above, looking AT the hull from outside.</summary>
         Orbit,
 
-        /// <summary>On the hull's nose, with nothing of the ship in view.</summary>
+        /// <summary>Looking straight out from the nose, with nothing of the ship in view.</summary>
         Cockpit,
 
         /// <summary>Beside the docking port, looking back at the approaching ship.</summary>
@@ -49,6 +49,18 @@ internal sealed class Camera
 
     /// <summary>How far the port camera stands off the hull.</summary>
     private const float PortStandoff = 230f;
+
+    /// <summary>
+    /// Where the forward view sits, as a fraction of the hull's length from its origin.
+    /// </summary>
+    /// <remarks>
+    /// <b>Just past the nose, and it has to be.</b> The camera was thirty-four metres along a
+    /// fifty-five metre hull, which is inside the forward dome — so the "cockpit" was the inside of
+    /// the ship's own nose, a black disc with a torn edge where the surface went edge-on to the
+    /// culling. There is no cockpit interior modelled, and until there is, a camera inside a closed
+    /// hull sees nothing but the hull.
+    /// </remarks>
+    private const float NoseFraction = 1.06f;
 
     /// <summary>How far the orbit camera sits from the hull by default, in metres.</summary>
     private const float DefaultOrbitDistance = 260f;
@@ -175,8 +187,9 @@ internal sealed class Camera
     /// <param name="nose">Unit vector along the hull's nose.</param>
     /// <param name="deck">Unit vector out of the hull's roof.</param>
     /// <param name="portOffset">Where the station's docking port is, in metres, relative to the hull.</param>
+    /// <param name="hullLength">The hull's own length in metres, so a forward view clears it.</param>
     internal (Matrix View, Fix128Vec Forward, Fix128Vec Up) Build(
-        Vector3 nose, Vector3 deck, Vector3 portOffset)
+        Vector3 nose, Vector3 deck, Vector3 portOffset, float hullLength = 55f)
     {
         Vector3 eye;
         Vector3 target;
@@ -186,10 +199,11 @@ internal sealed class Camera
         {
             case Mode.Cockpit:
             {
-                // On the nose, a little forward of it, looking wherever the helm is pointed. The ship
-                // is not drawn, so this is the view a pilot actually has through the window — and the
-                // point of it is that it is the ONLY view in which the reticle means anything.
-                eye = nose * 34f;
+                // Just ahead of the nose, looking wherever the helm is pointed. Nothing of the ship
+                // is in frame, which is what makes this the only view in which the reticle means
+                // anything — and it is why the position is derived from the hull's length rather than
+                // guessed: a hull that grows must not swallow its own camera.
+                eye = nose * (hullLength * NoseFraction);
 
                 Vector3 right = Vector3.Normalize(Vector3.Cross(nose, deck));
                 Vector3 look = Vector3.Normalize(

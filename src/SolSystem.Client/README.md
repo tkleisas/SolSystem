@@ -100,7 +100,7 @@ numbers settle it.
 |---|---|---|
 | **Chase** | 130 m behind and 42 m above the hull, aimed 40 m ahead of the nose | flying — the ship is in frame and the direction of travel is in the middle |
 | **Orbit** | 260 m out, aimed *at* the hull | looking at your own ship, and zooming to inspect it |
-| **Cockpit** | 34 m forward of the origin, on the nose, nothing of the ship in view | the only view where the reticle means anything |
+| **Cockpit** | Just past the nose — 1.06 hull lengths from the origin — looking wherever the helm points | the only view where the reticle means anything, and the one to fly a docking approach from |
 | **Port** | 230 m off the far side of the hull, looking back along the docking corridor | judging an approach |
 
 ### Time compression

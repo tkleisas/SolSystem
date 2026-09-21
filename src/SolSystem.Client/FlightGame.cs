@@ -617,7 +617,7 @@ internal sealed class FlightGame : Game
         // basis the view matrix was made from — the camera's, not the ship's — and building it twice
         // is how the two drifted apart in the first place.
         (Matrix nearView, Fix128Vec cameraForward, Fix128Vec cameraUp) =
-            _camera.Build(NoseVector(), DeckVector(), PortOffset());
+            _camera.Build(NoseVector(), DeckVector(), PortOffset(), Largest(_courier));
 
         _sprites.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.AnisotropicClamp);
         _sky.DrawStars(_session, cameraForward, cameraUp, FieldOfViewDegrees);
