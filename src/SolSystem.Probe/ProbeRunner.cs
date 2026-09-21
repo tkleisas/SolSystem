@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using SolSystem.Core.Local;
+using SolSystem.Core.Sky;
 using SolSystem.Core.Numerics;
 using SolSystem.Core.Orbits;
 
@@ -45,6 +46,10 @@ internal sealed class ProbeRunner
     private int _errorCount;
     private int _failedChecks;
 
+    /// <summary>The stars, loaded once. The sky is the one thing here that is not state.</summary>
+    private readonly StarCatalogue _catalogue =
+        StarCatalogue.Load(Path.Combine(RepoRoot(), "art", "sky", "stars.bin"));
+
     /// <summary>The last body named by a <c>body</c> command, for <c>expect … sun</c>.</summary>
     private string _lastBody = "earth";
 
@@ -58,6 +63,23 @@ internal sealed class ProbeRunner
 
     /// <summary>The transcript, which is the artefact a probe produces.</summary>
     internal string Transcript => _transcript.ToString();
+
+    /// <summary>The repository root, found by walking up for the art directory.</summary>
+    private static string RepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (Directory.Exists(Path.Combine(directory.FullName, "art", "sky")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("could not find the repository root");
+    }
 
     /// <summary>Runs a script and returns the transcript.</summary>
     internal static ProbeRunner Run(ProbeScript script)
@@ -126,6 +148,10 @@ internal sealed class ProbeRunner
                 SunDistance(command);
                 break;
 
+            case "sky":
+                Sky(command);
+                break;
+
             case "range":
                 Range(command);
                 break;
@@ -153,7 +179,7 @@ internal sealed class ProbeRunner
             default:
                 throw new ProbeException(
                     $"unknown command '{command.Verb}' — advance, days, launch, ship, station, " +
-                    "body, sundistance, range, closing, phase, lateral, hash, emit, expect");
+                    "body, sundistance, sky, range, closing, phase, lateral, hash, emit, expect");
         }
     }
 
@@ -250,6 +276,120 @@ internal sealed class ProbeRunner
         double au = state.Position.Length.ToDouble() / 149_597_870.7;
         Emit($"  position  {Vec(state.Position)} km");
         Emit($"  distance  {au:F9} AU, speed {state.Velocity.Length.ToDouble():F6} km/s");
+    }
+
+    /// <summary>
+    /// Writes the sky as seen from a place on Earth, to a CSV.
+    /// </summary>
+    /// <remarks>
+    /// <code>
+    ///   sky 40.0 -75.0 /tmp/sky.csv
+    /// </code>
+    /// Latitude, longitude, a file. Every star above the horizon, plus the Sun and the eight
+    /// planets, in altitude and azimuth, with magnitude and colour — which is everything a renderer
+    /// needs and nothing it does not. The point of putting it here rather than in a renderer is that
+    /// the sky is a property of the simulation, and a probe that can dump it is a probe whose output
+    /// can be diffed when the frame arithmetic changes.
+    /// </remarks>
+    private void Sky(ProbeCommand command)
+    {
+        double latitude = command.Real(0, "a latitude", "sky <lat> <lon> <file>");
+        double longitude = command.Real(1, "a longitude", "sky <lat> <lon> <file>");
+        string path = command.Argument(2, "a file path", "sky <lat> <lon> <file>");
+
+        double julianDate = 2451545.0 + (_world.Time / 86400.0);
+        Ephemeris.State earth = _world.BodyState(Ephemeris.Body.Earth);
+
+        SkyObserver observer = SkyObserver.OnSurface(
+            latitude, longitude, julianDate, earth.Position, earth.Velocity);
+
+        var rows = new List<string>
+        {
+            "kind,name,altitude,azimuth,magnitude,colour",
+        };
+
+        int visible = 0;
+        foreach (Star star in _catalogue.Stars)
+        {
+            Fix128Vec apparent = SkyProjection.Apparent(star, observer);
+            (double altitude, double azimuth) = SkyProjection.AltAz(observer, apparent);
+            if (altitude < 0.0)
+            {
+                continue;
+            }
+
+            visible++;
+            rows.Add($"star,{quote(star.Name)},{altitude:R},{azimuth:R},{star.Magnitude:R},"
+                + $"{(double.IsNaN(star.ColourIndex) ? "" : star.ColourIndex.ToString("R"))}");
+        }
+
+        // The Sun and the planets, which are the whole reason the sky is a simulation rather than a
+        // texture: they move against the stars, and the stars stay put.
+        void AddBody(string name, Fix128Vec heliocentric, double magnitude, double colour)
+        {
+            Fix128Vec direction = (heliocentric - observer.Position).Normalized();
+            Fix128Vec apparent = SkyProjection.Apparent(
+                new Star(direction, magnitude, colour, 0.0, name), observer);
+            (double altitude, double azimuth) = SkyProjection.AltAz(observer, apparent);
+
+            rows.Add($"body,{name},{altitude:R},{azimuth:R},{magnitude:R},{colour:R}");
+        }
+
+        AddBody("Sun", Fix128Vec.Zero, -26.74, 0.65);
+        AddBody("Mercury", _world.BodyState(Ephemeris.Body.Mercury).Position, -0.5, 0.9);
+        AddBody("Venus", _world.BodyState(Ephemeris.Body.Venus).Position, -4.4, 0.7);
+        AddBody("Moon", _world.MoonState().Position, -12.7, 0.6);
+        AddBody("Mars", _world.BodyState(Ephemeris.Body.Mars).Position, -1.0, 1.4);
+        AddBody("Jupiter", _world.BodyState(Ephemeris.Body.Jupiter).Position, -2.2, 0.8);
+        AddBody("Saturn", _world.BodyState(Ephemeris.Body.Saturn).Position, 0.5, 0.9);
+
+        // The Milky Way, as a grid of galactic latitude and brightness over the visible hemisphere.
+        //
+        // Sampled here rather than worked out in the renderer, and that is deliberate: the renderer
+        // is a preview tool and the frame arithmetic is the thing this project keeps getting wrong.
+        // There is one implementation of the galactic pole and it is in the simulation.
+        const double step = 3.0;
+        for (double altitude = 0.0; altitude <= 90.0; altitude += step)
+        {
+            for (double azimuth = 0.0; azimuth < 360.0; azimuth += step)
+            {
+                Fix128Vec local = LocalDirection(observer, altitude, azimuth);
+                double brightness = MilkyWay.Brightness(local);
+                if (brightness <= 0.0)
+                {
+                    continue;
+                }
+
+                // Same six columns as every other row: kind, name, altitude, azimuth, magnitude,
+                // colour — with the band's brightness carried in the colour slot and the magnitude
+                // left at zero. A separate shape for the band rows would be one more thing to keep
+                // in step, and the first version wrote five values against a six-column header.
+                rows.Add($"band,,{altitude:R},{azimuth:R},0,{brightness:R}");
+            }
+        }
+
+        File.WriteAllLines(path, rows);
+        Emit($"  {visible:N0} stars above the horizon from {latitude:F2}, {longitude:F2}; "
+            + $"wrote {rows.Count - 1:N0} rows to {path}");
+
+        static string quote(string value) =>
+            value.Length == 0 || value.Contains(',') ? $"\"{value}\"" : value;
+    }
+
+    /// <summary>A unit vector in the ecliptic frame from a horizon direction.</summary>
+    private static Fix128Vec LocalDirection(in SkyObserver observer, double altitude, double azimuth)
+    {
+        double alt = altitude * Math.PI / 180.0;
+        double az = azimuth * Math.PI / 180.0;
+
+        double up = Math.Sin(alt);
+        double horizontal = Math.Cos(alt);
+        double north = horizontal * Math.Cos(az);
+        double east = horizontal * Math.Sin(az);
+
+        return (observer.Up * Fix128.FromDouble(up))
+            + (observer.North * Fix128.FromDouble(north))
+            + (observer.East * Fix128.FromDouble(east));
     }
 
     /// <summary>The distance from the Sun to the body named by the last <c>body</c> command.</summary>

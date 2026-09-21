@@ -1,0 +1,23 @@
+# Q: is the sky in the right place, at the right time, from the right place?
+#
+# The sky is a property of the simulation rather than a texture, which is what makes it checkable.
+# This probe dumps every star above the horizon in altitude and azimuth, with magnitude and colour,
+# plus the Sun and the planets, plus a grid of galactic latitude for the Milky Way.
+#
+#   dotnet run -c Release --project src/SolSystem.Probe -- \
+#       --probe tools/probe/sky.probe --probe-out artifacts/probe/sky.txt
+#   python3 tools/draw_sky.py /tmp/sky.csv --out /tmp/sky.svg --title "..."
+#
+# The chart it draws can be checked against a planisphere, which is the only test of a sky that
+# means anything: the tests in SkyTests check the frames, the sidereal time and the two arcsecond-
+# scale effects, and the chart is what catches everything they cannot think of.
+
+# Greenwich, 2000 January 1, 12:00 TT -- local noon in midwinter.
+sky 51.4778 -0.0015 /tmp/sky-greenwich-winter.csv
+
+# Half a year later, which is the same place at midnight in midsummer.
+days 182.6
+sky 51.4778 -0.0015 /tmp/sky-greenwich-summer.csv
+
+# And the other hemisphere, where the sky is upside down and the Milky Way is at its richest.
+sky -33.8688 151.2093 /tmp/sky-sydney.csv

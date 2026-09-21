@@ -723,6 +723,8 @@ answers:
 | Element | How | Why it is tractable |
 |---|---|---|
 | **Planets, Sun, Moon** | Keplerian elements with secular rates, computed by `SolSystem.Core`. The Moon is geocentric and composed with the Earth | Built and tested. The Moon is an ellipse about the Earth, which is an approximation: the Sun pulls it twice as hard as the Earth does, so the ellipse is what that perturbation averages to. The periodic part left out is a few tenths of a degree |
+| **Stars** | HYG v4.1, reduced to the naked-eye stars plus everything within 25 pc: 11 558 stars, 188 kB, fixed-point records | Everything visible, with measured colour. Positions are J2000 and quantised to 0.084 arcsec, which is 2 000 times finer than a 4K pixel. Precession to date is *not* applied — see the note below the table |
+| **Milky Way** | The galactic equator as a great circle, with a Gaussian profile in latitude and a falloff in longitude | Physically the right shape and in the right place: it runs through Cygnus and Sagittarius and its brightest part is at the galactic centre. The profile is a fit to what the unaided eye sees, not to a photograph |
 | **Stars** | A real catalogue on the celestial sphere — direction, magnitude, colour, proper motion | ~5 000 stars to magnitude 6 is a few hundred kB and covers everything visible to the eye |
 | **Milky Way** | A textured band plus a procedural unresolved-star field | A survey-derived all-sky image, composited rather than modelled |
 | **Parallax** | Per-star distance, used as the camera moves between orbits | Alpha Centauri shifts about a degree across the system. It costs nothing and it is the single strongest cue that the ship actually moved |
@@ -892,7 +894,15 @@ rescues it.**
       allows cannot stop in it
 - [ ] One flyable ship, fixed 120 Hz tick, Newtonian thrust
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
-- [ ] The sky, drawn: stars, Milky Way band, and the two hull languages of §6.5
+- [x] **The sky, drawn** — 11 558 real stars from the HYG catalogue, packed to 188 kB and loaded
+      once; the Milky Way as the great circle it physically is, brightest towards the galactic
+      centre; and the Sun and planets placed by the same ephemeris that flies the ships, so they
+      move against the stars. Correct to the frames: the catalogue is equatorial, the ephemeris is
+      ecliptic, and the joint between them is the obliquity — checked by putting the celestial pole
+      at its real ecliptic latitude, and by finding the Sun in Sagittarius on 1 January. Parallax
+      and aberration are both modelled, in arcseconds: Proxima moves 774 mas over three months
+      against a catalogue parallax of 769, and every star leans 20.5 arcseconds into the Earth's
+      motion. Preview charts in `art/previews/sky/`
 - [x] **Probe harness** — `SolSystem.Probe` runs a text script against a live world and
       writes a diffable transcript, with `expect` checks that fail without aborting. Three
       probes: docking, station-keeping and scale. The screenshot half is not ported, because

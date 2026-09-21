@@ -1,0 +1,14 @@
+probe: sky.probe
+tick: 0.0083333333333333332 s
+stations: Anchorage, Meridian
+
+> sky 51.4778 -0.0015 /tmp/sky-greenwich-winter.csv
+  5,623 stars above the horizon from 51.48, -0.00; wrote 6,602 rows to /tmp/sky-greenwich-winter.csv
+> days 182.6
+  182.600000 days = 1,893,196,800 ticks, world at tick 1893196800 (182.599997 days from J2000)
+> sky 51.4778 -0.0015 /tmp/sky-greenwich-summer.csv
+  5,692 stars above the horizon from 51.48, -0.00; wrote 7,200 rows to /tmp/sky-greenwich-summer.csv
+> sky -33.8688 151.2093 /tmp/sky-sydney.csv
+  5,821 stars above the horizon from -33.87, 151.21; wrote 7,221 rows to /tmp/sky-sydney.csv
+
+probe: 4 commands, 0 errors, 0 checks failed
