@@ -1,5 +1,5 @@
 """
-The Illuminus courier — a Starship descendant.
+The Illuminus courier — a Starship descendant, in the Cathedral pattern.
 
 Design language (§6.5 of DESIGN.md): futuristic, gleaming, stylised, intimidating.
 Smooth hulls, long unbroken curves, few visible seams, no obvious machinery. The
@@ -9,21 +9,35 @@ never been rained on.
 
 The silhouette is a Starship's and the ancestry is meant to be legible — one long
 stainless cylinder, a domed forward section, a nose that is a curve rather than a
-cone, and an engine bay crowded with bells. What has changed in a century and a half
-is everything the physics forced:
+cone, and an engine bay crowded with nozzles. The Cathedral pattern keeps all of
+that and adds its rank through scale cues, because a ship this old is entitled to
+buttresses:
 
-  * The bells are magnetic nozzles, not combustion chambers. The drive is
-    antimatter-catalysed D-D fusion at v_e = 1200 km/s, so there is no throat and no
-    expansion ratio to read; what the nozzles do instead is a long, barely-tapered
-    throat to give the plasma somewhere to finish expanding.
-  * The radiator is enormous and the ship is built around it. Three panels stowed
-    flat against the barrel, covering the aft two thirds of the hull and swung clear
-    in flight. They are 17.6 % of the ship's mass, which is not a design choice so
-    much as the thermal statement of the problem: the panels are the ship, and the
-    hull is the thing that holds them apart.
+  * The weld rings stay. On a barrel this old the seams are not hidden, they are
+    pointed at — three structural rings and the forward band, read as buttresses.
+  * A long dorsal keel fin runs the spine like a nave roof. From the beam it
+    doubles the ship's plan; from below it is the thing you sail under.
+  * The engine bay is presented as a crown: a flared collar with twelve merlons
+    between the twelve magnetic nozzles, so the drive reads as a circlet of points
+    rather than as plumbing — which is what a docking ship should remember looking
+    up at.
+  * The radiator is four articulated blanket wings at the aft third, opened like a
+    flower. An earlier draft made them four monolithic trapezoids and they read as
+    missile fins, which is the one thing a ship that has never been rained on is
+    not. Missile fins are solid; engineered arrays come in blankets — so each wing
+    is four segments on a spar on a deployment boom, with the hot faces out.
 
-Everything is in metres, and every dimension traces to a number in
-docs/TRIP-ENERGY.md §16.
+What has changed in a century and a half is everything the physics forced: the
+bells are magnetic nozzles, not combustion chambers (long, barely-tapered throats
+to give the plasma somewhere to finish expanding), and the radiator is sized by
+the thermal budget, not by taste — see the numbers below, every one of which
+traces to docs/TRIP-ENERGY.md §16.
+
+STOWAGE: each blanket folds about its spar root and lies flat against the aft
+barrel, segments stacked, inside the crown collar's flare. The Radiators node is
+exported DEPLOYED — 55 degrees off the barrel — because the ship in the client is
+under power in flight. A deployment animation rotates each wing about its spar
+line, from 0 degrees (flat) to the 55 shown here.
 
     blender --background --python tools/blender/ships/illuminus_courier.py
 """
@@ -35,6 +49,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bpy  # noqa: E402
+from mathutils import Matrix, Vector  # noqa: E402
 from pipeline import (  # noqa: E402
     apply_transform, asset_paths, bevel, box, cylinder, export_blend, export_glb,
     join, lathe, link, material, collection, render_views, reset,
@@ -79,12 +94,15 @@ CRUISE_MILLIGEE = 0.1
 #   area        A  = Q / (2 sigma T^4)    with T = 1500 K, two-sided
 #   mass        M  = A * 8 kg/m2
 #
-# For 1 320 t at 0.1 milligee that is 729 m2 and 6 t. Two panels of 21 x 18 m come to
-# 756, which is the stowage plan for it: two facts, one geometry.
-RADIATOR_PANELS = 2
-PANEL_LENGTH = 21.0
-PANEL_WIDTH = 18.0
+# For 1 320 t at 0.1 milligee that is 729 m2 and 6 t. The array built below is four
+# blanket wings of four 6.5 x 8.0 m segments each: 832 m2, which is the stowage
+# plan for it -- two facts, one geometry.
+RADIATOR_LINES = 4             # blanket wings, at the intercardinal angles
+RADIATOR_SEGMENTS = 4          # panels per wing -- the articulation that kills the fin
+SEGMENT_LENGTH = 6.5
+SEGMENT_WIDTH = 8.0
 PANEL_THICKNESS = 0.16
+RADIATOR_TILT = 55.0           # degrees off the barrel, deployed
 RADIATOR_AREAL_DENSITY = 8.0   # kg/m2
 RADIATOR_TEMPERATURE = 1500.0  # K
 RADIATOR_EFFICIENCY = 0.65
@@ -201,31 +219,21 @@ def build_hull(col):
         r = HULL_RADIUS * (1.0 - t * t) ** 0.62
         nose.append((r, BARREL_TOP + t * nose_length))
 
-    hull = lathe("Hull", barrier_safe(barrel) + nose, segments=96)
+    hull = lathe("Hull", barrel + nose, segments=96)
     assign(hull, "steel")
     shade_smooth_by_angle(hull, math.radians(38))
     link(hull, col)
     return hull
 
 
-def barrier_safe(profile):
-    """Drops consecutive duplicate rings, which would otherwise make zero-area faces."""
-    out = []
-    for radius, z in profile:
-        if out and abs(out[-1][1] - z) < 1e-9 and abs(out[-1][0] - radius) < 1e-9:
-            continue
-        out.append((radius, z))
-    return out
-
-
 def build_rings(col):
     """
     Weld lines and structural rings.
 
-    The brief says few visible seams, so these are deliberately sparse: three
-    structural rings that read as joints between barrel sections, plus a raised
-    band at the forward dome. Enough to give the eye a scale, not enough to make it
-    look assembled.
+    The brief says few visible seams, and the Cathedral answer is that the seams
+    stay and are pointed at: on a barrel this old they are buttresses, and hiding
+    them would be pretending the ship is younger than it is. Three structural rings
+    plus a raised band at the forward dome.
     """
     rings = []
     for z in (12.0, 24.0, 36.0):
@@ -242,6 +250,48 @@ def build_rings(col):
     link(band, col)
     rings.append(band)
     return rings
+
+
+def prism(name, profile, thickness, key, col):
+    """
+    A flat blade extruded from a side profile. The pipeline has a lathe but no
+    prism, and a keel fin is exactly a side profile with a thickness.
+    """
+    n = len(profile)
+    verts = ([(x, -thickness / 2.0, z) for x, z in profile]
+             + [(x, thickness / 2.0, z) for x, z in profile])
+    faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, j, n + j, n + i))
+
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    assign(obj, key)
+    link(obj, col)
+    bevel(obj, 0.12, segments=3)
+    return obj
+
+
+def build_keel(col):
+    """
+    The dorsal keel fin: a blade from the aft third to the forward dome, rising
+    four metres clear of the barrel. From the beam it doubles the ship's plan;
+    from below it is the thing you sail under. It is also the roofline, and the
+    dorsal navigation lights ride it — see build_navigation_lights.
+    """
+    profile = [
+        (4.15, 6.0),
+        (5.00, 13.0),
+        (8.40, 26.0),
+        (8.60, 34.0),
+        (5.40, 46.0),
+        (4.35, 50.0),
+    ]
+    return prism("KeelFin", profile, 0.55, "steel", col)
 
 
 def build_navigation_lights(col):
@@ -279,16 +329,16 @@ def build_navigation_lights(col):
     lamp("NavStarboard", "nav_green", (0.0, HULL_RADIUS + 0.4, 33.0))
     lamp("NavStarboardAft", "nav_green", (0.0, HULL_RADIUS + 0.4, 9.0))
 
-    # DORSAL: TWO white. The count is the message, so there are exactly two and they are
-    # both on the roof.
-    lamp("NavDorsalFore", "nav_white", (HULL_RADIUS + 0.4, 0.0, 34.0))
-    lamp("NavDorsalAft", "nav_white", (HULL_RADIUS + 0.4, 0.0, 12.0))
+    # DORSAL: TWO white. The count is the message, so there are exactly two — and on
+    # this hull they ride the keel's outboard edge, the highest line on the ship.
+    lamp("NavDorsalFore", "nav_white", (8.80, 0.0, 30.5))
+    lamp("NavDorsalAft", "nav_white", (6.75, 0.0, 40.0))
 
     # VENTRAL: ONE yellow. Not two. That asymmetry with the roof is the whole mechanism.
     lamp("NavVentral", "nav_yellow", (-(HULL_RADIUS + 0.4), 0.0, 23.0), radius=0.42)
 
-    # The anti-collision strobes, dorsal and ventral, as far apart as the hull allows.
-    lamp("StrobeDorsal", "strobe", (HULL_RADIUS + 0.6, 0.0, 45.0), radius=0.30)
+    # The anti-collision strobes, one at the keel's peak and one under the dome.
+    lamp("StrobeDorsal", "strobe", (8.90, 0.0, 34.2), radius=0.30)
     lamp("StrobeVentral", "strobe", (-(HULL_RADIUS + 0.6), 0.0, 45.0), radius=0.30)
 
     return lights
@@ -374,112 +424,162 @@ def build_plume(col):
     return plume
 
 
-def build_engine_bay(col):
-    """The skirt: a shallow taper from the barrel down to the engine plane."""
-    skirt = lathe("EngineSkirt", [
-        (HULL_RADIUS * 0.86, -0.9),
-        (HULL_RADIUS * 0.97, -0.35),
-        (HULL_RADIUS * 1.005, 0.35),
-        (HULL_RADIUS, 1.2),
+def build_crown(col):
+    """
+    The engine bay as a crown: a flared collar round the engine plane, and twelve
+    merlons standing between the twelve nozzles, so the drive presents as a circlet
+    of points rather than as plumbing.
+    """
+    parts = []
+
+    collar = lathe("CrownCollar", [
+        (HULL_RADIUS * 0.99, 1.8),
+        (HULL_RADIUS * 1.18, 0.5),
+        (HULL_RADIUS * 1.27, -0.4),
+        (HULL_RADIUS * 1.28, -0.8),
     ], segments=96)
-    assign(skirt, "steel_worn")
-    shade_smooth_by_angle(skirt, math.radians(36))
-    link(skirt, col)
-    return skirt
+    assign(collar, "steel_worn")
+    shade_smooth_by_angle(collar, math.radians(34))
+    link(collar, col)
+    parts.append(collar)
+
+    for i, (x, y, z) in enumerate(ring_of(NOZZLES, 5.35, z=-1.2, phase=math.pi / 12)):
+        angle = math.pi / 12 + 2.0 * math.pi * i / NOZZLES
+        merlon = box(f"Merlon{i}", (0.32, 0.75, 3.2), location=(x, y, z),
+                     rotation=(0, 0, angle))
+        assign(merlon, "dark")
+        link(merlon, col)
+        parts.append(merlon)
+
+    return parts
 
 
 # --------------------------------------------------------------------------- radiator
 
 
-PANEL_BOOM = 0.55    # how far the panel stands off the barrel
-PANEL_BOTTOM = 5.0   # where the panel starts, measured from the engine plane
-PANEL_TOP_PAD = 15.0  # how far short of the forward band it stops
-
-
-def build_radiator(col, index, angle):
+def panel_mesh(name, root_w, tip_w, length, thick, location, rotation):
     """
-    One radiator panel, stowed flat against the barrel and swung out on a boom.
+    A trapezoidal panel: `root_w` across at the local -z end, `tip_w` at +z. The
+    pipeline's box cannot taper, and the outer segment of a blanket wants a shaped
+    tip rather than a square one.
+    """
+    x = thick / 2.0
+    rw, tw, L = root_w / 2.0, tip_w / 2.0, length / 2.0
+    verts = [
+        (-x, -rw, -L), (x, -rw, -L), (-x, rw, -L), (x, rw, -L),
+        (-x, -tw, L), (x, -tw, L), (-x, tw, L), (x, tw, L),
+    ]
+    faces = [
+        (0, 4, 6, 2),
+        (1, 3, 7, 5),
+        (0, 1, 5, 4),
+        (2, 6, 7, 3),
+        (0, 2, 3, 1),
+        (4, 5, 7, 6),
+    ]
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = location
+    obj.rotation_euler = rotation
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
 
-    The panel hangs vertically alongside the hull rather than sticking out sideways
-    from it, and that is a geometric necessity rather than a preference: a 23.5 m
-    panel bolted to the side of a 4.5 m barrel intersects it along its whole length
-    unless it is set just clear of the surface, and setting it clear is what a real
-    stowed array does.
 
-    The outer 18 % runs hotter, which is where a real panel's temperature gradient
-    puts the peak, and the stiffeners are there because a 46 m sheet of anything is
-    not stiff enough to hold its own shape.
+def build_blanket(col, index, phi_deg):
+    """
+    One radiator blanket wing, deployed.
+
+    A boom lifts a spar clear of the barrel at one of the intercardinal angles, and
+    four segments hang off the spar in a row with gaps between them, tilted out to
+    RADIATOR_TILT. The articulation is the whole of the anti-fin: missile fins are
+    monolithic and a radiator that reads as a fin reads as a weapon, so the wing
+    comes in panels on a spar, the way engineered arrays have always come.
     """
     parts = []
 
-    panel_length = BARREL_TOP - PANEL_BOTTOM - PANEL_TOP_PAD
-    panel_bottom = PANEL_BOTTOM
-    panel_centre_z = panel_bottom + panel_length / 2.0
-    radius = HULL_RADIUS + PANEL_BOOM + PANEL_THICKNESS / 2.0
+    phi = math.radians(phi_deg)
+    tilt = math.radians(RADIATOR_TILT)
+    n = Vector((math.cos(phi), math.sin(phi), 0.0))
+    t = Vector((-math.sin(phi), math.cos(phi), 0.0))
 
-    # The panel: length up the hull, width out from it, thickness radial.
-    panel = box(
-        f"Panel{index}",
-        (PANEL_THICKNESS, PANEL_WIDTH, panel_length),
-        location=(radius, 0, panel_centre_z),
-        rotation=(0, 0, angle))
-    assign(panel, "radiator")
-    link(panel, col)
-    parts.append(panel)
+    # The span runs aft and outward from the root; the hot face normal follows it,
+    # so the hot faces point out and forward, to space — never at the hull or at
+    # each other.
+    d = (n * math.sin(tilt) + Vector((0, 0, -math.cos(tilt)))).normalized()
+    m = (n * math.cos(tilt) + Vector((0, 0, math.sin(tilt)))).normalized()
+    rotation = Matrix((m, t, d)).transposed().to_euler()
 
-    # The outward-facing half of the sheet, which is the hot end of the gradient.
-    hot = box(
-        f"PanelHot{index}",
-        (PANEL_THICKNESS, PANEL_WIDTH * 0.5, panel_length),
-        location=(radius, -PANEL_WIDTH * 0.25, panel_centre_z),
-        rotation=(0, 0, angle))
-    assign(hot, "radiator_hot")
-    link(hot, col)
-    parts.append(hot)
+    # The deployment boom: the fitting the wing folds about, visible in every view.
+    boom_centre = n * (HULL_RADIUS + 0.75)
+    boom_centre.z = 24.0
+    boom = box(f"Boom{index}", (1.7, 0.45, 0.45), location=boom_centre,
+               rotation=(0, 0, phi))
+    assign(boom, "dark")
+    link(boom, col)
+    parts.append(boom)
 
-    # Three stiffeners across the panel, on the hull-facing face where a stiffener
-    # actually goes: putting them on the radiating face would shade it.
-    for j, z in enumerate((panel_bottom + panel_length * 0.2,
-                           panel_centre_z,
-                           panel_bottom + panel_length * 0.8)):
-        rib = box(
-            f"PanelRib{index}_{j}",
-            (PANEL_THICKNESS * 3.0, PANEL_WIDTH, 0.5),
-            location=(radius - PANEL_THICKNESS, 0, z),
-            rotation=(0, 0, angle))
+    root = n * (HULL_RADIUS + 1.6)
+    root.z = 24.0
+
+    span = RADIATOR_SEGMENTS * SEGMENT_LENGTH
+    spar = box(f"Spar{index}", (0.35, 0.35, span),
+               location=root + d * (span / 2.0), rotation=rotation)
+    assign(spar, "dark")
+    link(spar, col)
+    parts.append(spar)
+
+    gap = 0.15
+    for k in range(RADIATOR_SEGMENTS):
+        seg_centre = root + d * ((k + 0.5) * SEGMENT_LENGTH + k * gap)
+
+        # The outermost segment carries a shaped tip; the rest are square.
+        if k == RADIATOR_SEGMENTS - 1:
+            panel = panel_mesh(f"Blanket{index}_{k}", SEGMENT_WIDTH,
+                               SEGMENT_WIDTH * 0.9, SEGMENT_LENGTH - gap,
+                               PANEL_THICKNESS, seg_centre, rotation)
+            hot = panel_mesh(f"BlanketHot{index}_{k}", SEGMENT_WIDTH * 0.94,
+                             SEGMENT_WIDTH * 0.9 * 0.94, SEGMENT_LENGTH - gap,
+                             0.02, seg_centre + m * (PANEL_THICKNESS / 2 + 0.012),
+                             rotation)
+        else:
+            panel = box(f"Blanket{index}_{k}",
+                        (PANEL_THICKNESS, SEGMENT_WIDTH, SEGMENT_LENGTH - gap),
+                        location=seg_centre, rotation=rotation)
+            hot = box(f"BlanketHot{index}_{k}",
+                      (0.02, SEGMENT_WIDTH * 0.94, SEGMENT_LENGTH - gap),
+                      location=seg_centre + m * (PANEL_THICKNESS / 2 + 0.012),
+                      rotation=rotation)
+
+        assign(panel, "radiator")
+        link(panel, col)
+        parts.append(panel)
+        assign(hot, "radiator_hot")
+        link(hot, col)
+        parts.append(hot)
+
+        # One stiffener per segment, on the shaded face where a stiffener goes.
+        rib = box(f"BlanketRib{index}_{k}", (0.08, SEGMENT_WIDTH, 0.4),
+                  location=(seg_centre - m * (PANEL_THICKNESS / 2 + 0.05)
+                            - d * (SEGMENT_LENGTH * 0.35)),
+                  rotation=rotation)
         assign(rib, "dark")
         link(rib, col)
         parts.append(rib)
-
-    # Two short booms holding it off the barrel, at the forward and aft stiffeners.
-    for j, z in enumerate((panel_bottom + panel_length * 0.2,
-                           panel_bottom + panel_length * 0.8)):
-        boom = box(
-            f"Boom{index}_{j}",
-            (PANEL_BOOM + PANEL_THICKNESS, 0.45, 0.45),
-            location=(HULL_RADIUS + (PANEL_BOOM + PANEL_THICKNESS) / 2.0, 0, z),
-            rotation=(0, 0, angle))
-        assign(boom, "dark")
-        link(boom, col)
-        parts.append(boom)
 
     return parts
 
 
 def build_radiators(col):
     """
-    Two panels, opposed, covering the aft third of the barrel.
-
-    Two and not four because at a tenth of a milligee there is very little area to
-    stow and the panels are better hidden than displayed. They sit at 180 degrees so
-    that one is always edge-on to the Sun and one always face-on, which is what a
-    pair of opposed radiators is for, and they stop short of the forward section so
-    the profile from the side is a clean barrel with a line down each flank.
+    Four blanket wings at the intercardinal angles, opened like a flower round the
+    corridor a docking ship flies down. Intercardinal, so that from dead astern the
+    array is a rose window and from the beam it is two wings, never a cruciform tail.
     """
     parts = []
-    for i in range(RADIATOR_PANELS):
-        angle = math.pi * i
-        parts.extend(build_radiator(col, i, angle))
+    for i, phi in enumerate((45.0, 135.0, 225.0, 315.0)):
+        parts.extend(build_blanket(col, i, phi))
     return parts
 
 
@@ -507,23 +607,36 @@ def main():
 
     hull = build_hull(col)
     rings = build_rings(col)
+    keel = build_keel(col)
     windows = build_windows(col)
-    skirt = build_engine_bay(col)
+    crown = build_crown(col)
     nozzles = build_nozzles(col)
     radiators = build_radiators(col)
     lights = build_navigation_lights(col)
 
     # Fixed parts into one mesh; the radiators stay separate because they move.
-    hull_parts = join("IlluminusCourier_Hull", [hull] + rings + windows + [skirt] + lights)
+    hull_parts = join("IlluminusCourier_Hull",
+                      [hull] + rings + [keel] + windows + crown + lights)
     drive = join("IlluminusCourier_Drive", nozzles)
     panels = join("IlluminusCourier_Radiators", radiators)
 
+    # Bake every node transform into the vertices, so the exported nodes are all
+    # identity. Two reasons, one of each kind:
+    #
+    # The deployment note: the joined Radiators object otherwise inherits the first
+    # boom's hinge frame as its node transform -- and that frame is the WRONG pivot
+    # for animation anyway, because four blanket wings fold about four different
+    # spar lines, not one node's origin. The pivots a deployment animation wants
+    # are the four spar roots, which are geometry positions, not node transforms.
+    #
+    # The measured-size note: the client frames a hull from the TRANSFORMED CORNERS
+    # of each part's axis-aligned box, and a box rotated 45 degrees inflates by
+    # root two. With the hinge frame left on the node the client measured this
+    # ship 79 m long instead of 58 -- and the cockpit camera keys its standoff off
+    # that length, so it parked itself twenty metres further up the nose than the
+    # nose is.
     for obj in (hull_parts, drive, panels):
-        apply_transform(obj, scale=True)
-
-    # Everything is modelled nose-up about z; the engine plane becomes the origin.
-    for obj in (hull_parts, drive, panels):
-        obj.location.z -= 0.0
+        apply_transform(obj, location=True, rotation=True, scale=True)
 
     blend, glb, preview = asset_paths("ships", NAME)
 
@@ -534,18 +647,21 @@ def main():
     area_per_kg = (jet_per_kg * (1.0 - RADIATOR_EFFICIENCY) / RADIATOR_EFFICIENCY
                    / (2.0 * sigma * RADIATOR_TEMPERATURE ** 4))
     needed = area_per_kg * WET_MASS_T * 1000.0
-    built = RADIATOR_PANELS * (BARREL_TOP - PANEL_BOTTOM - PANEL_TOP_PAD) * PANEL_WIDTH
+    built = (RADIATOR_LINES * RADIATOR_SEGMENTS
+             * (SEGMENT_LENGTH - 0.15) * SEGMENT_WIDTH)
 
     print(f"  hull      {HULL_LENGTH:.0f} m x {HULL_RADIUS * 2:.1f} m, {WET_MASS_T:,.0f} t wet")
     print(f"  radiator  {built:,.0f} m2 built against {needed:,.0f} m2 needed at "
           f"{CRUISE_MILLIGEE} milligee")
     print(f"            {built * RADIATOR_AREAL_DENSITY / 1000.0:,.0f} t of {WET_MASS_T:,.0f} t "
           f"= {built * RADIATOR_AREAL_DENSITY / (WET_MASS_T * 1000.0) * 100:.1f} % of the ship")
+    print(f"            {RADIATOR_LINES} blanket wings of {RADIATOR_SEGMENTS} segments, "
+          f"deployed at {RADIATOR_TILT:.0f} degrees")
     print(f"  drive     {NOZZLES + 1} magnetic nozzles at v_e = "
           f"{EXHAUST_VELOCITY / 1000:,.0f} km/s")
 
-    # Framed to the whole ship plus its stowed radiators: 55 m of hull and a 25 m
-    # beam needs about 150 m of standoff at this lens to sit inside the frame.
+    # Framed to the whole ship plus its deployed array: 55 m of hull and a 55 m
+    # flower needs about 160 m of standoff at this lens to sit inside the frame.
     render_views(preview, SHOTS, resolution=1100, samples=72)
     export_glb(glb, NAME)
     export_blend(blend)
