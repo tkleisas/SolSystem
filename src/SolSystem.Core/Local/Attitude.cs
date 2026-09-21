@@ -77,9 +77,16 @@ internal struct Attitude
 
         // Keep the magnitude below pi so the axis-angle pair stays unique. Past a half turn
         // the same rotation has two representations and the axis would flip.
+        //
+        // The fold has to take effect AT the limit and not only past it, and that is a real
+        // case rather than a boundary curiosity. A ship that has been told to reverse and has
+        // come exactly half way round sits at pi with the rotation still commanded the same
+        // way, so the next step wants 2pi and folds back to pi — a fixed point. The ship
+        // tumbles on the spot forever while the pilot waits for an alignment that will never
+        // come. Folding at the limit takes it to zero instead and the turn completes.
         Fix128 angle = RotationVector.Length;
         Fix128 limit = Pi;
-        if (angle > limit)
+        if (angle >= limit)
         {
             RotationVector = RotationVector * (limit / angle);
         }

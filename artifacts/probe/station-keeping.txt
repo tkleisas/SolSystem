@@ -1,0 +1,42 @@
+probe: station-keeping.probe
+tick: 0.0083333333333333332 s
+stations: Anchorage, Meridian
+
+> station Meridian
+  offset    (6778100, 0, 0) m from the host
+  altitude  6778.100 km, speed 7668.579 m/s
+> station Anchorage
+  offset    (42164000, 0, 0) m from the host
+  altitude  42164.000 km, speed 3074.666 m/s
+> body earth
+  position  (-26504441.61531106, 144693227.46125251, -38.663464067646046) km
+  distance  0.983307435 AU, speed 30.286295 km/s
+> body moon
+  position  (-26797668.987148944, 144423705.27054206, 35511.579454190141) km
+  distance  0.981891058 AU, speed 29.811450 km/s
+> days 0.128
+  0.128000 days = 1,327,104 ticks, world at tick 1327104 (0.128000 days from J2000)
+> station Meridian
+  offset    (6768125.2942027524, -367586.19666129944, 0) m from the host
+  altitude  6778.100 km, speed 7668.579 m/s
+> body moon
+  position  (-27119854.202737302, 144354568.72847182, 35405.528727404177) km
+  distance  0.981832040 AU, speed 29.789921 km/s
+> days 10
+  10.000000 days = 103,680,000 ticks, world at tick 105007104 (10.128000 days from J2000)
+> station Meridian
+  offset    (-6191164.0595296677, -2759008.3729305691, 0) m from the host
+  altitude  6778.100 km, speed 7668.579 m/s
+> station Anchorage
+  offset    (23526109.207145598, 34990356.97998713, 0) m from the host
+  altitude  42164.000 km, speed 3074.666 m/s
+> body earth
+  position  (-52009052.180794552, 137620816.47228006, -45.396546363475338) km
+  distance  0.983439552 AU, speed 30.282293 km/s
+> body moon
+  position  (-51635631.239887372, 137523557.68221778, -22790.780574684199) km
+  distance  0.981951238 AU, speed 29.763952 km/s
+> hash epoch
+  hash      epoch 6f7c547f2ee46046a8daa02283e15f962fdb78a3f90a0b185cfa3c17f896d715
+
+probe: 13 commands, 0 errors, 0 checks failed

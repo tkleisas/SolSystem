@@ -1,0 +1,37 @@
+# Q: does a station hold its orbit, and does the Moon keep its own?
+#
+# Nothing is flown here. This probe watches the two things in the simulation that move
+# without being steered, for long enough that a non-symplectic integrator would show up as
+# a spiral rather than as noise.
+#
+#   dotnet run -c Release --project src/SolSystem.Probe -- \
+#       --probe tools/probe/station-keeping.probe --probe-out artifacts/probe/station-keeping.txt
+#
+# Note the unit. A tick count is fine for a manoeuvre and wrong for anything longer: the
+# first version of this script asked for a quarter of a year in ticks, got seventy-five
+# seconds, and reported a perfectly plausible world.
+#
+# And note the cost: a station is integrated one tick at a time at 120 Hz, so a day is
+# 10 368 000 steps. Ten days is about a minute. The spans below are chosen to be as long as
+# is worth paying for rather than as long as possible.
+
+station Meridian
+station Anchorage
+body earth
+body moon
+
+# Two orbits of the low station, ninety-two minutes each. The altitude printed after this
+# has to be the altitude printed before it, or the integrator is not symplectic.
+days 0.128
+station Meridian
+body moon
+
+# Ten days: a third of a lunar orbit, and the Earth well round the Sun. The ephemeris is
+# analytic and costs nothing; the stations are integrated, and this is where drift shows.
+days 10
+station Meridian
+station Anchorage
+body earth
+body moon
+
+hash epoch

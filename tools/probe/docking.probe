@@ -1,0 +1,34 @@
+# Q: does the ship actually arrive, and does it arrive the same way twice?
+#
+# The phase 0 gate in probe form. A hundred-tonne crewed hull launches two kilometres down
+# a station's corridor with the station's own orbital velocity, and the world runs at 120 Hz
+# until it is either captured or past.
+#
+#   dotnet run --project src/SolSystem.Probe -- \
+#       --probe tools/probe/docking.probe --probe-out artifacts/probe/docking.txt
+#
+# The hash at the end is the reason this exists. Two runs have to produce the same one, and
+# if they do not then something in the simulation is reading a clock, an iteration order or
+# a float -- which it would also do in a played game, where it is far harder to notice.
+
+launch Meridian 2000 0.0
+phase
+range
+
+# Half a minute.
+advance 3600
+range
+closing
+ship
+
+# The approach, until it is either in the envelope or clearly not going to be.
+advance 12000
+phase
+range
+closing
+
+expect "the ship closed inside the capture range" range 2.0 less
+expect "the ship is slow enough for the latches" closing 0.5 less
+expect "the ship is in the terminal phase" phase 2 exactly
+
+hash docking

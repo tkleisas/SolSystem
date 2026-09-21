@@ -1,0 +1,20 @@
+# Q: are the frames and the ephemeris telling the same story?
+#
+# A probe about scale rather than about flying. Every body's distance from the Sun, every
+# orbital speed, and the ratio between them are one order of magnitude check away from
+# catching a unit error anywhere in the solar frame.
+
+body mercury
+body venus
+body earth
+body mars
+body jupiter
+body saturn
+body uranus
+body neptune
+body moon
+
+expect "Mercury is inside 0.5 AU" range 0.5 less
+advance 1
+body earth
+expect "the Earth is about an AU out" range 1.05 less

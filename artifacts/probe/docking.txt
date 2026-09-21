@@ -1,0 +1,40 @@
+probe: docking.probe
+tick: 0.0083333333333333332 s
+stations: Anchorage, Meridian
+
+> launch Meridian 2000 0.0
+  2000.0 m down the corridor from Meridian, closing at 0.000 m/s
+> phase
+  phase     0 (closing)
+> range
+  range     2000.000000 m
+> advance 3600
+  world at tick 3600 (0.000347 days from J2000)
+> range
+  range     230021.103380 m
+> closing
+  closing   260.077896119 m/s
+> ship
+  position  (6776198.4569997313, 230013.24338944705, 19.988491193344441) m
+  velocity  (-260.07789611907822, 7664.1662968125429, -0.00076718011863849997) m/s
+  mass      99.9322 t (90 t dry, 9.9322 t propellant)
+  nose      (-0.97721833469599806, 0.21223648681124641, 0)
+  delta-v   125618.742854262 m/s
+> advance 12000
+  world at tick 15600 (0.001505 days from J2000)
+> phase
+  phase     0 (closing)
+> range
+  range     995888.256062 m
+> closing
+  closing   1127.004189704 m/s
+> expect "the ship closed inside the capture range" range 2.0 less
+  error: 'expect' expected a number for an expected value, got 'closed'
+> expect "the ship is slow enough for the latches" closing 0.5 less
+  error: 'expect' expected a number for an expected value, got 'is'
+> expect "the ship is in the terminal phase" phase 2 exactly
+  error: 'expect' expected a number for an expected value, got 'is'
+> hash docking
+  hash      docking bb2a5a182baf4dbeee64e994d1e74e3692684e4afac07103145c4bd5c118ca91
+
+probe: 15 commands, 3 errors, 0 checks failed

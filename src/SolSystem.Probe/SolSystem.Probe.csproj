@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SolSystem.Probe</RootNamespace>
+    <AssemblyName>SolSystem.Probe</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SolSystem.Core/SolSystem.Core.csproj" />
+  </ItemGroup>
+
+</Project>

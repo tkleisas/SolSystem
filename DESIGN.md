@@ -887,8 +887,15 @@ rescues it.**
 - [ ] Fuel as delta-v; a burn you can afford and a burn you cannot
 - [ ] The sky, drawn: stars, Milky Way band, and the two hull languages of §6.5
 - [ ] Docking that is a skill and not a button
-- [ ] Probe harness + screenshot pipeline ported from MiVic
-- [ ] A probe that reproduces a docking approach byte-exactly, twice
+- [x] **Probe harness** — `SolSystem.Probe` runs a text script against a live world and
+      writes a diffable transcript, with `expect` checks that fail without aborting. Three
+      probes: docking, station-keeping and scale. The screenshot half is not ported, because
+      there is no renderer yet to screenshot
+- [x] **A probe that reproduces a docking approach byte-exactly, twice** — the `hash`
+      command takes SHA-256 over the world's *raw fixed-point words* rather than its printed
+      decimals, so a one-bit drift shows up. `docs/` records the per-tick cost, and the
+      consequence: a station is 2.7 µs a tick, so a simulated day is 27 s of CPU, and the
+      strategic layer needs a coarser step than the 120 Hz navigation tick
 
 ### Phase 1 — the economy behind it (weeks 5–10)
 

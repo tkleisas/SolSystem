@@ -8,6 +8,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="SolSystem.Core.Tests" />
     <InternalsVisibleTo Include="SolSystem.Spike" />
+    <InternalsVisibleTo Include="SolSystem.Probe" />
   </ItemGroup>
 
 </Project>

@@ -337,6 +337,49 @@ public class DockingTests
 
     private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
         a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+    /// <summary>
+    /// A ship can turn a half turn and finish it.
+    /// </summary>
+    /// <remarks>
+    /// The clamp in <c>Attitude.Step</c> folds a rotation vector past pi back to pi so the
+    /// axis-angle pair stays unique. It used to fold only strictly past, which makes pi a
+    /// fixed point: a ship that has come exactly half way round and is still being told to
+    /// keep going wants 2pi on the next step, the fold rewrites that as pi, and the ship
+    /// tumbles on the spot forever. The nose sits at exactly -x with the rotation command
+    /// still lit and never moves again — which is a perfectly silent failure, and it cost a
+    /// great deal of time to find from a pilot that simply never arrived.
+    /// </remarks>
+    [Fact]
+    public void AHalfTurn_Completes()
+    {
+        var attitude = new Attitude(Fix128Vec.Zero, Fix128Vec.Zero);
+
+        // Command the shortest turn that ends at half a turn from the start.
+        var commanded = new Fix128Vec(Fix128.Zero, Fix128.Zero, Pi);
+        double previous = 0.0;
+
+        for (int tick = 0; tick < 120 * 60; tick++)
+        {
+            attitude.AngularVelocity = Attitude.ClampAngularVelocity(
+                commanded, Attitude.CrewedMaxTurnRate);
+            attitude.Step(F(TickSeconds));
+
+            double angle = attitude.RotationVector.Length.ToDouble();
+            Assert.True(angle >= previous - 1e-9, $"the rotation went backwards at tick {tick}");
+            previous = angle;
+
+            if (tick > 120 && attitude.Forward.X.ToDouble() < -0.99)
+            {
+                // It got there. The nose is along -x and the rotation is at the limit, which
+                // is the state that used to be terminal.
+                Assert.True(angle > 3.0, $"arrived with the rotation at {angle:F6}");
+                return;
+            }
+        }
+
+        Assert.Fail($"the ship never completed a half turn; nose at {attitude.Forward.X.ToDouble():F6}, "
+            + $"rotation {attitude.RotationVector.Length.ToDouble():F6}");
+    }
 }
 
 /// <summary>Test-only helpers on <see cref="Ship"/>.</summary>
