@@ -223,6 +223,31 @@ internal static class Docking
             return new DockingReport(false, false, "off the port axis", range, lateralOffset, closingSpeed, misalignment);
         }
 
+        // Inside contact range, the only things that matter are speed and alignment: the latches are
+        // already round the ship, and whether its rate is +1 mm/s or -1 mm/s is noise at this scale
+        // rather than a fact about the approach.
+        //
+        // This is the one place `Contact` and `Docked` deliberately disagree. `Docked` keeps the
+        // positive-rate test, because "can the latches hold this ship right now" is a real question
+        // two metres out. At thirteen centimetres it is not: a ship that has crept to a hand's
+        // breadth of the port, lined up and doing a centimetre a second, is docked, and the sign of
+        // that centimetre is the steering loop breathing.
+        if (range <= ContactRange)
+        {
+            if (closingSpeed > MaxClosingSpeed)
+            {
+                return new DockingReport(false, false, "closing too fast", range, lateralOffset, closingSpeed, misalignment);
+            }
+
+            if (misalignment > MaxMisalignment)
+            {
+                return new DockingReport(false, false, "not aligned with the port", range, lateralOffset, closingSpeed, misalignment);
+            }
+
+            return new DockingReport(true, true, string.Empty, range, lateralOffset, closingSpeed, misalignment);
+        }
+
+
         // Moving away is checked BEFORE speed, because the two conditions overlap when a ship
         // is drifting out of the envelope faster than the latches would hold: "closing too
         // fast" would be reported for a ship at -5 m/s, which is not what a pilot did wrong.

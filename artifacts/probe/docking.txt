@@ -11,33 +11,33 @@ stations: Anchorage, Meridian
 > advance 3600
   world at tick 3600 (0.000347 days from J2000)
 > range
-  range     1998.962881 m
+  range     1999.979421 m
 > closing
-  closing   0.262499645 m/s
+  closing   0.039869502 m/s
 > ship
-  position  (6780098.9627294429, 0.77806143903086322, 0) m
-  velocity  (-0.26255000246841043, 0.12932484001150682, 0) m/s
-  mass      99.9321673877778 t (90 t dry, 9.93216738777778 t propellant)
-  nose      (-1, 2.4313233717987437E-16, 0)
-  delta-v   125618.351242018 m/s
+  position  (6780099.9794209711, 0.0026880931302764805, 0) m
+  velocity  (-0.039869509043836932, 0.0050306269662840214, 0) m/s
+  mass      99.9321966244444 t (90 t dry, 9.93219662444444 t propellant)
+  nose      (-0.99340735765168076, 0.114637785060187, 0)
+  delta-v   125618.702320112 m/s
 > advance 250000
   world at tick 253600 (0.024460 days from J2000)
 > phase
-  phase     1 (braking)
+  phase     2 (terminal)
 > range
-  range     82712.088442 m
+  range     148.010562 m
 > closing
-  closing   -81.419188529 m/s
+  closing   -0.150076401 m/s
 > ship
-  position  (6695387.9116776595, 4.4512990418778893, 0) m
-  velocity  (-81.4191886898939, -0.00080366767808189683, 0) m/s
-  mass      99.9253934815447 t (90 t dry, 9.92539348154466 t propellant)
-  nose      (-0.99999999299602582, -0.00011835517822567473, 0)
-  delta-v   125537.006433771 m/s
+  position  (6777952.1457280321, -6.8000551587231524, 0) m
+  velocity  (-0.14993945394277239, -0.0064269482968837216, 0) m/s
+  mass      99.9313630997095 t (90 t dry, 9.93136309970955 t propellant)
+  nose      (-0.99505556996122868, -0.099319749743615515, 0)
+  delta-v   125608.693195055 m/s
 > expect "the ship is still in the simulation" range 1000000.0 less
   ok        the ship is still in the simulation
-            range = 82712.088442118038, expected less 1000000
+            range = 148.0105620869472, expected less 1000000
 > hash docking
-  hash      docking 5e2f82b24b595c7de697c1573d1daef31ed414219034f0f3c852cdb97e001005
+  hash      docking 8cdd21828f12f8fcd156907d4a5b8318d005a4323e99d81f868b9e2e1eb9a443
 
 probe: 14 commands, 0 errors, 0 checks failed

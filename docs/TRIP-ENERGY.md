@@ -1185,3 +1185,110 @@ radiator that dwarfs the ship or a heat sink that vaporises.
 > are mechanical; they are *uncrewed*, which lets them burn harder and run their crews'
 acceleration limits off, not their thermal ones. That is a real advantage and a much smaller
 one than 10 g.
+
+---
+
+## 17. Docking: the approach profile is a solved problem
+
+The terminal phase of a rendezvous is one of the oldest problems in spaceflight and it has a
+standard answer. This section records it, because the first version of the docking law in this
+project was derived from scratch over several days and arrived — slowly — at a worse
+parameterisation of the thing the literature has published since 1989.
+
+### The classical glideslope
+
+Hablani, Tapper and Dana-Bashian, *Guidance and Relative Navigation for Autonomous Rendezvous in a
+Circular Orbit*, Journal of Guidance, Control and Dynamics, 2002 — the standard reference, and the
+algorithm now implemented in `SolSystem.Core/Local/Glideslope.cs`. It was first defined for the
+Space Shuttle by Pearson in 1989 and is the basis of every automatic approach flown since.
+
+The profile is an exponential in time. With `ρ` the range, `ρ̇` its rate, `ρ̇₀` and `ρ̇_T` the
+commanded rates at the start and at contact, and `λ = (ρ̇₀ − ρ̇_T)/ρ₀`:
+
+```
+ρ(τ) = ρ₀·e^(λτ) + ρ̇_T·ρ₀/(ρ̇₀ − ρ̇_T)·(e^(λτ) − 1)
+ρ̇(τ) = ρ̇₀·e^(λτ)
+```
+
+**Eliminating the time between those two gives the whole thing in one line.** Working in closing
+rate `v = −ρ̇`, which is positive when approaching:
+
+```
+v(r) = v_T + (v₀ − v_T)·r/r₀
+```
+
+A straight line in the range–rate plane. That is an algebraic identity and not an approximation —
+verified numerically here to zero error at every sample — and it is why the profile is called a
+*glideslope* rather than a curve. It makes the profile usable as a control law: one multiply and one
+add per tick, no exponentials, no integration.
+
+The two rates are the entire parameterisation. `v_T` is the rate at contact, bounded above by what
+the capture latches accept; `v₀` at `r₀` is how briskly the corridor is run. The slope is the
+reciprocal of the time constant, so the duration is `r₀/(v₀ − v_T)`.
+
+**The commanded rate never reaches zero.** At contact it is `v_T`, so the ship is still moving when
+it arrives — which a capture envelope that requires a positive closing rate needs. A profile
+commanding zero at contact approaches asymptotically and stops outside the envelope, and that
+single mistake cost this project several days.
+
+**Feasibility is checkable in advance.** A ship following the line decelerates at
+`|dv/dt| = ((v₀ − v_T)/r₀)·v`, largest where it is fastest, so
+
+```
+a_required = (v₀ − v_T)·v₀/r₀
+```
+
+A drive that cannot make that cannot fly the profile, and asking anyway produces a ship that drifts
+above the line and arrives too fast. For the reference torch's four milligee over two kilometres
+this caps `v₀` at about 8.9 m/s. `Glideslope.Feasible` is the check, and the approach law reduces
+`v₀` until it passes.
+
+### What is not in the literature, and had to be worked out here
+
+The published algorithm assumes impulsive maneuvers or multi-axis thrusters. **This game's ships
+have one engine and it points along the nose**, which turns the profile into a much harder
+problem, and every one of the following cost real time:
+
+- **Slowing down means turning round.** A crewed hull reverses at six degrees a second — half a
+  minute during which the engine is useless. So the corridor has to contain the reversal, and the
+  braking trigger has to include it: braking from `v` needs `v²/2a + v·t_turn` metres, which is
+  1 575 m from ten metres a second and 324 from four.
+- **A law that re-decides every tick at a threshold chatters, and every chatter is a reversal
+  order.** One version issued six thousand of them on a single approach. The phases must be
+  latched.
+- **Nose-forward, the ship can only accelerate.** It regulates the final approach by *coasting*,
+  never by braking, which is why the creep never overshoots. Any attempt to make a thrust-only
+  phase *track* a rate ratchets the ship faster and faster, because thrust is the one thing it
+  cannot undo: measured, 0.30 m/s at the handover to 0.72 at the port, past the 0.5 the latches
+  accept, so a geometrically perfect approach was refused for arriving too fast.
+- **The engine's position is the control law's problem, not its detail.** Because thrust follows
+  the nose, "correct the lateral offset" and "point off the corridor" are the same instruction. A
+  creep that centred itself arrived ninety-seven degrees out of alignment; a helm that aimed at the
+  live bearing to the port followed it round to twenty degrees and opening, because the bearing
+  swings to ninety as the range closes. Centring happens early, and the creep aims down the
+  corridor.
+- **The alignment gate has to scale with how much thrust is asked for.** Fixed at 0.5, the engine
+  fires from the moment the nose is sixty degrees round a reversal and throws the ship **eighteen
+  metres off the corridor axis**. Fixed at 0.9, it stays shut through the last half metre of the
+  endgame and the ship hovers four centimetres from the port. The gate is now interpolated between
+  the two by the demanded thrust: big burns are patient, small ones are not.
+
+### Where it stands
+
+The ship docks from the nominal two-kilometre approach: contact at 0.40 m, closing 0.15 m/s, in
+1 096 s for 0.8 kg of propellant. A corridor of 500 m reaches 0.47 m — four centimetres outside the
+contact range — and stops, because the short corridor never lets the ship onto the glideslope
+properly and the lateral correction ends up steering the aim as much as the axial command does.
+That is a real limitation of the law as it stands and it is recorded rather than asserted away.
+
+### Sources
+
+- Hablani, Tapper, Dana-Bashian, *Guidance and Relative Navigation for Autonomous Rendezvous in a
+  Circular Orbit*, JGCD 25(3), 2002 — the classical glideslope.
+- Ariba, Arzelier, Urbina, Louembet, *V-bar and R-bar Glideslope Guidance Algorithms for Fixed-Time
+  Rendezvous: A Linear Programming Approach* — [hal-01358188](https://hal.science/hal-01358188v1),
+  which states equation (6) above and reviews Hablani's algorithm.
+- Pearson, *Shuttle Rendezvous and Proximity Operations*, 1989 — where the glideslope was first
+  defined operationally.
+- The V-bar (along-track) and R-bar (radial) approach corridors, and the cone-shaped safety corridor
+  that constrains them, are standard practice from the Shuttle and ISS programmes.
