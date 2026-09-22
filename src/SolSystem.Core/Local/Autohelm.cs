@@ -64,7 +64,7 @@ internal struct Autohelm
     internal Fix128 Throttle;
 
     /// <summary>Seconds spent in the current run, for the display.</summary>
-    internal double ElapsedSeconds;
+    internal Fix128 ElapsedSeconds;
 
     /// <summary>
     /// How many seconds the helm needs to come about.
@@ -72,9 +72,10 @@ internal struct Autohelm
     /// <remarks>
     /// A reversal is half a turn, so it is <b>pi</b> over the maximum turn rate — thirty seconds at
     /// six degrees a second. Not two pi, which is a full circle and would have the computer budgeting
-    /// a minute for a manoeuvre that takes half of one.
+    /// a minute for a manoeuvre that takes half of one. Precomputed once: it is a constant wearing
+    /// a property's clothes, and evaluating it per tick was a conversion per tick.
     /// </remarks>
-    internal static Fix128 ReversalSeconds =>
+    internal static readonly Fix128 ReversalSeconds =
         Fix128.FromDouble(Math.PI) / Attitude.CrewedMaxTurnRate;
 
     /// <summary>Starts a crossing to a target at a given throttle.</summary>
@@ -121,7 +122,7 @@ internal struct Autohelm
             return;
         }
 
-        ElapsedSeconds += seconds.ToDouble();
+        ElapsedSeconds += seconds;
 
         Fix128Vec toTarget = Target - ship.Position;
         Fix128 range = toTarget.Length;
@@ -139,7 +140,7 @@ internal struct Autohelm
                 // Point at the destination, and do not light the engine until the nose is there. A
                 // burn commanded while the ship is still coming about goes mostly sideways, which is
                 // the same mistake the docking approach made and spends fuel to no purpose.
-                if (IsAligned(ship, toTarget, Fix128.FromDouble(0.02)))
+                if (IsAligned(ship, toTarget, AlignTolerance))
                 {
                     Stage = Phase.Accelerating;
                 }
@@ -159,7 +160,7 @@ internal struct Autohelm
                 break;
 
             case Phase.Reversing:
-                if (IsAligned(ship, -toTarget, Fix128.FromDouble(0.02)))
+                if (IsAligned(ship, -toTarget, AlignTolerance))
                 {
                     Stage = Phase.Decelerating;
                 }
@@ -193,7 +194,7 @@ internal struct Autohelm
         // The engine fires along the nose, so a burn is only useful once the nose is roughly there.
         // The gate follows how much is being asked for, the same way the docking law's does.
         Fix128 throttle = Fix128.Zero;
-        if (burning && IsAligned(ship, wanted, Fix128.FromDouble(0.15)))
+        if (burning && IsAligned(ship, wanted, BurnTolerance))
         {
             throttle = Throttle;
         }
@@ -249,7 +250,7 @@ internal struct Autohelm
         Fix128Vec axis = Cross(nose, wanted);
         Fix128 alignment = (nose.X * wanted.X) + (nose.Y * wanted.Y) + (nose.Z * wanted.Z);
 
-        if (axis.Length < Fix128.FromDouble(1e-6))
+        if (axis.Length < Tiny)
         {
             if (alignment > Fix128.Zero)
             {
@@ -262,7 +263,7 @@ internal struct Autohelm
             Fix128Vec deck = attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
             axis = Cross(deck, nose);
 
-            if (axis.Length < Fix128.FromDouble(1e-6))
+            if (axis.Length < Tiny)
             {
                 // The nose is along the deck, which a ship's never is, but a hull at exactly that
                 // attitude would otherwise be un-turnable. Any axis at all is better than none.
@@ -271,18 +272,35 @@ internal struct Autohelm
         }
 
         // Scale by the angle still to go, so the command dies away as the nose arrives rather than
-        // holding full rate until it is on top of the target and then hunting.
-        Fix128 error = Fix128.FromDouble(Math.Acos(Math.Clamp(alignment.ToDouble(), -1.0, 1.0)));
-        if (error < Fix128.FromDouble(1e-6))
+        // holding full rate until it is on top of the target and then hunting. The dot of two
+        // normalized vectors can round a hair past ±1, which the arccosine refuses — so it is
+        // clamped first, cheaply, rather than trusted.
+        Fix128 error = Fix128.Acos(Fix128.Clamp(alignment, -Fix128.One, Fix128.One));
+        if (error < Tiny)
         {
-            error = Fix128.FromDouble(Math.PI);
+            error = Pi;
         }
 
         Fix128Vec command = axis.Normalized() * error;
 
         // Damping, against the rate the ship already has.
-        return command - (attitude.AngularVelocity * Fix128.FromDouble(0.4));
+        return command - (attitude.AngularVelocity * SteerDamping);
     }
+
+    /// <summary>Half a turn, precomputed once: the angle a reversal asks for.</summary>
+    private static readonly Fix128 Pi = Fix128.FromDouble(Math.PI);
+
+    /// <summary>Sizes below which a vector or an angle is noise for steering purposes.</summary>
+    private static readonly Fix128 Tiny = Fix128.FromDouble(1e-6);
+
+    /// <summary>The helm's damping on the ship's existing rate.</summary>
+    private static readonly Fix128 SteerDamping = Fix128.FromDouble(0.4);
+
+    /// <summary>Dot-product tolerance for "the nose is there" in the alignment phases.</summary>
+    private static readonly Fix128 AlignTolerance = Fix128.FromDouble(0.02);
+
+    /// <summary>Dot-product tolerance for lighting the engine at all.</summary>
+    private static readonly Fix128 BurnTolerance = Fix128.FromDouble(0.15);
 
     private static Fix128Vec Cross(Fix128Vec a, Fix128Vec b) => new(
         (a.Y * b.Z) - (a.Z * b.Y),

@@ -997,7 +997,7 @@ internal sealed class FlightGame : Game
             _sprites.DrawString(_hud, $"FLIGHT COMPUTER  {_helm.Describe()}", at, new Color(255, 220, 130));
             at.Y += Line;
             _sprites.DrawString(_hud,
-                $"  elapsed {_helm.ElapsedSeconds / 86400.0:F2} days", at, dim);
+                $"  elapsed {_helm.ElapsedSeconds.ToDouble() / 86400.0:F2} days", at, dim);
         }
         else
         {
