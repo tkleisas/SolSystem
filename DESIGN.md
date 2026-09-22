@@ -608,6 +608,13 @@ per operation, and the action layer ticks hundreds of entities at 120 Hz. Its 23
 is far finer than a ship needs; the solar frame's 5.4 × 10⁻²⁰ km grid is what an orbit
 needs. Two frames, two widths, each matched to its job.
 
+> **Corrected.** The local frame is Q64.64 in metres, the same type as the solar
+> frame. `Fix64` held the action layer until the flight law itself had to be exact:
+> the glideslope, the approach law and the autohelm were ported to `Fix128` so that
+> "no floats in simulation" was true where it mattered most, and `Fix64` was then
+> deleted rather than maintained as a second numeric discipline nobody used. The
+> speed argument was real; it was buying performance the game never spent.
+
 **Crossing frames is exact.** A body sits at a position in the solar frame; a ship sits at
 a local offset from it. Converting the offset to kilometres scales by 10³ and lands on the
 solar frame's grid, which is finer than the local one — so the crossing loses nothing.
@@ -658,7 +665,7 @@ The full report is **`docs/SPIKE-NUMERICS.md`**; the transcript is
 | Energy drift, Q64.64 | **1.5 × 10⁻¹²** |
 | Final radius, Q64.64 | 149 597 870.170 km — 170 m from 1 AU |
 | Cost, Q64.64 | ~16 µs/step, irrelevant for a few hundred bodies |
-| Cost, `Fix64` | ~100× cheaper, which is why the action layer keeps it |
+| Cost, Q32.32 | ~100× cheaper per operation — why the action layer kept it, until the flight law went fixed point and the type was deleted (see the correction in §6.2) |
 
 The fixed/double difference grows **linearly**, not as a random walk: the fixed-point Sun
 is marginally weaker because GM is not exactly representable, and the orbit answers with a
@@ -700,7 +707,9 @@ the result; nobody has to reproduce a 90-second furball.
 ### 6.4 Project layout
 
 ```
-src/SolSystem.Core      Fix64 + Fix128, integer trig, orbits — no graphics deps
+src/SolSystem.Core      Fix128, integer trig, orbits — no graphics deps
+src/SolSystem.Spike     the numerics experiment of §6.2.1
+src/SolSystem.Probe     the headless probe harness that flies tools/probe scripts
 src/SolSystem.Sim       the world: sites, fleets, economy, terraforming, replay
 src/SolSystem.Client    MonoGame client: cockpit, tactical, strategic views
 src/SolSystem.Map       headless strategic-map renderer (SVG/PNG), no GPU
@@ -727,10 +736,6 @@ answers:
 | **Bodies** | The same Blender materials the previews use, **baked to textures** by `tools/blender/bake_bodies.py` | One implementation of each material, not two. The Sun's granulation, Mars's polar caps, Ceres's regolith and Earth's cloud deck are procedural shaders that existed only inside their .blend files; the client now loads what Blender computed rather than a flat colour that resembles it. Baked because a fixed-function renderer has no shader, and re-implementing the noise in the client would be a second copy to disagree with |
 | **Stars** | HYG v4.1, reduced to the naked-eye stars plus everything within 25 pc: 11 558 stars, 188 kB, fixed-point records | Everything visible, with measured colour. Positions are J2000 and quantised to 0.084 arcsec, which is 2 000 times finer than a 4K pixel. Precession to date is *not* applied — see the note below the table |
 | **Milky Way** | The galactic equator as a great circle, with a Gaussian profile in latitude and a falloff in longitude | Physically the right shape and in the right place: it runs through Cygnus and Sagittarius and its brightest part is at the galactic centre. The profile is a fit to what the unaided eye sees, not to a photograph |
-| **Attitude** | A rotation vector, composed as a **quaternion** each tick — `R_new = exp(ω·dt) ∘ R`. Adding `ω·dt` to the vector is only correct to first order and the error is `½\|δ\|\|v\|`, which at the ship's own starting attitude of π is **nine degrees of error from a six-degree command** | Written up in `Attitude.Step`. It survived the docking tests because a ship on final approach barely rotates; it did not survive a player pressing a key |
-| **Bodies** | The same Blender materials the previews use, **baked to textures** by `tools/blender/bake_bodies.py` | One implementation of each material, not two. The Sun's granulation, Mars's polar caps, Ceres's regolith and Earth's cloud deck are procedural shaders that existed only inside their .blend files; the client now loads what Blender computed rather than a flat colour that resembles it. Baked because a fixed-function renderer has no shader, and re-implementing the noise in the client would be a second copy to disagree with |
-| **Stars** | A real catalogue on the celestial sphere — direction, magnitude, colour, proper motion | ~5 000 stars to magnitude 6 is a few hundred kB and covers everything visible to the eye |
-| **Milky Way** | A textured band plus a procedural unresolved-star field | A survey-derived all-sky image, composited rather than modelled |
 | **Parallax** | Per-star distance, used as the camera moves between orbits | Alpha Centauri shifts about a degree across the system. It costs nothing and it is the single strongest cue that the ship actually moved |
 
 Two properties fall out of doing it properly rather than approximating it.
@@ -1041,6 +1046,10 @@ rescues it.**
       is what makes any of it checkable: `art/previews/flight/` holds three views from a station in
       low Earth orbit. What is *not* there yet is the ship itself — the models are built and exported
       but nothing loads a GLB — and there are no flight controls beyond the clock
+
+      > **Corrected.** Both halves of that caveat are gone. `Gltf.cs` loads the GLBs — the
+      > courier, the freighter and Meridian itself — and the ship flies: throttle, helm,
+      > launch aim flags, and an autohelm that flies the approach law.
 - [x] **Fuel as delta-v** — the flight display shows delta-v first and the propellant and burn time
       it buys beside it, because "four hundred kilometres a second" means nothing until it is also
       "a hundred days of full throttle". The number is the rocket equation on the live mass, so it
@@ -1056,8 +1065,8 @@ rescues it.**
       motion. Preview charts in `art/previews/sky/`
 - [x] **Probe harness** — `SolSystem.Probe` runs a text script against a live world and
       writes a diffable transcript, with `expect` checks that fail without aborting. Three
-      probes: docking, station-keeping and scale. The screenshot half is not ported, because
-      there is no renderer yet to screenshot
+      probes: docking, station-keeping and scale. The screenshot half is not ported —
+      the renderer exists now; the port simply has not happened
 - [x] **A probe that reproduces a docking approach byte-exactly, twice** — the `hash`
       command takes SHA-256 over the world's *raw fixed-point words* rather than its printed
       decimals, so a one-bit drift shows up. `docs/` records the per-tick cost, and the

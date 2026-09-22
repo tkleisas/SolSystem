@@ -137,7 +137,6 @@ internal readonly struct DockingReport
 /// </remarks>
 internal static class Docking
 {
-    /// <summary>Capture latches reach this far, in metres.</summary>
     /// <summary>
     /// How far from the port the latches can reach, in metres.
     /// </summary>

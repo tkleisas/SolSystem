@@ -35,9 +35,10 @@ range
 closing
 ship
 
-# The approach closes to a hand's breadth and then does not hold it. The endgame is the open
-# piece; see tools/probe/README.md. What this probe checks today is that the transcript is
-# reproducible and that the world stays self-consistent.
+# The script ends mid-creep: in this live world the ship is still about 150 m out at
+# 253 600 ticks, closing at the fixed 0.15 m/s handover rate. Arrival is pinned by
+# ApproachTests.AShipFlownFromTwoKilometres_Docks; what this probe checks is that the
+# transcript is reproducible and that the world stays self-consistent.
 expect "the ship is still in the simulation" range 1000000.0 less
 
 hash docking

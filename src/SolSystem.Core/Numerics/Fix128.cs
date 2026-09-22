@@ -202,14 +202,6 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
         value < min ? min : value > max ? max : value;
 
     /// <summary>
-    /// Natural logarithm, for the rocket equation.
-    /// </summary>
-    /// <remarks>
-    /// The same atanh series as the local frame's other logarithm: split into
-    /// <c>2^exponent · m</c> with m in [1, 2), then
-    /// <c>2·(t + t³/3 + t⁵/5 + …)</c> with <c>t = (m-1)/(m+1)</c>.
-    /// </remarks>
-    /// <summary>
     /// Arccosine of a value in [-1, 1], in radians, from 0 to pi.
     /// </summary>
     /// <remarks>
@@ -340,6 +332,13 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
     private static readonly Fix128 PiOverFour = FromDouble(Math.PI / 4.0);
     private static readonly Fix128 TanPiOverEight = FromDouble(0.41421356237309503);
 
+    /// <summary>
+    /// Natural logarithm, for the rocket equation.
+    /// </summary>
+    /// <remarks>
+    /// Split into <c>2^exponent · m</c> with m in [1, 2), then the atanh series
+    /// <c>2·(t + t³/3 + t⁵/5 + …)</c> with <c>t = (m-1)/(m+1)</c>.
+    /// </remarks>
     internal static Fix128 Log(Fix128 x)
     {
         if (x.Magnitude == UInt128.Zero || x.Negative)

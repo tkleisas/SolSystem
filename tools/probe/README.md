@@ -53,7 +53,7 @@ one-bit drift — which is exactly what a determinism check is for.
 
 | Script | Question | State |
 |---|---|---|
-| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | The transcript is byte-identical and the ship closes to within 3 cm; the endgame hovers rather than crossing the line |
+| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | The transcript is byte-identical. The script ends mid-creep — at 253 600 ticks the ship is in the terminal phase, 148 m out and closing at the fixed 0.15 m/s — so arrival itself is pinned by the test suite: `ApproachTests.AShipFlownFromTwoKilometres_Docks` docks in 131 556 ticks |
 | `station-keeping.probe` | Does a station hold its orbit, and does the Moon keep its own? | Passing |
 | `scale.probe` | Are the frames and the ephemeris telling the same story? | Passing |
 
@@ -80,12 +80,16 @@ success:
 | Helm reversed every 8 ms | A P-D helm with a rate-limited actuator oscillates at the tick rate |
 | **Tumbled on the spot forever** | **Three sign errors and a fold that scaled instead of flipping the axis** |
 
-The endgame is the piece still open, and the diagnosis is specific rather than a shrug: the target
-closing speed falls to five centimetres a second as the range falls, and a law that switches between
-full thrust and full brake cannot regulate a quantity that small — it nudges across the axis, the
-commanded direction flips, and it nudges back. The ship reaches 3.5 cm and hovers. What the last
-metre needs is a velocity servo, which is a different law from the switching curve that flies the
-corridor.
+The endgame was the piece that stayed open longest, and the diagnosis was specific rather than a
+shrug: the target closing speed falls with the range, and a law that switches between full thrust
+and full brake cannot regulate a quantity that small — it nudges across the axis, the commanded
+direction flips, and it nudges back. One version reached 3.5 cm and hovered there forever. The fix
+is the two decisions now documented in `Approach`: the handover from braking to creeping happens
+on the *rate* (0.15 m/s), not on the profile, and the creep is thrust-only — nose forward, the
+ship can only accelerate, so it regulates the last metres by coasting and can never overshoot into
+another reversal. The ship docks. In the test's fixed-port world that takes 1 096 s from two
+kilometres; the probe's live world is slower and the script ends mid-creep, and the difference
+between the two clocks has not been chased down.
 
 The item marked as an attitude failure was three separate faults conspiring:
 

@@ -8,9 +8,11 @@ Earth is neutral and dying. Two factions descended from Earth stock — the **Il
 the **Workers** — are racing to make a second home before Earth stops being one. The war is
 not about ideology, though both sides will tell you it is. It is about who gets to breathe.
 
-**Status: Phase 0, numeric foundation.** There is no game yet. The simulation core — the
-numeric types, the trigonometry, and the Keplerian propagator — is built, tested and
-measured; the client does not exist.
+**Status: the walking skeleton walks.** The simulation core — the numeric types, the
+trigonometry, the Keplerian propagator — is built, tested and measured, and there is a
+flyable MonoGame client on top of it: one ship, the real sky, a station to dock with, and
+a probe harness that replays a docking approach byte-exactly. What there is not yet is a
+game: no economy, no strategy layer, no second site. The roadmap is `DESIGN.md` §10.
 
 ## The design
 
@@ -70,8 +72,10 @@ The measurement behind the numeric decision, and the nine bugs the work surfaced
 **`docs/SPIKE-NUMERICS.md`**. The headline: Q64.64 holds a one-year Earth orbit to 1.4 × 10⁻⁶
 relative error with energy conserved to one part in 10¹².
 
-Everything is exact integer arithmetic. Nothing in `SolSystem.Core` uses `float` or
-`double` except at the boundary where a measured constant is read in, and in tests.
+Everything else is exact integer arithmetic. Nothing in `SolSystem.Core` uses `float` or
+`double` except the ephemeris — JPL's elements are published as doubles, so the analytic
+series is evaluated as written and converted to fixed point at the frame join — and the
+boundary where a measured constant is read in.
 
 ## Build and test
 
@@ -79,9 +83,12 @@ Requires the .NET 10 SDK.
 
 ```sh
 dotnet build -c Release
-dotnet test  -c Release        # 178 tests
+dotnet test  -c Release
 dotnet run   -c Release --project src/SolSystem.Spike
 ```
+
+The client runs with `dotnet run -c Release --project src/SolSystem.Client`; `--shot`
+renders one frame to a PNG and exits.
 
 `NuGet.config` redirects the NuGet HTTP cache and packages folder into `artifacts/`, so a
 restore never needs to write outside the repository.
@@ -90,19 +97,24 @@ restore never needs to write outside the repository.
 
 | Project | Purpose |
 |---|---|
-| `src/SolSystem.Core` | Fixed-point maths, integer trigonometry, Keplerian orbits, attitude and docking. No graphics, no floating point. |
+| `src/SolSystem.Core` | Fixed-point maths, integer trigonometry, Keplerian orbits, attitude and docking. No graphics; floating point only in the ephemeris, as published. |
+| `src/SolSystem.Client` | The MonoGame window onto the simulation: one flyable ship, the real sky, Meridian station. |
+| `src/SolSystem.Probe` | The headless probe harness: runs a text script against a live world and writes a diffable transcript. |
 | `src/SolSystem.Spike` | The Phase 0 numerics experiment. Not shipped; it is the evidence. |
 | `tests/SolSystem.Core.Tests` | Checked against independent references, not hand-computed values. |
 | `docs/` | The spike report, the transit and energy analysis, and the setting. |
-| `tools/` | Reserved for the probe harness and the model pipeline. |
+| `tools/` | Probe scripts, the sky and body packers, and the Blender model pipeline. |
 
 ## Why the tests look the way they do
 
-The fixed-point types accumulated six bugs during construction — a multiply with its
+The fixed-point types accumulated nine bugs during construction — a multiply with its
 halves swapped, a divide whose shift truncated silently, a square root that converged to a
-wrong fixed point, a start bit one place too high, and two gravity formulas wrong by a
-factor of `r` and by underflow. **Every one returned plausible numbers rather than raising
-an exception, and two were in the `double` reference rather than the fixed-point code.**
+wrong fixed point, a start bit one place too high, two gravity formulas wrong by a factor
+of `r` and by underflow, a trigonometry table whose scale disagreed with its own pinned
+endpoints, an interpolation whose product overflowed and wrapped, and a narrowing cast
+that reported sine as exactly zero at the quarter turn. **Every one returned plausible
+numbers rather than raising an exception, and two were in the `double` reference rather
+than the fixed-point code.**
 
 So the numeric tests check against an independent `BigInteger` reference rather than
 against expectations typed by hand. That discipline is the point, not the ceremony.
