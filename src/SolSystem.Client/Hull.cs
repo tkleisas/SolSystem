@@ -430,7 +430,10 @@ internal sealed class Hull : IDisposable
             highest = Math.Max(highest, indices[i]);
         }
 
-        if (highest > ushort.MaxValue)
+        // Sixteen bits is the value range, not the count: a mesh whose highest index is
+        // exactly 65 535 does not fit, because the check used to read `>` and index 65 535
+        // is itself a valid sixteen-bit value that the narrow cast then turns into -1.
+        if (highest >= ushort.MaxValue)
         {
             var wide = new int[count];
             for (int i = 0; i < count; i++)
