@@ -97,11 +97,6 @@ internal sealed class SolarSystem
         new(Ephemeris.Body.Ceres, "Ceres", 469.7, 62.6289),
     };
 
-    /// <summary>The Moon as a body entry, for the code that only needs a radius and a GM.</summary>
-    internal static readonly Body Moon =
-        new(Ephemeris.Body.Earth, "Moon", MoonRadiusKm, MoonGmKm);
-
-    /// <summary>The body entry for <paramref name="kind"/>.</summary>
     /// <summary>
     /// A body's mean orbital radius around the Sun, in kilometres.
     /// </summary>
@@ -115,6 +110,7 @@ internal sealed class SolarSystem
     internal static double MeanOrbitKm(Ephemeris.Body kind) =>
         Ephemeris.MeanSemiMajorAxisAu(kind) * FlightPlan.KilometresPerAu;
 
+    /// <summary>The body entry for <paramref name="kind"/>.</summary>
     internal static Body BodyOf(Ephemeris.Body kind)
     {
         Body[] bodies = Bodies;
@@ -168,16 +164,6 @@ internal sealed class SolarSystem
         Ephemeris.State moon = Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000.ToDouble());
         return new Ephemeris.State(earth.Position + moon.Position, earth.Velocity + moon.Velocity);
     }
-
-    /// <summary>The Moon's offset from the Earth, in kilometres and km/s.</summary>
-    internal Ephemeris.State MoonRelativeToEarth() =>
-        Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000.ToDouble());
-
-    /// <summary>GM of the Moon, in km³/s².</summary>
-    internal const double MoonGmKm = 4_902.8001;
-
-    /// <summary>Mean radius of the Moon, in kilometres.</summary>
-    internal const double MoonRadiusKm = 1_737.4;
 
     /// <summary>
     /// Planet <paramref name="body"/> relative to planet <paramref name="origin"/>, in

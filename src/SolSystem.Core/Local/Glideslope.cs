@@ -113,17 +113,6 @@ internal readonly struct Glideslope
         InitialRate > ContactRate ? Range / (InitialRate - ContactRate) : null;
 
     /// <summary>
-    /// The time constant of the equivalent exponential decay, in seconds.
-    /// </summary>
-    /// <remarks>
-    /// The same number as <see cref="DurationSeconds"/> by a different route, kept separate because
-    /// the two are conceptually different: one is how long the approach takes, the other is the
-    /// <c>1/λ</c> of Hablani's profile. A test asserts they agree, which is what catches a sign
-    /// slip in either.
-    /// </remarks>
-    internal Fix128? TimeConstantSeconds => DurationSeconds;
-
-    /// <summary>
     /// Whether a ship at rest can actually fly this profile with a given acceleration.
     /// </summary>
     /// <remarks>

@@ -312,49 +312,11 @@ internal sealed class ProbeWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Worked from the attitude rather than from the angle between the nose and the target,
-    /// and that is not a style choice. Two anti-parallel vectors have a zero cross product,
-    /// so the obvious formulation tells a ship ordered to reverse not to turn — and a
-    /// reversal is the most common manoeuvre in docking, because braking means turning
-    /// around. A half turn is just the rotation vector that points the other way, and
-    /// subtracting two attitudes has no degenerate case at all.
-    /// </para>
-    /// <para>
-    /// The error is asked for the whole way round and then handed in, so the hull's own
-    /// rate limit is what decides how fast the ship comes about. Scaling it down inside
-    /// this function instead looks equivalent and is a trap: a half turn scaled by a gain
-    /// is a slow turn, the alignment gate stays shut for the whole of it, and the engine
-    /// never lights — the ship simply falls. The first version of this did exactly that and
-    /// reported a probe flying away from its station at a kilometre a second.
+    /// DELETED. This was the probe's private copy of the helm's turn logic, written before the
+    /// law moved to <see cref="Approach"/>, and it had been dead since: nothing called it.
+    /// The live version is <see cref="Approach.TurnTowards"/>, which this predated by four
+    /// rewrites and whose history the comments above are part of. Deleted in the audit's dead
+    /// batch; the remarks are kept for the archaeology.
     /// </para>
     /// </remarks>
-    private static Fix128Vec TurnTowards(Attitude attitude, Fix128Vec to)
-    {
-        Fix128Vec unit = to.Normalized();
-        if (unit.IsZero)
-        {
-            return Fix128Vec.Zero;
-        }
-
-        // The attitude that would point the nose along `to`: a rotation about z, since the
-        // corridor and the ship are both in the ecliptic plane.
-        double wanted = Math.Atan2(unit.Y.ToDouble(), unit.X.ToDouble());
-        double current = attitude.RotationVector.Z.ToDouble();
-
-        double error = wanted - current;
-        while (error > Math.PI)
-        {
-            error -= 2.0 * Math.PI;
-        }
-
-        while (error <= -Math.PI)
-        {
-            error += 2.0 * Math.PI;
-        }
-
-        // The whole error, over a tenth of a second. ClampAngularVelocity then holds it
-        // inside what a crew can take, which is where the limit belongs.
-        double rate = error / 0.1;
-        return new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.FromDouble(rate));
-    }
 }

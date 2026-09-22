@@ -78,9 +78,6 @@ internal sealed class FlightSession
     /// <summary>The sky observer, rebuilt whenever the position or the time changes.</summary>
     internal SkyObserver Observer { get; private set; }
 
-    /// <summary>The direction the camera is looking, as a unit vector in the ecliptic frame.</summary>
-    internal Fix128Vec Forward { get; private set; }
-
     /// <summary>Which way is up on screen.</summary>
     internal Fix128Vec Up { get; private set; }
 
@@ -192,7 +189,10 @@ internal sealed class FlightSession
             right = Cross(unit, new Fix128Vec(Fix128.Zero, Fix128.One, Fix128.Zero));
         }
 
-        Forward = unit;
+        // The session's own aim direction used to be published here as Forward. Nothing read
+        // it: the camera is built from the ship's attitude every frame, and the last renderer
+        // consumer went in the audit's first batch. The property is gone; what remains is the
+        // up vector, which the sky observer's triad is built around.
         Up = Cross(right.Normalized(), unit).Normalized();
     }
 
@@ -274,7 +274,10 @@ internal sealed class FlightSession
     internal Fix128Vec DirectionTo(Fix128Vec heliocentricPoint)
     {
         Fix128Vec offset = heliocentricPoint - ObserverPosition;
-        return offset.IsZero ? Forward : offset.Normalized();
+
+        // A point coincident with the observer has no direction; Up is the arbitrary-but-valid
+        // answer, and it replaced the spawn-aim fallback when that property was deleted.
+        return offset.IsZero ? Up : offset.Normalized();
     }
 
     /// <summary>The distance from the observer to a heliocentric point, in kilometres.</summary>

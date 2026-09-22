@@ -39,14 +39,13 @@ public class GlideslopeTests
     }
 
     [Fact]
-    public void DurationAndTimeConstant_Agree()
+    public void TheDuration_IsTheSlopeInverted()
     {
         // The line's duration is r0 / (v0 - v_T), and it is also the 1/lambda of the
-        // equivalent exponential. The two routes must say the same number, which is what
-        // catches a sign slip in either.
+        // equivalent exponential: fly the line end to end and the time falls out of the
+        // slope alone.
         var profile = Glideslope.For(F(2_000.0), F(8.0), F(0.1));
 
-        Assert.Equal(profile.DurationSeconds, profile.TimeConstantSeconds);
         Assert.Equal(2_000.0 / 7.9, profile.DurationSeconds!.Value.ToDouble(), 9);
     }
 
