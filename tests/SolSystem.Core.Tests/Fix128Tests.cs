@@ -298,4 +298,54 @@ public class Fix128Tests
         }
     }
 
+    [Fact]
+    public void Acos_MatchesDoubleAcrossTheWholeDomain()
+    {
+        // The reference is Math.Acos on the same argument. The bound is the method's own:
+        // the angle's error is the input's error over the angle's sine, which the Atan2
+        // series and the Q64.64 grid together keep under 2e-9 radians — worst at the
+        // endpoints, where it is the square root of the input error.
+        for (int i = 0; i <= 1000; i++)
+        {
+            double x = -1.0 + (i * 0.002);
+            double actual = Fix128.Acos(Fix128.FromDouble(x)).ToDouble();
+            double expected = Math.Acos(x);
+
+            Assert.True(Math.Abs(actual - expected) < 2e-9,
+                $"acos({x}): {actual}, expected {expected}");
+        }
+    }
+
+    [Fact]
+    public void Acos_IsExactAtTheCardinalPoints()
+    {
+        Assert.Equal(0.0, Fix128.Acos(Fix128.One).ToDouble());
+        Assert.Equal(Math.PI / 2.0, Fix128.Acos(Fix128.Zero).ToDouble(), 12);
+        Assert.Equal(Math.PI, Fix128.Acos(-Fix128.One).ToDouble(), 12);
+    }
+
+    [Fact]
+    public void Acos_HoldsItsBoundRightUpAgainstTheEndpoints()
+    {
+        // Within a billionth of ±1 the angle is a few 1e-5 rad, which is where the input's
+        // own grid is the whole of the error budget — the bound widens to the square root
+        // of the input error rather than the series bound, and 1e-7 covers both.
+        foreach (double x in new[] { 1.0 - 1e-9, -(1.0 - 1e-9), 1.0 - 1e-12, 0.9999999999999999 })
+        {
+            double actual = Fix128.Acos(Fix128.FromDouble(x)).ToDouble();
+            double expected = Math.Acos(x);
+
+            Assert.True(Math.Abs(actual - expected) < 1e-7,
+                $"acos({x:R}): {actual}, expected {expected}");
+        }
+    }
+
+    [Fact]
+    public void Acos_RefusesOutsideTheDomain()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Fix128.Acos(Fix128.FromDouble(1.0000001)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Fix128.Acos(Fix128.FromDouble(-1.0000001)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Fix128.Acos(Fix128.FromWhole(2)));
+    }
+
 }

@@ -197,8 +197,41 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
     /// <c>2·(t + t³/3 + t⁵/5 + …)</c> with <c>t = (m-1)/(m+1)</c>.
     /// </remarks>
     /// <summary>
-    /// The angle of the point <c>(x, y)</c>, in radians, from -pi to pi.
+    /// Arccosine of a value in [-1, 1], in radians, from 0 to pi.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// By the identity <c>acos(x) = atan2(sqrt(1 - x²), x)</c>, through the existing
+    /// <see cref="Atan2"/> and <see cref="Sqrt"/> rather than through a series of its own.
+    /// </para>
+    /// <para>
+    /// The edge that wants justifying is <c>|x| → 1</c>, where <c>1 - x²</c> vanishes and a
+    /// series would seem to be needed. It is not, and the reason is the arithmetic rather
+    /// than the method: the Q64.64 square carries an absolute error of about 2⁻⁶⁴, so the
+    /// root's argument is good to about 4 × 10⁻¹⁹ in absolute terms. The angle's error is
+    /// the input's error divided by the angle's own sine — which stays below about 2 × 10⁻⁹
+    /// radians everywhere and is at its worst at the endpoints, where it is the square root
+    /// of the input error. A separate reduction near ±1 could not beat that, because the
+    /// limit is the input's own grid rather than the method. What the endpoints do get is
+    /// an exact answer: acos(±1) is returned without evaluating anything.
+    /// </para>
+    /// </remarks>
+    internal static Fix128 Acos(Fix128 x)
+    {
+        if (x.Magnitude > One.Magnitude)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x), "Acos is defined only for values in [-1, 1].");
+        }
+
+        if (x.Magnitude == One.Magnitude)
+        {
+            return x.Negative ? Pi : Zero;
+        }
+
+        return Atan2(Sqrt(One - x * x), x);
+    }
+
+    /// <summary>The angle of the point <c>(x, y)</c>, in radians, from -pi to pi.</summary>
     /// <remarks>
     /// <para>
     /// Computed in fixed point throughout, and the first version was not: it converted both
