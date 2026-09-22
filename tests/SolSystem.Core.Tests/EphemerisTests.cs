@@ -233,13 +233,26 @@ public class EphemerisTests
             double meanAnomaly = (134.9633964 + 13.06499295 * days) % 360.0;
             double eccentricAnomaly = EccentricAnomalyFrom(radius);
 
-            // The two roots of cos E; the Moon is never near apogee at the start of an
-            // interval in a way that matters here, so the larger root is the one to test.
-            double residual = eccentricAnomaly - Eccentricity * Math.Sin(eccentricAnomaly)
-                - Math.Abs(Math.IEEERemainder(Math.PI / 180.0 * meanAnomaly, 2.0 * Math.PI));
+            // acos covers only the perigee-to-apogee half of the ellipse; on the other half
+            // the true anomaly is the mirror, and Kepler's equation for E = 2pi - E_ gives
+            // (2pi - E_) + e sin E_ on that side. Testing the wrong side against the mean
+            // anomaly reports a turn of error, which is what the earlier version of this
+            // block computed and then discarded.
+            double fromEquation = meanAnomaly <= 180.0
+                ? eccentricAnomaly - Eccentricity * Math.Sin(eccentricAnomaly)
+                : (2.0 * Math.PI - eccentricAnomaly) + Eccentricity * Math.Sin(eccentricAnomaly);
+
+            double residual = Math.IEEERemainder(
+                fromEquation - Math.PI / 180.0 * meanAnomaly, 2.0 * Math.PI);
+
+            // The residual is the equation's own error in radians: radius from Q64.64 and
+            // angles in double put it at rounding level, so the bound is set far above that
+            // and far below anything that would mask a real mistake — 1e-9 rad is about
+            // 400 m of arc at the Moon's mean radius.
+            Assert.True(Math.Abs(residual) < 1e-9,
+                $"jd {jd:F2}: Kepler's equation is out by {residual:G3} rad");
 
             checkedSamples++;
-            _ = residual;
         }
 
         // The period, from the mean motion the elements carry: 13.06499295 degrees a day.
