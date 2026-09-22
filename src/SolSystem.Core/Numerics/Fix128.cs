@@ -61,7 +61,16 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
     internal static Fix128 FromWhole(long whole)
     {
         bool negative = whole < 0;
-        ulong magnitude = negative ? (ulong)(-whole) : (ulong)whole;
+
+        // `-whole` wraps for long.MinValue, and that is the intended magnitude: the
+        // two's-complement negation of the most negative long is its absolute value.
+        // A checked build is told here rather than left to read it as an accident.
+        ulong magnitude;
+        unchecked
+        {
+            magnitude = negative ? (ulong)(-whole) : (ulong)whole;
+        }
+
         return new((UInt128)magnitude << FractionalBits, negative);
     }
 
@@ -101,7 +110,13 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
         // part lives in exactly those 64 bits. Narrowing first made 2^64 read as 0, so
         // sine reported 0 at a quarter turn while the lookup underneath was correct.
         UInt128 whole = Magnitude >> FractionalBits;
-        ulong low = (ulong)Magnitude;
+        ulong low;
+        unchecked
+        {
+            // The low word of the magnitude, taken by design — the whole part has already
+            // been addressed through the full magnitude, which the note above is about.
+            low = (ulong)Magnitude;
+        }
         double magnitude = (double)whole + low / TwoTo64;
         return Negative ? -magnitude : magnitude;
     }

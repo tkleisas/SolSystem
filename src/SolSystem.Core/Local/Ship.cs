@@ -147,10 +147,12 @@ internal struct Ship
     /// what the Verlet position update assumes.
     /// </para>
     /// <para>
-    /// The acceleration is computed at the <b>mid-tick</b> mass, since propellant is
-    /// consumed uniformly. At a 120 Hz tick a full-throttle burn consumes about 10⁻⁴ of the
-    /// ship's mass, so the difference from either endpoint is far below the frame's
-    /// resolution — but taking the midpoint costs nothing and is the defensible choice.
+    /// The acceleration is computed at the mass <b>after</b> this tick's propellant has been
+    /// consumed, not at a midpoint of the burn. At a 120 Hz tick a full-throttle burn
+    /// consumes about 10⁻⁴ of the ship's mass, so the difference from either the mid-tick
+    /// mass or the mass before the burn is far below the frame's resolution. The remark
+    /// once claimed the mid-tick value was taken, and did not match the code; this states
+    /// what the code does.
     /// </para>
     /// </remarks>
     internal void Step(

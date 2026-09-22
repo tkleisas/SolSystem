@@ -43,13 +43,36 @@ internal sealed class FlightSession
     private static readonly Fix128 MetresToKilometres = Fix128.FromDouble(0.001);
 
     /// <summary>The ship's tick, which is also the station's — see <see cref="Advance"/>.</summary>
-    private const double TickSeconds = 1.0 / 120.0;
+    private const double TickSeconds = Constants.NavigationTickSeconds;
 
     private FlightSession(StarCatalogue stars, double julianDate, Station station)
     {
         _stars = stars;
         JulianDate = julianDate;
         _station = station;
+    }
+
+    private readonly SolarSystem _system = new();
+
+    /// <summary>
+    /// The ephemeris, evaluated at the session's clock.
+    /// </summary>
+    /// <remarks>
+    /// One instance, re-synced on each read, rather than a fresh construction wherever a body
+    /// position is wanted. The first version built a new <c>SolarSystem</c> wherever one was
+    /// needed — the session's own advance, the body renderer, the nav overlay, the chart and
+    /// the course planner — so a single frame ran the ephemeris setup half a dozen times, and
+    /// "one world" lived in constructor calls. Readers of this property see the clock set to
+    /// the session's own time, so every renderer of the same frame sees the same sky. One
+    /// session runs on one thread; nothing here is shared across threads.
+    /// </remarks>
+    internal SolarSystem System
+    {
+        get
+        {
+            _system.SetTime(Fix128.FromDouble((JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
+            return _system;
+        }
     }
 
     /// <summary>The stars, in the ecliptic frame.</summary>
@@ -87,22 +110,15 @@ internal sealed class FlightSession
         StarCatalogue stars = StarCatalogue.Load(Path.Combine(
             RepositoryRoot(), "art", "sky", "stars.bin"));
 
-        var system = new SolarSystem();
-        system.SetTime(Fix128.FromDouble((options.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
-
-        Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
-
         // The corridor runs along +x in the station's local frame, so a ship sitting on it is at
         // station + axis·d and closes by travelling against the axis. Same convention as the
-        // docking law, because it is the same corridor.
-        var station = Station.InCircularOrbit(
-            Ephemeris.Body.Earth,
-            options.Station,
-            Fix128.FromDouble(6_778_100.0),
-            Fix128Vec.Zero,
-            new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero));
+        // docking law, because it is the same corridor. The station is built in Core, where its
+        // orbit and its port have their one definition.
+        var station = Station.Meridian(options.Station);
 
         var session = new FlightSession(stars, options.JulianDate, station);
+        Ephemeris.State earth = session.System.Heliocentric(Ephemeris.Body.Earth);
+
         session._localOffset = station.Port.Axis * Fix128.FromDouble(options.Standoff);
         session._localVelocity = Fix128Vec.Zero;
 
@@ -234,9 +250,7 @@ internal sealed class FlightSession
             _station.Step(dt);
         }
 
-        var system = new SolarSystem();
-        system.SetTime(Fix128.FromDouble((JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
-        Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
+        Ephemeris.State earth = System.Heliocentric(Ephemeris.Body.Earth);
 
         // What moves most is the Earth, and the observer rides it — which is the whole point,
         // because over an orbit the sky turns and the Sun comes round, and a session left running
@@ -263,12 +277,7 @@ internal sealed class FlightSession
     }
 
     /// <summary>The Earth's state at the session's current time.</summary>
-    internal Ephemeris.State Earth()
-    {
-        var system = new SolarSystem();
-        system.SetTime(Fix128.FromDouble((JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
-        return system.Heliocentric(Ephemeris.Body.Earth);
-    }
+    internal Ephemeris.State Earth() => System.Heliocentric(Ephemeris.Body.Earth);
 
     /// <summary>The direction from the observer to a heliocentric point, as a unit vector.</summary>
     internal Fix128Vec DirectionTo(Fix128Vec heliocentricPoint)

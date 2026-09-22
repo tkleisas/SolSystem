@@ -37,3 +37,8 @@ Thumbs.db
 # Publish output
 publish/
 *.nupkg
+
+# Pack output: a stray `dotnet pack` wrote artifacts/package/SolSystem once, and the
+# nupkg it contains is already covered above. The directory is named so that the next
+# stray pack lands somewhere the ignore covers too.
+artifacts/package/

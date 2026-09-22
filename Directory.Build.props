@@ -7,6 +7,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Overflow checking everywhere but the shipping build: a silent wrap in the numerics
+         should fail a test, not a player. Any site that wraps on purpose says so with an
+         explicit `unchecked` next to it, so the intent lives in the code. -->
+    <CheckForOverflowUnderflow Condition="'$(Configuration)' != 'Release'">true</CheckForOverflowUnderflow>
   </PropertyGroup>
 
 </Project>

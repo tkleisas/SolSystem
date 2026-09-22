@@ -63,9 +63,6 @@ internal sealed class SunRenderer : IDisposable
         _indices.SetData(new short[] { 0, 1, 2, 0, 2, 3 });
     }
 
-    /// <summary>Whether the shader loaded, so the caller can fall back to a plain disc.</summary>
-    internal bool Ready => _effect is not null;
-
     /// <summary>Advances the shader's clock, which drives the granulation and the flicker.</summary>
     internal void Update(double seconds) => _seconds += seconds;
 
@@ -84,11 +81,9 @@ internal sealed class SunRenderer : IDisposable
     internal void Draw(FlightSession session, Fix128Vec cameraForward, Fix128Vec cameraUp,
         Matrix view, Matrix projection, float scale)
     {
-        if (_effect is null)
-        {
-            return;
-        }
-
+        // The effect is a constructor requirement — EffectLoader.Load throws when the shader
+        // is missing rather than handing back a null — so there is no "not ready" case here,
+        // and none of the fallback-a-plain-disc kind the old Ready property promised.
         // The Sun is the origin of the heliocentric frame, so the direction to it is the reverse of
         // where the observer is — and in render space, where the camera is at the origin, its centre
         // is the observer's own position negated.
@@ -183,6 +178,6 @@ internal sealed class SunRenderer : IDisposable
     {
         _quad.Dispose();
         _indices.Dispose();
-        _effect?.Dispose();
+        _effect.Dispose();
     }
 }

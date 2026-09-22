@@ -37,7 +37,7 @@ public class SolarSystemTests
         // each computed in fixed point, must sum to the hour exactly. (FromDouble rounds
         // each constant on entry, which is the documented boundary; the clock then never
         // rounds again.)
-        Fix128 tick = Fix128.FromDouble(1.0 / 120.0);
+        Fix128 tick = Fix128.FromDouble(Constants.NavigationTickSeconds);
         Fix128 hour = Fix128.FromDouble(3600.0);
         system.Advance(tick);
         system.Advance(hour - tick);

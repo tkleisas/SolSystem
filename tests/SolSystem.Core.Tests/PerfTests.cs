@@ -35,7 +35,7 @@ public class PerfTests
         var sw = Stopwatch.StartNew();
         for (int i = 0; i < iterations; i++)
         {
-            station.Step(F(1.0 / 120.0));
+            station.Step(F(Constants.NavigationTickSeconds));
         }
 
         sw.Stop();
@@ -74,7 +74,7 @@ public class PerfTests
         sw.Restart();
         for (int i = 0; i < iterations; i++)
         {
-            ship.Step(sources, F(1.0 / 120.0), command);
+            ship.Step(sources, F(Constants.NavigationTickSeconds), command);
         }
 
         sw.Stop();
@@ -92,14 +92,23 @@ public class PerfTests
         double gravityOnly = sw.Elapsed.TotalMicroseconds / iterations;
 
         sw.Restart();
-        Fix128Vec position = station.Offset;
-        Fix128Vec velocity = station.Velocity;
+        // The magnitudes are chosen to stay inside the frame, because a checked build is
+        // entitled to throw on a value that leaves it, and the cost of a Q64.64 operation is
+        // the same at any magnitude. The scale note is still worth stating: r³ of the
+        // station's 6 778 km orbit is 3.1 × 10²⁰ m³, which Q64.64 in metres cannot hold —
+        // the real gravity code never materialises r³ for exactly that reason and divides
+        // through a shared power of two instead (see GravityAt). This chain runs the same
+        // operations at magnitudes that stay representable.
+        var local = new Fix128Vec(
+            Fix128.FromDouble(150.0),
+            Fix128.FromDouble(90.0),
+            Fix128.FromDouble(60.0));
         for (int i = 0; i < iterations; i++)
         {
-            Fix128 r = position.Length;
+            Fix128 r = local.Length;
             Fix128 rSquared = r * r;
             Fix128 rCubed = rSquared * r;
-            _ = position * rCubed;
+            _ = local * rCubed;
         }
 
         sw.Stop();

@@ -11,13 +11,16 @@ namespace SolSystem.Core.Orbits;
 /// <param name="PeakSpeed">Fastest the ship moves relative to the Sun, in m/s. Zero when ballistic.</param>
 /// <param name="Feasible">Whether the ship's remaining delta-v covers it.</param>
 /// <param name="Note">The one thing a pilot needs to know about this option.</param>
+/// <param name="Throttle">The fraction of full thrust flying this option commands. Ballistic is
+/// zero because it commands no burn at all.</param>
 internal readonly record struct TransferOption(
     string Name,
     double Seconds,
     double DeltaV,
     double PeakSpeed,
     bool Feasible,
-    string Note);
+    string Note,
+    double Throttle);
 
 /// <summary>
 /// The trajectory planner: what the flight computer offers when you point at somewhere.
@@ -47,10 +50,10 @@ internal readonly record struct TransferOption(
 internal static class FlightPlan
 {
     /// <summary>The Sun's gravitational parameter, km³/s². The frame's unit, so everything below is km and s.</summary>
-    private const double SunGmKm = 1.32712440018e11;
+    private static readonly double SunGmKm = Constants.SunGm.ToDouble();
 
-    /// <summary>Kilometres in an astronomical unit.</summary>
-    internal const double KilometresPerAu = 149_597_870.7;
+    /// <summary>Kilometres in an astronomical unit, read from its one home.</summary>
+    internal const double KilometresPerAu = Constants.KilometresPerAu;
 
     /// <summary>
     /// How much of full thrust the economy option uses.
@@ -101,10 +104,10 @@ internal static class FlightPlan
         double sign = outbound ? -1.0 : 1.0;
 
         AddTorch(options, "DIRECT", straight, maxAcceleration, gravity * sign, deltaVAvailable,
-            "Full thrust, turn over at the midpoint.");
+            "Full thrust, turn over at the midpoint.", 1.0);
 
         AddTorch(options, "ECONOMY", straight, maxAcceleration * EconomyThrottle, gravity * sign,
-            deltaVAvailable, "A quarter thrust. Twice the time, half the fuel.");
+            deltaVAvailable, "A quarter thrust. Twice the time, half the fuel.", EconomyThrottle);
 
         options.Add(Ballistic(fromKm, targetKm, deltaVAvailable));
 
@@ -133,7 +136,8 @@ internal static class FlightPlan
         double acceleration,
         double gravityCorrection,
         double deltaVAvailable,
-        string note)
+        string note,
+        double throttle)
     {
         // Net acceleration: thrust minus whatever the Sun takes back. A correction that reaches
         // zero or below is a ship that cannot go, and saying so is more use than a negative time.
@@ -142,7 +146,7 @@ internal static class FlightPlan
         if (net <= 1e-9 || distanceMetres <= 0.0)
         {
             options.Add(new TransferOption(name, double.PositiveInfinity, double.PositiveInfinity,
-                0.0, false, "The Sun wins: this drive cannot cross that far."));
+                0.0, false, "The Sun wins: this drive cannot cross that far.", throttle));
             return;
         }
 
@@ -159,7 +163,8 @@ internal static class FlightPlan
         double peak = Math.Sqrt(distanceMetres * net);
         double deltaV = acceleration * seconds;
 
-        options.Add(new TransferOption(name, seconds, deltaV, peak, deltaV <= deltaVAvailable, note));
+        options.Add(new TransferOption(
+            name, seconds, deltaV, peak, deltaV <= deltaVAvailable, note, throttle));
     }
 
     /// <summary>
@@ -184,7 +189,7 @@ internal static class FlightPlan
         if (fromKm <= 0.0 || targetKm <= 0.0)
         {
             return new TransferOption("BALLISTIC", double.PositiveInfinity, double.PositiveInfinity,
-                0.0, false, "No orbit to leave from.");
+                0.0, false, "No orbit to leave from.", 0.0);
         }
 
         double transferAxis = (fromKm + targetKm) * 0.5;
@@ -210,7 +215,8 @@ internal static class FlightPlan
             deltaV,
             0.0,
             deltaV <= deltaVAvailable,
-            $"Engine off and fall. Waits for a launch window; {days:F0} days in transit.");
+            $"Engine off and fall. Waits for a launch window; {days:F0} days in transit.",
+            0.0);
     }
 
     /// <summary>

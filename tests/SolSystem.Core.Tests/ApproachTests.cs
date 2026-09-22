@@ -11,13 +11,17 @@ namespace SolSystem.Core.Tests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The four end-to-end tests are marked Skip, and the reason is specific.</b> The law flies
-/// an approach correctly — it accelerates, judges when to reverse, brakes from 8.1 m/s, and
-/// reaches the capture envelope at 0.05 m/s. What it cannot yet do is <em>stop</em> there. The
-/// hold phase that was meant to settle the residual rate inside a quarter of a metre latches
-/// and then lets the ship drift: a trace shows it entering the hold at 0.25 m and being four
-/// hundred metres away and still accelerating shortly after. That is one specific fault with a
-/// specific trace, and it wants a fresh reading rather than a seventh guess.
+/// <b>The four end-to-end tests fly the whole approach, contact included.</b> The law up to
+/// contact is covered piece by piece — it accelerates, judges when to reverse, brakes from
+/// 8.1 m/s, and reaches the capture envelope at 0.05 m/s. What took longest was the hold
+/// phase after contact, because the world keeps calling the law after contact, and for a
+/// long time its answer was full throttle through the port: the hold's clamp on the closing
+/// rate asked for a burn a nose-first, thrust-only ship cannot make, the aim in the hold is
+/// the corridor, and the corridor points the way the ship was already going. A probe flown
+/// two minutes past contact read forty metres a second out the other side and still
+/// accelerating. The hold now does what its own documentation always said — the latches
+/// have the ship and the law stops flying — and
+/// <see cref="OnceTheLatchesHaveIt_TheLawStopsFlying"/> pins it.
 /// </para>
 /// <para>
 /// What the attempt established, every rule of it paid for at least once:
@@ -52,7 +56,7 @@ public class ApproachTests
     private static Fix128 F(double v) => Fix128.FromDouble(v);
     private static Fix128Vec V(double x, double y, double z) => new(F(x), F(y), F(z));
 
-    private const double TickSeconds = 1.0 / 120.0;
+    private const double TickSeconds = Constants.NavigationTickSeconds;
     private const double ThrustKilonewtons = 3.92;
     private const double Acceleration = 0.0392;
 

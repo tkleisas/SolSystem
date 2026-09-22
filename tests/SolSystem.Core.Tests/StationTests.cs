@@ -28,7 +28,7 @@ public class StationTests
     private static Fix128Vec V(double x, double y, double z) => new(F(x), F(y), F(z));
 
     /// <summary>120 Hz, the navigation tick the design fixes.</summary>
-    private const double TickSeconds = 1.0 / 120.0;
+    private const double TickSeconds = Constants.NavigationTickSeconds;
 
     /// <summary>Low Earth orbit, just above the atmosphere.</summary>
     private const double LeoRadiusKm = 6_778.1;

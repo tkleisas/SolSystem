@@ -23,9 +23,19 @@ internal static class Constants
     /// This is the *orbital* step, not the navigation step. An orbit only has to be
     /// resolved, not flown, so one hour is ample: Earth's orbit becomes 8 766 steps
     /// per revolution, well inside the range where a symplectic integrator is
-    /// accurate. The action layer ticks far faster and is a separate concern.
+    /// accurate. The navigation step the action layer flies on is
+    /// <see cref="NavigationTickSeconds"/>.
     /// </remarks>
     internal const long StrategicTickSeconds = 3600;
+
+    /// <summary>The navigation tick, in seconds: 120 Hz, the rate the whole local frame advances at.</summary>
+    /// <remarks>
+    /// A ship and the station beside it are two steppers over one world, and they advance
+    /// in lockstep only while both compute their tick count from the same step. The value
+    /// is written once, here; the client, the probe and the tests each bind a local name
+    /// to it, and the compiler carries the agreement.
+    /// </remarks>
+    internal const double NavigationTickSeconds = 1.0 / 120.0;
 
     // ------------------------------------------------------------------ local frame
     // Metres, for the Q64.64 type. These are the units a ship manoeuvres in.
@@ -57,6 +67,16 @@ internal static class Constants
 
     /// <summary>GM of Jupiter: 1.26686534 × 10^8 km^3/s^2.</summary>
     internal static readonly Fix128 JupiterGmKm = Fix128.FromDouble(1.26686534e8);
+
+    /// <summary>Kilometres in one astronomical unit: the IAU value, 149 597 870.7 km.</summary>
+    /// <remarks>
+    /// The ephemeris and the course planner both work in AU-scaled elements, so both need
+    /// this; it is written once here and both read it. It is <em>not</em> the same number as
+    /// <see cref="EarthOrbitalRadiusKm"/> below — that is Earth's mean orbital radius, a
+    /// rounded whole-kilometre value used to place test orbits, and the 0.7 km difference
+    /// between them is deliberate rather than a rounding accident.
+    /// </remarks>
+    internal const double KilometresPerAu = 149_597_870.7;
 
     /// <summary>Earth's mean orbital radius about the Sun: 1 AU in kilometres.</summary>
     internal static readonly Fix128 EarthOrbitalRadiusKm = Fix128.FromDouble(149_597_870.0);

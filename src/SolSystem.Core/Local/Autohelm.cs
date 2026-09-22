@@ -131,6 +131,15 @@ internal struct Autohelm
         Fix128 acceleration = ship.Engine.MaxAccelerationInMetresPerSecondSquared * Throttle;
         if (acceleration <= Fix128.Zero)
         {
+            // Planning authority, not command authority: the phases below budget braking
+            // distances, and the engine's ceiling is the figure to budget against. The corner
+            // it guards is an engagement at throttle zero, which no caller makes — the client
+            // engages at full or at the economy quarter — and without it the braking
+            // distance is exactly zero, which wedges the phase machine in Accelerating
+            // forever. With it the machine progresses. The burn gate still commands the
+            // engagement's own throttle, so such a ship would coast through its target with
+            // the engine dark; the fallback keeps the plan moving, it does not make the
+            // engagement sane.
             acceleration = ship.Engine.MaxAccelerationInMetresPerSecondSquared;
         }
 
@@ -275,20 +284,19 @@ internal struct Autohelm
         // holding full rate until it is on top of the target and then hunting. The dot of two
         // normalized vectors can round a hair past ±1, which the arccosine refuses — so it is
         // clamped first, cheaply, rather than trusted.
+        //
+        // Error below Tiny cannot reach this line. The cross axis is sin(error) for unit vectors,
+        // so a vanishing error arrives at the degeneracy branch above with a positive alignment
+        // and leaves through its zero command. The first version carried an override that
+        // substituted a half turn for a vanishing error — a nose dead on target ordered to spin
+        // — and it was unreachable for exactly that reason; it is removed rather than explained.
         Fix128 error = Fix128.Acos(Fix128.Clamp(alignment, -Fix128.One, Fix128.One));
-        if (error < Tiny)
-        {
-            error = Pi;
-        }
 
         Fix128Vec command = axis.Normalized() * error;
 
         // Damping, against the rate the ship already has.
         return command - (attitude.AngularVelocity * SteerDamping);
     }
-
-    /// <summary>Half a turn, precomputed once: the angle a reversal asks for.</summary>
-    private static readonly Fix128 Pi = Fix128.FromDouble(Math.PI);
 
     /// <summary>Sizes below which a vector or an angle is noise for steering purposes.</summary>
     private static readonly Fix128 Tiny = Fix128.FromDouble(1e-6);

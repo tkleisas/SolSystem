@@ -203,8 +203,8 @@ internal static class Ephemeris
         return Table[index].SemiMajorAxisAu;
     }
 
-    /// <summary>Kilometres in one astronomical unit, the frame's unit.</summary>
-    private const double KilometresPerAu = 149_597_870.7;
+    /// <summary>Kilometres in one astronomical unit, the frame's unit, read from its one home.</summary>
+    private const double KilometresPerAu = Constants.KilometresPerAu;
 
     /// <summary>State of a body at a Julian date: heliocentric position and velocity.</summary>
     /// <remarks>

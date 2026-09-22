@@ -153,16 +153,28 @@ internal static class Trig128
             return a;
         }
 
-        ulong aLow = (ulong)a;
-        ulong bLow = (ulong)SinTable[index + 1];
-        UInt128 linear = a + ((UInt128)(bLow - aLow) * fraction >> FractionBits);
+        // The three narrows below take the low word of a table entry by design — the
+        // interpolation works entirely in the low words because, as the note says, the
+        // high words cancel — and the arithmetic on them wraps deliberately: the peak
+        // entry is exactly 2^64, so its low word is zero and `bLow - aLow` underflows
+        // for the last interval of the quadrant, while the VALUE the line computes
+        // cannot. Subtraction mod 2^64 is exact. A checked build is told that here
+        // rather than left to read the narrows as accidents.
+        ulong aLow, bLow, cLow, concave;
+        UInt128 linear;
+        unchecked
+        {
+            aLow = (ulong)a;
+            bLow = (ulong)SinTable[index + 1];
+            cLow = (ulong)SinTable[index + 2 <= TableSize ? index + 2 : TableSize];
+            concave = 2 * bLow - aLow - cLow;
+            linear = a + ((UInt128)(bLow - aLow) * fraction >> FractionBits);
+        }
 
         // Sine is concave across the whole first quadrant, so `a - 2b + c` is negative and is
         // accumulated the other way round as `2b - a - c`. Only the low words are needed: the
         // second difference is of order 2^41, and where the entries sit near 2^64 their high
         // words are identical and cancel. The guard entries keep c in range.
-        ulong cLow = (ulong)SinTable[index + 2 <= TableSize ? index + 2 : TableSize];
-        ulong concave = 2 * bLow - aLow - cLow;
 
         // s(1 - s), at Q0.50 in and Q0.50 out.
         ulong sWeighted = (ulong)((UInt128)fraction * ((1UL << FractionBits) - fraction) >> FractionBits);
@@ -205,7 +217,14 @@ internal static class Trig128
         // the quadrant bits — 1.0 turns sets bit 64, which the two-bit quadrant field reads
         // back as quadrant 0, so adding a quarter turn inside CosTurn makes sine report 1.0
         // instead of the cosine.
-        ulong fractionOfTurn = (ulong)turn.Magnitude;
+        ulong fractionOfTurn;
+        unchecked
+        {
+            // Dropping the whole turns IS the reduction: the low word addresses the table
+            // and the high word is the turn count, so this narrow wraps by design for
+            // any caller that passes an unreduced angle.
+            fractionOfTurn = (ulong)turn.Magnitude;
+        }
 
         // The top two bits of that are the quadrant; the remaining 62 are the position within
         // it. Shifting the low word LEFT would drop the top bits and wrap, so the quadrant is

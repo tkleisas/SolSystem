@@ -24,9 +24,15 @@ internal static class IntMath
         UInt128 result = UInt128.Zero;
 
         // BitOperations has no UInt128 overload, so the leading-zero count is taken
-        // from whichever half holds the value.
+        // from whichever half holds the value. The low narrow is a split, not a
+        // value change — it is read only when the value fits in 64 bits, but the
+        // cast is evaluated either way, so a checked build is told the intent.
         ulong high = (ulong)(n >> 64);
-        ulong low = (ulong)n;
+        ulong low;
+        unchecked
+        {
+            low = (ulong)n;
+        }
         int bitLength = high != 0
             ? 128 - System.Numerics.BitOperations.LeadingZeroCount(high)
             : 64 - System.Numerics.BitOperations.LeadingZeroCount(low);
@@ -73,8 +79,17 @@ internal static class IntMath
     /// </remarks>
     internal static UInt128 MultiplyHigh128(UInt128 a, UInt128 b)
     {
-        ulong al = (ulong)a, ah = (ulong)(a >> 64);
-        ulong bl = (ulong)b, bh = (ulong)(b >> 64);
+        // The four narrows are the split, not a truncation of the value: taking the low
+        // word of a Q64.64 magnitude at or above 1.0 is how its halves are addressed.
+        // A checked build is told here rather than left to look like a bug.
+        ulong al, ah, bl, bh;
+        unchecked
+        {
+            al = (ulong)a;
+            ah = (ulong)(a >> 64);
+            bl = (ulong)b;
+            bh = (ulong)(b >> 64);
+        }
 
         UInt128 lowLow = (UInt128)al * bl;
         UInt128 cross = (UInt128)al * bh + (UInt128)ah * bl;

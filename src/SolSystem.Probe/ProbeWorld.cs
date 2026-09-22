@@ -25,7 +25,7 @@ namespace SolSystem.Probe;
 internal sealed class ProbeWorld
 {
     /// <summary>The navigation tick the design fixes. 120 Hz, one tick per step.</summary>
-    internal const double TickSeconds = 1.0 / 120.0;
+    internal const double TickSeconds = Constants.NavigationTickSeconds;
 
     private readonly SolarSystem _system = new();
     private readonly Dictionary<string, Station> _stations = new(StringComparer.OrdinalIgnoreCase);
@@ -41,9 +41,7 @@ internal sealed class ProbeWorld
         // frame is per-body and not global.
         // Fully qualified because `Station` is also the name of the accessor below, and a
         // method shadows a type of the same name inside the class that declares it.
-        Add("Meridian", SolSystem.Core.Orbits.Station.InCircularOrbit(
-            Ephemeris.Body.Earth, "Meridian", F(6_778_100.0),
-            Fix128Vec.Zero, new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero)));
+        Add("Meridian", SolSystem.Core.Orbits.Station.Meridian());
 
         Add("Anchorage", SolSystem.Core.Orbits.Station.InCircularOrbit(
             Ephemeris.Body.Earth, "Anchorage", F(42_164_000.0),

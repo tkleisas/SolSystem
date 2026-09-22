@@ -13,7 +13,7 @@ namespace SolSystem.Client;
 /// This is the phase 0 gate made tangible: <i>if flying this ship is not fun with nothing else
 /// attached, nothing else rescues it</i>. Everything here is either a key or a view of what the
 /// simulation already computes — there is no second physics model, and the engine, the mass and the
-/// propellant are the same ones the docking tests fly.
+/// propellant are the ones <see cref="Hulls.Courier"/> defines.
 /// </para>
 /// <para>
 /// <b>The controls are the real constraint, not a convention.</b> The helm is rate-limited to six
@@ -25,18 +25,11 @@ namespace SolSystem.Client;
 /// </remarks>
 internal sealed class Flight
 {
-    /// <summary>
-    /// How much of the tank a fresh hull starts with.
-    /// </summary>
-    /// <remarks>
-    /// Not full. A hull that starts full has no reason to think about propellant until the moment it
-    /// runs out, and the whole point of the resource is that it is visible from the first frame.
-    /// </remarks>
-    private const double StartingPropellantTonnes = 40.0;
-
-    private const double DryMassTonnes = 100.0;
-
     /// <summary>Throttle change per second while a key is held, as a fraction of full thrust.</summary>
+    /// <remarks>
+    /// The helm's feel, and the client's to own: it is about the pilot's hands, not the ship. A
+    /// hull does not have a throttle rate; a control scheme does.
+    /// </remarks>
     private const double ThrottleRate = 0.8;
 
     /// <summary>Turn command, as a fraction of the crewed maximum rate.</summary>
@@ -58,32 +51,6 @@ internal sealed class Flight
 
     /// <summary>Sets the throttle directly, for a render with no keyboard behind it.</summary>
     internal void SetThrottle(double value) => _throttle = Math.Clamp(value, 0.0, 1.0);
-
-    /// <summary>
-    /// A crewed hull with a torch, sized to the freighter that was modelled.
-    /// </summary>
-    /// <remarks>
-    /// The thrust is chosen so that the acceleration is the crewed steady figure of four milligee,
-    /// which is what the radiator can reject rather than what the engine could produce. A hundred
-    /// and forty tonnes at four milligee is 5.5 kilonewtons, and the engine is quoted at the thrust
-    /// that delivers it.
-    /// </remarks>
-    internal static Flight Start(Fix128Vec position, Fix128Vec velocity, Attitude attitude)
-    {
-        Fix128 mass = Fix128.FromDouble(DryMassTonnes + StartingPropellantTonnes);
-
-        var engine = Engine.Crewed(
-            Fix128.FromDouble(5.5),
-            Engine.CrewedSpecificImpulse);
-
-        return new Flight(new Ship(
-            position,
-            velocity,
-            Fix128.FromDouble(DryMassTonnes),
-            Fix128.FromDouble(StartingPropellantTonnes),
-            engine,
-            attitude));
-    }
 
     /// <summary>
     /// Reads the controls and returns this tick's command.

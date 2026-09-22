@@ -65,6 +65,31 @@ internal struct Station
     }
 
     /// <summary>
+    /// Meridian, the Earth-orbit station, in its circular orbit with the harbour facing +x.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Low Earth orbit at 6 778.1 km — about 400 km up — with the port on the station's own axis
+    /// and the corridor running along +x in the local frame, the same convention the docking law
+    /// flies. Every caller that wants the Earth station builds it here, so the orbit, the port
+    /// and the corridor have one definition; a test that wants a different port offset makes its
+    /// own station and says why.
+    /// </para>
+    /// <para>
+    /// <paramref name="name"/> relabels the site for a caller that started beside it under a
+    /// different name; the orbit is Meridian's whatever it is called. What the station <em>is</em>
+    /// — a 2 km wheel turning at 0.95 rpm — is the model's business, not this record's. See
+    /// <c>docs/SETTING.md</c> §7 for the setting.
+    /// </para>
+    /// </remarks>
+    internal static Station Meridian(string name = "Meridian") => InCircularOrbit(
+        Ephemeris.Body.Earth,
+        name,
+        Fix128.FromDouble(6_778_100.0),
+        Fix128Vec.Zero,
+        new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero));
+
+    /// <summary>
     /// A station in a circular orbit of radius <paramref name="radiusMetres"/> about its host.
     /// </summary>
     /// <remarks>
@@ -80,8 +105,14 @@ internal struct Station
         Fix128Vec portOffset,
         Fix128Vec portAxis)
     {
+        // The body table carries GM in km³/s², the solar frame's unit. A station flies in the
+        // local frame, metres, so the parameter comes across as km³ × 10⁹ m³/km³ before the
+        // speed is taken. The factor is named rather than inlined because it is the same
+        // conversion the local-frame constants in <see cref="Constants"/> were built from.
+        const double CubicMetresPerCubicKilometre = 1_000_000_000.0;
+
         SolarSystem.Body body = SolarSystem.BodyOf(host);
-        Fix128 gm = Fix128.FromDouble(body.GmKm * 1_000_000_000.0);
+        Fix128 gm = Fix128.FromDouble(body.GmKm * CubicMetresPerCubicKilometre);
 
         Fix128 speed = Fix128.Sqrt(gm / radiusMetres);
 

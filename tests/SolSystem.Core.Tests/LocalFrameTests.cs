@@ -21,7 +21,7 @@ namespace SolSystem.Core.Tests;
 public class LocalFrameTests
 {
     /// <summary>The navigation tick. Fixed, and the same rate in every test.</summary>
-    internal const double TickSeconds = 1.0 / 120.0;
+    internal const double TickSeconds = Constants.NavigationTickSeconds;
 
     private static Fix128 F(double value) => Fix128.FromDouble(value);
 

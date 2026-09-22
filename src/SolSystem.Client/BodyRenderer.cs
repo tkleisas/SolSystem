@@ -224,8 +224,7 @@ internal sealed class BodyRenderer : IDisposable
     /// <summary>Builds the list of bodies the client draws, from the ephemeris.</summary>
     internal static List<Body> BodiesFor(FlightSession session)
     {
-        var system = new SolarSystem();
-        system.SetTime(Fix128.FromDouble((session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
+        SolarSystem system = session.System;
 
         var bodies = new List<Body>
         {

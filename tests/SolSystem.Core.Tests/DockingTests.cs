@@ -16,7 +16,8 @@ namespace SolSystem.Core.Tests;
 /// </remarks>
 public class DockingTests
 {
-    internal const double TickSeconds = 1.0 / 120.0;
+    /// <summary>The navigation tick, bound to its one home in Core.</summary>
+    internal const double TickSeconds = Constants.NavigationTickSeconds;
 
     private static Fix128 F(double value) => Fix128.FromDouble(value);
     private static Fix128Vec V(double x, double y, double z) => new(F(x), F(y), F(z));
