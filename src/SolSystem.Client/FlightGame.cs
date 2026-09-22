@@ -504,7 +504,7 @@ internal sealed class FlightGame : Game
     private void Engage(Ephemeris.Body destination)
     {
         var system = new SolarSystem();
-        system.SetTime((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
 
         TransferOption option = _courses.Count > 0
             ? _courses[Math.Clamp(_courseIndex, 0, _courses.Count - 1)]
@@ -827,7 +827,7 @@ internal sealed class FlightGame : Game
     private void DrawChart()
     {
         var system = new SolarSystem();
-        system.SetTime((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
 
         _sprites.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.AnisotropicClamp);
         _chart.Draw(_session, system, null);
@@ -886,7 +886,7 @@ internal sealed class FlightGame : Game
     private void DrawCourseOptions(Vector2 at, Ephemeris.Body body, Color ink, Color dim, Color warn)
     {
         var system = new SolarSystem();
-        system.SetTime((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
 
         // THE SHIP'S POSITION IS EARTH-CENTRED AND THE DESTINATION'S IS HELIOCENTRIC, and mixing the
         // two put the ship six thousand eight hundred kilometres from the Sun instead of one hundred

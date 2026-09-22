@@ -91,7 +91,7 @@ internal sealed class FlightSession
             RepositoryRoot(), "art", "sky", "stars.bin"));
 
         var system = new SolarSystem();
-        system.SetTime((options.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((options.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
 
         Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
 
@@ -235,7 +235,7 @@ internal sealed class FlightSession
         }
 
         var system = new SolarSystem();
-        system.SetTime((JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
         Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
 
         // What moves most is the Earth, and the observer rides it — which is the whole point,
@@ -266,7 +266,7 @@ internal sealed class FlightSession
     internal Ephemeris.State Earth()
     {
         var system = new SolarSystem();
-        system.SetTime((JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
         return system.Heliocentric(Ephemeris.Body.Earth);
     }
 

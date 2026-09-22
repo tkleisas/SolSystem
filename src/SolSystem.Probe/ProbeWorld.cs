@@ -50,8 +50,8 @@ internal sealed class ProbeWorld
             Fix128Vec.Zero, new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
     }
 
-    /// <summary>Seconds since J2000. The world's only notion of when.</summary>
-    internal double Time => _system.SecondsFromJ2000;
+    /// <summary>Seconds since J2000. The world's only notion of when, exact to the tick.</summary>
+    internal Fix128 Time => _system.SecondsFromJ2000;
 
     /// <summary>Ticks advanced since the world was created.</summary>
     internal long Ticks { get; private set; }
@@ -82,6 +82,9 @@ internal sealed class ProbeWorld
     internal static bool Manual;
 
     private static Fix128 F(double value) => Fix128.FromDouble(value);
+
+    /// <summary>One navigation tick, precomputed once: the step the world advances by.</summary>
+    private static readonly Fix128 Tick = F(TickSeconds);
 
     private void Add(string name, Station station) => _stations[name] = station;
 
@@ -180,7 +183,7 @@ internal sealed class ProbeWorld
     private void Step()
     {
         // The ephemeris is analytic, so the clock is the only thing the system needs.
-        _system.Advance(TickSeconds);
+        _system.Advance(Tick);
 
         // Stations are held by default. See HoldStations for why, and for what this probe
         // therefore does not test.

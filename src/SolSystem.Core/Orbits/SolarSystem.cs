@@ -27,8 +27,18 @@ namespace SolSystem.Core.Orbits;
 /// </remarks>
 internal sealed class SolarSystem
 {
-    /// <summary>Seconds since J2000.0. The simulation's only notion of when.</summary>
-    internal double SecondsFromJ2000 { get; private set; }
+    /// <summary>
+    /// Seconds since J2000.0. The simulation's only notion of when.
+    /// </summary>
+    /// <remarks>
+    /// Held in <see cref="Fix128"/> because a clock that drifts is a simulation that does not
+    /// match itself twice: the double it replaced carried two hundred microseconds per ulp at
+    /// 10¹² seconds and lost sub-second precision over a long run. The ephemeris conversion
+    /// happens once, here, at the documented boundary — measured constants enter as doubles by
+    /// design and <see cref="Ephemeris"/> evaluates in doubles against them. The clock's own
+    /// arithmetic — advance, set, compare — never touches one.
+    /// </remarks>
+    internal Fix128 SecondsFromJ2000 { get; private set; }
 
     /// <summary>Seconds in a day, for the conversion the ephemeris needs.</summary>
     private const double SecondsPerDay = 86400.0;
@@ -122,18 +132,25 @@ internal sealed class SolarSystem
     /// <summary>A new system at the J2000 epoch.</summary>
     internal SolarSystem()
     {
-        SecondsFromJ2000 = 0.0;
+        SecondsFromJ2000 = Fix128.Zero;
     }
 
-    /// <summary>Advances the clock by <paramref name="seconds"/>.</summary>
-    internal void Advance(double seconds) => SecondsFromJ2000 += seconds;
+    /// <summary>Advances the clock by <paramref name="seconds"/>, exactly.</summary>
+    internal void Advance(Fix128 seconds) => SecondsFromJ2000 += seconds;
 
     /// <summary>Sets the clock. Used by a replay seeking to a timestamp.</summary>
-    internal void SetTime(double secondsFromJ2000) => SecondsFromJ2000 = secondsFromJ2000;
+    internal void SetTime(Fix128 secondsFromJ2000) => SecondsFromJ2000 = secondsFromJ2000;
 
-    /// <summary>Heliocentric position and velocity, solar frame: kilometres and km/s.</summary>
+    /// <summary>
+    /// Heliocentric position and velocity, solar frame: kilometres and km/s.
+    /// </summary>
+    /// <remarks>
+    /// The one place the clock becomes a double: the ephemeris is analytic and its constants
+    /// are measured doubles, so the boundary is crossed here, once per query, and never inside
+    /// the clock itself.
+    /// </remarks>
     internal Ephemeris.State Heliocentric(Ephemeris.Body body) =>
-        Ephemeris.AtSecondsFromJ2000(body, SecondsFromJ2000);
+        Ephemeris.AtSecondsFromJ2000(body, SecondsFromJ2000.ToDouble());
 
     /// <summary>
     /// The Moon, heliocentric: the Earth's position plus the Moon's offset from it.
@@ -148,13 +165,13 @@ internal sealed class SolarSystem
     internal Ephemeris.State MoonHeliocentric()
     {
         Ephemeris.State earth = Heliocentric(Ephemeris.Body.Earth);
-        Ephemeris.State moon = Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000);
+        Ephemeris.State moon = Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000.ToDouble());
         return new Ephemeris.State(earth.Position + moon.Position, earth.Velocity + moon.Velocity);
     }
 
     /// <summary>The Moon's offset from the Earth, in kilometres and km/s.</summary>
     internal Ephemeris.State MoonRelativeToEarth() =>
-        Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000);
+        Ephemeris.MoonAtSecondsFromJ2000(SecondsFromJ2000.ToDouble());
 
     /// <summary>GM of the Moon, in km³/s².</summary>
     internal const double MoonGmKm = 4_902.8001;

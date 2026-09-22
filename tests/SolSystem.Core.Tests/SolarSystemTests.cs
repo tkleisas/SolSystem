@@ -31,13 +31,20 @@ public class SolarSystemTests
     public void TheClock_StartsAtJ2000AndAdvances()
     {
         var system = new SolarSystem();
-        Assert.Equal(0.0, system.SecondsFromJ2000);
+        Assert.Equal(Fix128.Zero, system.SecondsFromJ2000);
 
-        system.Advance(3600.0);
-        Assert.Equal(3600.0, system.SecondsFromJ2000);
+        // Advance is exact integer arithmetic over the Q64.64 word: two pieces of an hour,
+        // each computed in fixed point, must sum to the hour exactly. (FromDouble rounds
+        // each constant on entry, which is the documented boundary; the clock then never
+        // rounds again.)
+        Fix128 tick = Fix128.FromDouble(1.0 / 120.0);
+        Fix128 hour = Fix128.FromDouble(3600.0);
+        system.Advance(tick);
+        system.Advance(hour - tick);
+        Assert.Equal(hour, system.SecondsFromJ2000);
 
-        system.SetTime(ReferenceSeconds);
-        Assert.Equal(ReferenceSeconds, system.SecondsFromJ2000);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
+        Assert.Equal(Fix128.FromDouble(ReferenceSeconds), system.SecondsFromJ2000);
     }
 
     [Fact]
@@ -47,7 +54,7 @@ public class SolarSystemTests
         // all at once: AU has to survive the trip into kilometres, and a body at the wrong
         // radius is a body in the wrong orbit.
         var system = new SolarSystem();
-        system.SetTime(ReferenceSeconds);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
 
         foreach (SolarSystem.Body body in SolarSystem.Bodies)
         {
@@ -69,7 +76,7 @@ public class SolarSystemTests
         // it shows up here as a discrepancy against the ephemeris rather than as a plausible
         // wrong number somewhere downstream.
         var system = new SolarSystem();
-        system.SetTime(ReferenceSeconds);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
 
         foreach (SolarSystem.Body body in SolarSystem.Bodies)
         {
@@ -87,7 +94,7 @@ public class SolarSystemTests
     public void RelativePosition_IsTheDifferenceOfTheTwo()
     {
         var system = new SolarSystem();
-        system.SetTime(ReferenceSeconds);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
 
         Ephemeris.State earth = system.Heliocentric(Ephemeris.Body.Earth);
         Ephemeris.State mars = system.Heliocentric(Ephemeris.Body.Mars);
@@ -112,7 +119,7 @@ public class SolarSystemTests
         // orbit around Earth would sit still while Earth moved away at thirty kilometres a
         // second, and a ship near it would have to be re-positioned every tick.
         var system = new SolarSystem();
-        system.SetTime(ReferenceSeconds);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
 
         var offset = new Fix128Vec(
             Fix128.FromDouble(6_778.0), Fix128.Zero, Fix128.Zero);
@@ -140,7 +147,7 @@ public class SolarSystemTests
         const double radiusKm = 6_378.1;
 
         var system = new SolarSystem();
-        system.SetTime(ReferenceSeconds);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
 
         var offset = new Fix128Vec(Fix128.FromDouble(radiusKm), Fix128.Zero, Fix128.Zero);
         SolarSystem.LocalPoint centre = system.LocalTo(Ephemeris.Body.Earth, Fix128Vec.Zero);
@@ -187,7 +194,7 @@ public class SolarSystemTests
         // And Ceres is where Ceres is: 2.77 astronomical units out, which is the fact the whole
         // setting's volatile economy rests on.
         var system = new SolarSystem();
-        system.SetTime(0.0);
+        system.SetTime(Fix128.Zero);
         double ceresAu = system.Heliocentric(Ephemeris.Body.Ceres).Position.Length.ToDouble()
             / 149_597_870.7;
 
@@ -202,7 +209,7 @@ public class SolarSystemTests
         // gravity. They should stay together for a quarter of a year. If they do not, one of
         // them is wrong, and that is worth knowing before either is trusted for navigation.
         var system = new SolarSystem();
-        system.SetTime(ReferenceSeconds);
+        system.SetTime(Fix128.FromDouble(ReferenceSeconds));
 
         Ephemeris.State start = system.Heliocentric(Ephemeris.Body.Earth);
         var state = new SolarState(start.Position, start.Velocity);
@@ -218,7 +225,7 @@ public class SolarSystemTests
             Verlet128.Step(ref state, Constants.SunGm, Fix128.FromDouble(step));
         }
 
-        system.Advance(step * steps);
+        system.Advance(Fix128.FromDouble(step * steps));
         Ephemeris.State propagated = system.Heliocentric(Ephemeris.Body.Earth);
 
         double separationKm = (propagated.Position - state.Position).Length.ToDouble();

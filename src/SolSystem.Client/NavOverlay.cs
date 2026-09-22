@@ -118,7 +118,7 @@ internal sealed class NavOverlay
         var warn = new Color(230, 170, 90);
 
         var system = new SolarSystem();
-        system.SetTime((session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
 
         Vector3 f = Unit(cameraForward);
         Vector3 u = Unit(cameraUp);

@@ -190,7 +190,7 @@ internal sealed class ProbeRunner
         int ticks = command.Whole(0, "a tick count", "advance <ticks>", 0, 10_000_000);
         _ = ProbeWorld.Debug;
         _world.Advance(ticks);
-        Emit($"  world at tick {_world.Ticks} ({_world.Time / 86400.0:F6} days from J2000)");
+        Emit($"  world at tick {_world.Ticks} ({_world.Time.ToDouble() / 86400.0:F6} days from J2000)");
     }
 
     /// <summary>
@@ -213,7 +213,7 @@ internal sealed class ProbeRunner
         long ticks = (long)Math.Round(days * 86400.0 / ProbeWorld.TickSeconds);
         _world.Advance((int)Math.Min(ticks, int.MaxValue));
         Emit($"  {days:F6} days = {ticks:N0} ticks, world at tick {_world.Ticks} "
-            + $"({_world.Time / 86400.0:F6} days from J2000)");
+            + $"({_world.Time.ToDouble() / 86400.0:F6} days from J2000)");
     }
 
     private void Launch(ProbeCommand command)
@@ -297,7 +297,7 @@ internal sealed class ProbeRunner
         double longitude = command.Real(1, "a longitude", "sky <lat> <lon> <file>");
         string path = command.Argument(2, "a file path", "sky <lat> <lon> <file>");
 
-        double julianDate = 2451545.0 + (_world.Time / 86400.0);
+        double julianDate = 2451545.0 + (_world.Time.ToDouble() / 86400.0);
         Ephemeris.State earth = _world.BodyState(Ephemeris.Body.Earth);
 
         SkyObserver observer = SkyObserver.OnSurface(
@@ -463,7 +463,8 @@ internal sealed class ProbeRunner
         string label = command.ArgumentCount > 0 ? command.Argument(0, "a label", "hash [label]") : "state";
 
         var bytes = new List<byte>();
-        AppendScalar(bytes, _world.Time);
+        AppendScalar(bytes, _world.Time.Magnitude);
+        AppendScalar(bytes, _world.Time.Negative);
         AppendScalar(bytes, _world.Ticks);
         AppendScalar(bytes, _world.Phase);
 

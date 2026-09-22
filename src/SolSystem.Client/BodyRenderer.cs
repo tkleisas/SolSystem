@@ -225,7 +225,7 @@ internal sealed class BodyRenderer : IDisposable
     internal static List<Body> BodiesFor(FlightSession session)
     {
         var system = new SolarSystem();
-        system.SetTime((session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0);
+        system.SetTime(Fix128.FromDouble((session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
 
         var bodies = new List<Body>
         {
