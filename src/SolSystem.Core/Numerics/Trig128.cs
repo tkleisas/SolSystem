@@ -257,7 +257,12 @@ internal static class Trig128
             magnitude = Interpolate(index, fraction);
         }
 
-        return Fix128.FromRaw(magnitude, quadrant >= 2 || turn.Negative);
+        // The sign is an XOR, not an OR: the quadrant says where sin(|x|) points, the
+        // input's own sign flips it, and both together cancel. With OR a negative angle
+        // in the back half of the circle reported sin(-x) = sin(x) — negative when the
+        // identity says positive. Measured by hand: SinTurn(-0.6 turns) was -0.588;
+        // sin(-0.6 turns) is +0.588.
+        return Fix128.FromRaw(magnitude, quadrant >= 2 != turn.Negative);
     }
 
     /// <summary>Cosine of an angle given as Q64.64 turns. A sine advanced a quarter turn.</summary>

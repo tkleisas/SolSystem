@@ -82,6 +82,28 @@ public class Trig128Tests
     }
 
     [Fact]
+    public void NegativeAngles_MatchDoubleInEveryQuadrant()
+    {
+        // One sample per quadrant, each negated: 0.1, 0.3, 0.6, 0.85 turns. The sign of
+        // sin(-x) flips between the front and back halves of the circle, and an OR where
+        // the sign logic wanted an XOR is invisible until the back half is sampled —
+        // which the symmetry test above never reaches.
+        foreach (double turns in new[] { 0.1, 0.3, 0.6, 0.85 })
+        {
+            Fix128 angle = Fix128.FromDouble(-turns);
+            double radians = turns * -2.0 * Math.PI;
+
+            double sine = Trig128.SinTurn(angle).ToDouble();
+            Assert.True(Math.Abs(sine - Math.Sin(radians)) < 1e-7,
+                $"sin({-turns} turns): {sine}, expected {Math.Sin(radians)}");
+
+            double cosine = Trig128.CosTurn(angle).ToDouble();
+            Assert.True(Math.Abs(cosine - Math.Cos(radians)) < 1e-7,
+                $"cos({-turns} turns): {cosine}, expected {Math.Cos(radians)}");
+        }
+    }
+
+    [Fact]
     public void FullRevolutions_DoNotChangeTheResult()
     {
         for (int i = 0; i < 200; i++)
