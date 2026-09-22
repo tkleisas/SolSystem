@@ -93,7 +93,14 @@ internal readonly struct Fix3 : IEquatable<Fix3>
             return 0;
         }
 
-        int bits = 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)value.Raw);
+        // The exponent is a property of the MAGNITUDE. Taken on the raw long directly,
+        // a negative component's two's-complement top bit reads as LeadingZeroCount == 0
+        // and every negative value reports exponent 32 — so a vector with a negative
+        // component was scaled down by 2^32 before squaring, and Length came back
+        // effectively zero. (Fix3 itself is referenced only by the superseded Verlet
+        // generation, which is why nothing failed loudly.)
+        long magnitude = value.Raw >= 0 ? value.Raw : -value.Raw;
+        int bits = 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)magnitude);
         return bits - Fix64.FractionalBits;
     }
 
