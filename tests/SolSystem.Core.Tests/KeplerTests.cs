@@ -140,6 +140,32 @@ public class KeplerTests
         Assert.True(error / AuKm < 1e-6, $"closure error was {error} km");
     }
 
+    [Fact]
+    public void EccentricOrbit_ClosesOnItselfInEitherDirectionFromTheEpoch()
+    {
+        // One period BEFORE the epoch is the same point as one period after it. That is
+        // the only way the mean anomaly handed to WrapTurns is ever negative in this
+        // suite, and it pins the wrap's sign: preserved, a -0.001-turn anomaly starts the
+        // fixed six-pass Newton from -6 milliradians; normalised to [0, 1) it would start
+        // from 6.28 radians and six passes is not enough.
+        OrbitalElements orbit = Eccentric(AuKm, 0.1);
+        double period = 2.0 * Math.PI / orbit.MeanMotion.ToDouble();
+
+        SolarState start = orbit.StateAt(Fix128.Zero);
+        SolarState backwards = orbit.StateAt(F(-period));
+        SolarState forwards = orbit.StateAt(F(period));
+
+        foreach ((SolarState candidate, string label) in new[] { (backwards, "backwards"), (forwards, "forwards") })
+        {
+            double error = Math.Sqrt(
+                Math.Pow(start.Position.X.ToDouble() - candidate.Position.X.ToDouble(), 2)
+                + Math.Pow(start.Position.Y.ToDouble() - candidate.Position.Y.ToDouble(), 2)
+                + Math.Pow(start.Position.Z.ToDouble() - candidate.Position.Z.ToDouble(), 2));
+
+            Assert.True(error / AuKm < 1e-6, $"{label} closure error was {error} km");
+        }
+    }
+
     [Theory]
     [InlineData(0.0)]
     [InlineData(0.0167)]

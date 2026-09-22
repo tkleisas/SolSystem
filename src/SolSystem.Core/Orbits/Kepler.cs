@@ -194,7 +194,15 @@ internal readonly struct OrbitalElements
     /// <summary>Turns to radians.</summary>
     private static Fix128 TurnsToRadians(Fix128 turns) => turns * TwoPi;
 
-    /// <summary>Wraps a turn value into [0, 1), keeping the sign of the result positive.</summary>
+    /// <summary>Wraps a turn value into (-1, 1) by discarding whole turns, keeping the sign.</summary>
+    /// <remarks>
+    /// Sign-preserving rather than normalising to [0, 1), and the distinction is load-bearing:
+    /// the Newton iteration in <see cref="SolveKepler"/> runs a FIXED six passes from the wrapped
+    /// value as its starting guess, so the guess and the root have to start close. A mean anomaly
+    /// of -0.001 turns normalises to +0.999 turns — a guess of 6.28 radians for a root of
+    /// -0.006, which is the full circle away and more than six passes can reliably repay.
+    /// Kept negative, it starts three milliradians out.
+    /// </remarks>
     private static Fix128 WrapTurns(Fix128 turns)
     {
         if (turns.IsZero)
