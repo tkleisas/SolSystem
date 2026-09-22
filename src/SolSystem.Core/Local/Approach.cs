@@ -220,8 +220,16 @@ internal struct Approach
         switch (Phase)
         {
             case Stage.Hold:
-                // Settled: hold station against the latches.
-                along = Fix128.Clamp(-closing * Fix128.FromWhole(2), -accel, accel);
+                // Settled: the latches have the ship, and the law's job is over. NOT an
+                // active station-keep, whatever the clamp used to say: the ship is
+                // nose-first and thrust-only, so it cannot null its own residual rate
+                // without a reversal it must never take this close. The clamp on -closing
+                // produced exactly one command — full throttle, because the aim below is
+                // the corridor and the corridor points the way the ship was already going —
+                // which threw a docked ship through the port and forty metres a second out
+                // the other side. Every docking test quite properly stops at contact, so
+                // the runaway had never been ticked until a probe flew two minutes past it.
+                along = Fix128.Zero;
                 break;
 
             case Stage.Run:

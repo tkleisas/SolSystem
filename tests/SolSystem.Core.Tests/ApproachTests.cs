@@ -148,6 +148,42 @@ public class ApproachTests
     }
 
     [Fact]
+    public void OnceTheLatchesHaveIt_TheLawStopsFlying()
+    {
+        // The hold phase, ticked at last. Every other test here stops at contact, because
+        // contact is the question they ask — but the world keeps calling the law after
+        // contact, and its answer used to be full throttle through the port: the hold's
+        // clamp on the closing rate asked for a burn a nose-first, thrust-only ship can
+        // never make, the aim is the corridor, and the corridor points the way the ship
+        // was already going. A probe that flew two minutes past contact found the ship
+        // forty metres a second out the other side and still accelerating.
+        DockingPort port = Port;
+        var ship = MakeShip(
+            port.Position + port.Axis * F(2_000.0), -port.Axis * F(0.0), -port.Axis);
+
+        var approach = new Approach();
+        var sources = new[] { new GravitySource(V(-1e6, 0, 0), Fix128.Zero) };
+
+        bool held = false;
+        for (int tick = 0; tick < 300_000; tick++)
+        {
+            Command command = approach.Next(ship, port, Fix128Vec.Zero);
+            if (approach.Phase == Approach.Stage.Hold)
+            {
+                held = true;
+                Assert.True(command.Throttle == Fix128.Zero,
+                    $"tick {tick}: the latches have the ship and the law is still thrusting");
+                Assert.True(ship.Velocity.Length.ToDouble() < 0.2,
+                    $"tick {tick}: a held ship is doing {ship.Velocity.Length.ToDouble():F3} m/s");
+            }
+
+            ship.Step(sources, F(TickSeconds), command);
+        }
+
+        Assert.True(held, "the ship never reached the hold");
+    }
+
+    [Fact]
     public void AnApproachThatStartsTooFast_IsSlowedRatherThanAbandoned()
     {
         (bool docked, double closest, double closing, int ticks, double used) =
