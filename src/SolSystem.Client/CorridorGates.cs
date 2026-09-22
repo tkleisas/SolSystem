@@ -201,10 +201,12 @@ internal sealed class CorridorGates
             : 0.0;
 
         // The reference glideslope for the corridor, built as Approach builds it: the run rate
-        // capped by what the drive can shed over the corridor's length.
+        // capped by what the drive can shed over the corridor's length. The law itself lives in
+        // fixed point now; the client converts at the boundary.
         double initial = Math.Max(ContactRate,
             Math.Min(CorridorRate, Math.Sqrt(accel * CorridorMetres)));
-        var profile = Glideslope.For(CorridorMetres, initial, ContactRate);
+        var profile = Glideslope.For(
+            Fix128.FromDouble(CorridorMetres), Fix128.FromDouble(initial), Fix128.FromDouble(ContactRate));
 
         float width = device.Viewport.Width;
         float height = device.Viewport.Height;
@@ -339,7 +341,7 @@ internal sealed class CorridorGates
             return State.Red;
         }
 
-        double target = profile.RateAt(station);
+        double target = profile.RateAt(Fix128.FromDouble(station)).ToDouble();
 
         // Then the profile's fast side, with its tight tolerance. An over-profile ship that can
         // still stop is not yet lost, but it is flying the corridor wrong in the dangerous

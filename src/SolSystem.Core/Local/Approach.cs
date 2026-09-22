@@ -62,7 +62,7 @@ internal struct Approach
     /// <c>sqrt(a·r₀) ≈ 8.9 m/s</c>. <see cref="ProfileFor"/> reduces it to whatever the drive and the
     /// corridor can actually fly.
     /// </remarks>
-    private const double CorridorRate = 10.0;
+    private static readonly Fix128 CorridorRate = Fix128.FromDouble(10.0);
 
     /// <summary>
     /// The rate at contact, in metres per second.
@@ -74,7 +74,7 @@ internal struct Approach
     /// must be under what the latches accept, which is <see cref="Docking.MaxClosingSpeed"/>. A fifth
     /// of that leaves room for the overshoot every real approach has.
     /// </remarks>
-    private const double ContactRate = 0.10;
+    private static readonly Fix128 ContactRate = Fix128.FromDouble(0.10);
 
     /// <summary>
     /// The rate at which the ship stops braking and comes about for the last time, in m/s.
@@ -96,14 +96,14 @@ internal struct Approach
     /// close the remaining corridor in a few minutes and slow enough that the reversal is cheap.
     /// </para>
     /// </remarks>
-    private const double HandoverRate = ContactRate * 1.5;
+    private static readonly Fix128 HandoverRate = ContactRate * Fix128.FromDouble(1.5);
 
 
     /// <summary>Lateral offset inside which no correction is attempted, in metres.</summary>
-    private const double LateralDeadband = 0.05;
+    private static readonly Fix128 LateralDeadband = Fix128.FromDouble(0.05);
 
     /// <summary>Lateral rate inside which no correction is attempted, in metres per second.</summary>
-    private const double LateralRateDeadband = 0.005;
+    private static readonly Fix128 LateralRateDeadband = Fix128.FromDouble(0.005);
 
     /// <summary>Fraction of the drive a lateral correction may use.</summary>
     /// <remarks>
@@ -111,7 +111,7 @@ internal struct Approach
     /// enough to swing the nose more than about twenty-five degrees off the corridor shuts the engine
     /// down entirely, and then the ship coasts, holding its attitude, arriving never.
     /// </remarks>
-    private const double LateralShare = 0.10;
+    private static readonly Fix128 LateralShare = Fix128.FromDouble(0.10);
 
     /// <summary>
     /// Alignment required to fire the engine at full throttle.
@@ -140,16 +140,16 @@ internal struct Approach
     /// not, which is the right way round.
     /// </para>
     /// </remarks>
-    private const double FiringAtFullThrottle = 0.99;
+    private static readonly Fix128 FiringAtFullThrottle = Fix128.FromDouble(0.99);
 
     /// <summary>Alignment required to fire the engine at a whisper.</summary>
-    private const double FiringAtIdle = 0.50;
+    private static readonly Fix128 FiringAtIdle = Fix128.FromDouble(0.50);
 
     /// <summary>Helm gain: radians of commanded rate per radian of pointing error.</summary>
-    private const double AttitudeGain = 2.0;
+    private static readonly Fix128 AttitudeGain = Fix128.FromDouble(2.0);
 
     /// <summary>Helm damping. Critical is 2·sqrt(gain) = 2.83; slightly over is what a docking wants.</summary>
-    private const double AttitudeDamping = 2.9;
+    private static readonly Fix128 AttitudeDamping = Fix128.FromDouble(2.9);
 
 
 
@@ -189,24 +189,24 @@ internal struct Approach
 
             // Built from the corridor the ship actually starts down, so it is feasible by
             // construction: the rate is reduced until the drive can fly the line.
-            double startRange = (ship.Position - port.Position).Length.ToDouble();
+            Fix128 startRange = (ship.Position - port.Position).Length;
             _profile = ProfileFor(startRange, DriveAcceleration(ship));
             _haveProfile = true;
         }
 
         Fix128Vec inward = -_axis;
         Fix128Vec offset = ship.Position - port.Position;
-        double range = offset.Length.ToDouble();
+        Fix128 range = offset.Length;
 
         // Closing rate, measured toward the port rather than along the fixed axis. The two agree
         // until the ship passes the port and then they are opposites, and a law that throttles on one
         // while steering by the other runs away: a hundred kilometres of it, with "closing" reading a
         // steady ten metres a second.
         Fix128Vec toPort = offset.IsZero ? inward : -offset.Normalized();
-        double closing = Dot(ship.Velocity, toPort).ToDouble();
+        Fix128 closing = Dot(ship.Velocity, toPort);
 
-        double accel = DriveAcceleration(ship);
-        double commanded = _profile.RateAt(range);
+        Fix128 accel = DriveAcceleration(ship);
+        Fix128 commanded = _profile.RateAt(range);
 
         // The latches have it: stop manoeuvring. Everything before this is trying to reach a state;
         // this is the state. Left flying, the law keeps correcting and a correction at a few
@@ -216,12 +216,12 @@ internal struct Approach
             Phase = Stage.Hold;
         }
 
-        double along;
+        Fix128 along;
         switch (Phase)
         {
             case Stage.Hold:
                 // Settled: hold station against the latches.
-                along = Math.Clamp(-closing * 2.0, -accel, accel);
+                along = Fix128.Clamp(-closing * Fix128.FromWhole(2), -accel, accel);
                 break;
 
             case Stage.Run:
@@ -249,7 +249,7 @@ internal struct Approach
                 // has nothing left to coast with. Proportional braking tracks the line down instead,
                 // converging on it rather than crossing it, and the ship arrives at the line's own
                 // contact rate because that is where the line goes.
-                along = Math.Clamp((commanded - closing) * 2.0, -accel, 0.0);
+                along = Fix128.Clamp((commanded - closing) * Fix128.FromWhole(2), -accel, Fix128.Zero);
 
                 if (closing <= HandoverRate)
                 {
@@ -288,7 +288,7 @@ internal struct Approach
                 //
                 // The lateral correction stays, because it is perpendicular: it steers the ship onto
                 // the centreline without touching the approach rate.
-                along = 0.0;
+                along = Fix128.Zero;
 
                 break;
         }
@@ -321,7 +321,7 @@ internal struct Approach
         // crossing the port at 0.73 m/s, then being told to close the gap, and accelerating away
         // down the +x axis to minus seventeen metres a second with the throttle at a quarter.
         Fix128Vec line = Phase == Stage.Creep || Phase == Stage.Hold ? toPort : inward;
-        Fix128Vec wanted = (line * Fix128.FromDouble(along)) + sideways - frameGravity;
+        Fix128Vec wanted = (line * along) + sideways - frameGravity;
 
         // The guard is on the LENGTH, not on the components. A vector whose components are all
         // non-zero can still have a length that rounds to zero once they pass below 2⁻⁶⁴ of the
@@ -360,14 +360,14 @@ internal struct Approach
         }
 
         Fix128Vec turn = TurnTowards(ship.Attitude, direction);
-        double alignment = Dot(ship.Attitude.Forward, direction).ToDouble();
+        Fix128 alignment = Dot(ship.Attitude.Forward, direction);
 
-        double needed = wanted.Length.ToDouble();
-        double demand = accel > 0.0 ? Math.Clamp(needed / accel, 0.0, 1.0) : 0.0;
+        Fix128 needed = wanted.Length;
+        Fix128 demand = accel > Fix128.Zero ? Fix128.Clamp(needed / accel, Fix128.Zero, Fix128.One) : Fix128.Zero;
 
         // The more thrust is asked for, the better the aim has to be. See FiringAtFullThrottle.
-        double required = FiringAtIdle + ((FiringAtFullThrottle - FiringAtIdle) * demand);
-        Fix128 throttle = alignment > required ? Fix128.FromDouble(demand) : Fix128.Zero;
+        Fix128 required = FiringAtIdle + ((FiringAtFullThrottle - FiringAtIdle) * demand);
+        Fix128 throttle = alignment > required ? demand : Fix128.Zero;
 
 
         return new Command(direction, throttle, turn);
@@ -383,10 +383,11 @@ internal struct Approach
     /// was launched at, is what makes the law work for a courier and a freighter with no separate
     /// tuning — the freighter simply flies a gentler slope.
     /// </remarks>
-    private static Glideslope ProfileFor(double range, double accel)
+    private static Glideslope ProfileFor(Fix128 range, Fix128 accel)
     {
         // a = (v₀ − v_T)·v₀/r₀, solved for v₀ with v_T small enough to drop from the product.
-        double initial = Math.Min(CorridorRate, Math.Sqrt(accel * Math.Max(range, 1e-6)));
+        Fix128 initial = Fix128.Min(CorridorRate,
+            Fix128.Sqrt(accel * Fix128.Max(range, Fix128.FromDouble(1e-6))));
 
         // Never plan a profile that asks for less than the ship is committed to at contact.
         if (initial < ContactRate)
@@ -398,10 +399,10 @@ internal struct Approach
     }
 
     /// <summary>The drive's acceleration, capped by the hull's own ceiling.</summary>
-    private static double DriveAcceleration(in Ship ship)
+    private static Fix128 DriveAcceleration(in Ship ship)
     {
-        double accel = ship.Engine.ThrustKilonewtons.ToDouble() / ship.Mass.ToDouble();
-        return Math.Min(accel, ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble());
+        Fix128 accel = ship.Engine.ThrustKilonewtons / ship.Mass;
+        return Fix128.Min(accel, ship.Engine.MaxAccelerationInMetresPerSecondSquared);
     }
 
     /// <summary>
@@ -414,7 +415,7 @@ internal struct Approach
     /// moment of arrival, which is exactly when the lateral offset passes through zero.
     /// </remarks>
     private static Fix128Vec LateralCorrection(in Ship ship, DockingPort port, Fix128Vec offset,
-        double range, double accel)
+        Fix128 range, Fix128 accel)
     {
         Fix128Vec lateral = offset - (port.Axis * Dot(offset, port.Axis));
         if (lateral.Length == Fix128.Zero)
@@ -433,8 +434,8 @@ internal struct Approach
         // computes zero correction and leaves it there. That is not hypothetical — it is what the
         // twenty-four-metre drift above did once it had been thrown off, and it would have stayed
         // there for the whole approach.
-        double speed = Dot(ship.Velocity, direction).ToDouble();
-        double offsetMetres = lateral.Length.ToDouble();
+        Fix128 speed = Dot(ship.Velocity, direction);
+        Fix128 offsetMetres = lateral.Length;
 
         // Five centimetres a second per metre of error, so twenty metres asks for a metre a second
         // and the loop has something to damp.
@@ -442,8 +443,8 @@ internal struct Approach
         // Both terms have a deadband. The corridor is only a metre wide and the capture envelope
         // takes anything inside it, so correcting a two-centimetre offset is work done for nothing —
         // and in a thrust-only phase, work done for nothing is speed that can never be taken back.
-        double desiredRate = -offsetMetres * 0.05;
-        double error = desiredRate - speed;
+        Fix128 desiredRate = -offsetMetres * RatePerMetre;
+        Fix128 error = desiredRate - speed;
 
         // The deadband SHRINKS with the range, and it has to, because the envelope's alignment
         // tolerance is an angle. Ten degrees at two metres allows thirty-five centimetres of lateral
@@ -451,16 +452,16 @@ internal struct Approach
         // stops correcting at exactly the point where a five-centimetre offset becomes twenty degrees
         // of misalignment — which is how a ship that had crept to within thirteen centimetres of the
         // port was refused for not being lined up.
-        double deadband = Math.Min(LateralDeadband, range * 0.1);
-        if (offsetMetres < deadband && Math.Abs(speed) < LateralRateDeadband)
+        Fix128 deadband = Fix128.Min(LateralDeadband, range * DeadbandPerMetre);
+        if (offsetMetres < deadband && speed.Abs() < LateralRateDeadband)
         {
             return Fix128Vec.Zero;
         }
 
-        double correction = Math.Clamp(
-            error * 0.5, -accel * LateralShare, accel * LateralShare);
+        Fix128 correction = Fix128.Clamp(
+            error * Fix128.Half, -accel * LateralShare, accel * LateralShare);
 
-        return direction * Fix128.FromDouble(correction);
+        return direction * correction;
     }
 
     /// <summary>
@@ -502,33 +503,49 @@ internal struct Approach
             return Fix128Vec.Zero;
         }
 
-        double wanted = Math.Atan2(unit.Y.ToDouble(), unit.X.ToDouble());
-        double error = wanted - attitude.RotationVector.Z.ToDouble();
+        Fix128 wanted = Fix128.Atan2(unit.Y, unit.X);
+        Fix128 error = wanted - attitude.RotationVector.Z;
 
-        while (error > Math.PI)
+        while (error > Pi)
         {
-            error -= 2.0 * Math.PI;
+            error -= TwoPi;
         }
 
-        while (error <= -Math.PI)
+        while (error <= -Pi)
         {
-            error += 2.0 * Math.PI;
+            error += TwoPi;
         }
 
-        const double ErrorDeadband = 0.005;     // a third of a degree
-        const double RateDeadband = 0.002;      // rad/s
-        double rate = attitude.AngularVelocity.Z.ToDouble();
+        Fix128 rate = attitude.AngularVelocity.Z;
 
-        if (Math.Abs(error) < ErrorDeadband)
+        if (error.Abs() < ErrorDeadband)
         {
-            return Math.Abs(rate) < RateDeadband
+            return rate.Abs() < RateDeadband
                 ? Fix128Vec.Zero
-                : new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.FromDouble(-rate * 4.0));
+                : new Fix128Vec(Fix128.Zero, Fix128.Zero, -rate * Fix128.FromWhole(4));
         }
 
-        double command = (error * AttitudeGain) - (rate * AttitudeDamping);
-        return new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.FromDouble(command));
+        Fix128 command = (error * AttitudeGain) - (rate * AttitudeDamping);
+        return new Fix128Vec(Fix128.Zero, Fix128.Zero, command);
     }
+
+    /// <summary>Half a turn, precomputed once: the fold bounds of the helm's error.</summary>
+    private static readonly Fix128 Pi = Fix128.FromDouble(Math.PI);
+
+    /// <summary>A full turn, precomputed once.</summary>
+    private static readonly Fix128 TwoPi = Fix128.FromDouble(2.0 * Math.PI);
+
+    /// <summary>Pointing error inside which the helm stops commanding, in radians. A third of a degree.</summary>
+    private static readonly Fix128 ErrorDeadband = Fix128.FromDouble(0.005);
+
+    /// <summary>Angular rate inside which the helm stops damping, in radians per second.</summary>
+    private static readonly Fix128 RateDeadband = Fix128.FromDouble(0.002);
+
+    /// <summary>The lateral spring's gain: metres per second of desired rate per metre of offset.</summary>
+    private static readonly Fix128 RatePerMetre = Fix128.FromDouble(0.05);
+
+    /// <summary>The lateral deadband's range scaling: the deadband never exceeds this share of the range.</summary>
+    private static readonly Fix128 DeadbandPerMetre = Fix128.FromDouble(0.1);
 
     private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
         (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);

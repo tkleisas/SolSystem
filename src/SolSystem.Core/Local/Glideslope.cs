@@ -1,3 +1,5 @@
+using SolSystem.Core.Numerics;
+
 namespace SolSystem.Core.Local;
 
 /// <summary>
@@ -54,15 +56,15 @@ namespace SolSystem.Core.Local;
 internal readonly struct Glideslope
 {
     /// <summary>Range at which the approach starts, in metres.</summary>
-    internal readonly double Range;
+    internal readonly Fix128 Range;
 
     /// <summary>Closing rate at <see cref="Range"/>, in metres per second. Positive is approaching.</summary>
-    internal readonly double InitialRate;
+    internal readonly Fix128 InitialRate;
 
     /// <summary>Closing rate at contact, in metres per second. Positive, and never zero.</summary>
-    internal readonly double ContactRate;
+    internal readonly Fix128 ContactRate;
 
-    internal Glideslope(double range, double initialRate, double contactRate)
+    internal Glideslope(Fix128 range, Fix128 initialRate, Fix128 contactRate)
     {
         Range = range;
         InitialRate = initialRate;
@@ -81,8 +83,8 @@ internal readonly struct Glideslope
     /// The rate at contact. Bounded from above by the capture latches and from below by the need to
     /// keep moving — see <see cref="Docking.MaxClosingSpeed"/>.
     /// </param>
-    internal static Glideslope For(double range, double initialRate, double contactRate) =>
-        new(Math.Max(range, 1e-6), initialRate, contactRate);
+    internal static Glideslope For(Fix128 range, Fix128 initialRate, Fix128 contactRate) =>
+        new(Fix128.Max(range, Fix128.FromDouble(1e-6)), initialRate, contactRate);
 
     /// <summary>
     /// The commanded closing rate at a range, in metres per second.
@@ -90,23 +92,25 @@ internal readonly struct Glideslope
     /// <remarks>
     /// The straight line, clamped at the far end so that a ship beyond the corridor start is given
     /// the initial rate rather than a rate extrapolated past it. Past contact the line would go
-    /// negative — commanding the ship to retreat — so it is floored there too.
+    /// negative — commanding the ship to retreat — so it is floored there too. Evaluated in
+    /// <see cref="Fix128"/> throughout: one divide, one multiply, one add, all exact.
     /// </remarks>
-    internal double RateAt(double range)
+    internal Fix128 RateAt(Fix128 range)
     {
-        double t = Math.Clamp(range / Range, 0.0, 1.0);
+        Fix128 t = Fix128.Clamp(range / Range, Fix128.Zero, Fix128.One);
         return ContactRate + ((InitialRate - ContactRate) * t);
     }
 
-    /// <summary>How long the profile takes end to end, in seconds.</summary>
+    /// <summary>How long the profile takes end to end, in seconds, or null if it never arrives.</summary>
     /// <remarks>
     /// <c>r₀/(v₀ − v_T)</c>, which is the reciprocal of the slope: fly the line from one end to the
-    /// other and the time falls out. Infinite if the two rates are equal, which is a corridor flown
-    /// at a constant rate — legal, and it never arrives, so it is reported as infinite rather than
-    /// as a division by zero.
+    /// other and the time falls out. Null if the two rates are equal, which is a corridor flown
+    /// at a constant rate — legal, and it never arrives. The double version reported
+    /// <c>double.PositiveInfinity</c>; there is no infinity in Q64.64, so the honest answer is
+    /// "no answer", and a display that wants one prints "never".
     /// </remarks>
-    internal double DurationSeconds =>
-        InitialRate > ContactRate ? Range / (InitialRate - ContactRate) : double.PositiveInfinity;
+    internal Fix128? DurationSeconds =>
+        InitialRate > ContactRate ? Range / (InitialRate - ContactRate) : null;
 
     /// <summary>
     /// The time constant of the equivalent exponential decay, in seconds.
@@ -117,7 +121,7 @@ internal readonly struct Glideslope
     /// <c>1/λ</c> of Hablani's profile. A test asserts they agree, which is what catches a sign
     /// slip in either.
     /// </remarks>
-    internal double TimeConstantSeconds => DurationSeconds;
+    internal Fix128? TimeConstantSeconds => DurationSeconds;
 
     /// <summary>
     /// Whether a ship at rest can actually fly this profile with a given acceleration.
@@ -144,10 +148,13 @@ internal readonly struct Glideslope
     /// profile's.
     /// </para>
     /// </remarks>
-    internal bool Feasible(double acceleration) =>
-        acceleration > 0.0 && (InitialRate - ContactRate) * InitialRate / Range <= acceleration;
+    internal bool Feasible(Fix128 acceleration) =>
+        acceleration > Fix128.Zero && (InitialRate - ContactRate) * InitialRate / Range <= acceleration;
 
-    public override string ToString() =>
-        $"{InitialRate:F2} m/s at {Range:F0} m to {ContactRate:F3} m/s at contact "
-        + $"({DurationSeconds:F0} s)";
+    public override string ToString()
+    {
+        string duration = DurationSeconds is Fix128 d ? $"{d.ToDouble():F0} s" : "never";
+        return $"{InitialRate.ToDouble():F2} m/s at {Range.ToDouble():F0} m to "
+            + $"{ContactRate.ToDouble():F3} m/s at contact ({duration})";
+    }
 }

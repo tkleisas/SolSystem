@@ -188,6 +188,16 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
 
     internal Fix128 Abs() => new(Magnitude, false);
 
+    /// <summary>The smaller of two values.</summary>
+    internal static Fix128 Min(Fix128 a, Fix128 b) => a < b ? a : b;
+
+    /// <summary>The larger of two values.</summary>
+    internal static Fix128 Max(Fix128 a, Fix128 b) => a > b ? a : b;
+
+    /// <summary>A value held inside [min, max], endpoints included.</summary>
+    internal static Fix128 Clamp(Fix128 value, Fix128 min, Fix128 max) =>
+        value < min ? min : value > max ? max : value;
+
     /// <summary>
     /// Natural logarithm, for the rocket equation.
     /// </summary>
