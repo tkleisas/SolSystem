@@ -633,10 +633,33 @@ internal sealed class ProbeRunner
     private static void AppendScalar(List<byte> bytes, long value) =>
         bytes.AddRange(BitConverter.GetBytes(value));
 
+    /// <summary>
+    /// A raw 128-bit fixed-point magnitude, byte for byte.
+    /// </summary>
+    /// <remarks>
+    /// Hashed directly rather than through <c>double</c>. A double carries 53 bits of
+    /// mantissa, so the cast drops the low eleven bits of a Q64.64 word — the bits a
+    /// one-bit drift lives in — and the type carries no sign at all, so <c>x</c> and
+    /// <c>-x</c> hashed identically. The remark above the hash claims raw words; this
+    /// is what makes the claim true. There is no <c>BitConverter</c> overload for
+    /// <see cref="UInt128"/>, so the two 64-bit halves go in explicitly.
+    /// </remarks>
+    private static void AppendScalar(List<byte> bytes, UInt128 value)
+    {
+        bytes.AddRange(BitConverter.GetBytes((ulong)(value & ulong.MaxValue)));
+        bytes.AddRange(BitConverter.GetBytes((ulong)(value >> 64)));
+    }
+
+    private static void AppendScalar(List<byte> bytes, bool value) =>
+        bytes.Add(value ? (byte)1 : (byte)0);
+
     private static void AppendVector(List<byte> bytes, Fix128Vec v)
     {
-        AppendScalar(bytes, (double)v.X.Magnitude);
-        AppendScalar(bytes, (double)v.Y.Magnitude);
-        AppendScalar(bytes, (double)v.Z.Magnitude);
+        AppendScalar(bytes, v.X.Magnitude);
+        AppendScalar(bytes, v.X.Negative);
+        AppendScalar(bytes, v.Y.Magnitude);
+        AppendScalar(bytes, v.Y.Negative);
+        AppendScalar(bytes, v.Z.Magnitude);
+        AppendScalar(bytes, v.Z.Negative);
     }
 }
