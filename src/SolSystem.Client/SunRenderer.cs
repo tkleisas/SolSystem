@@ -72,11 +72,17 @@ internal sealed class SunRenderer : IDisposable
     /// <summary>
     /// Draws the Sun, if it is in front of the camera.
     /// </summary>
-    /// <param name="session">Where the observer is and which way it is looking.</param>
+    /// <param name="session">Where the observer is.</param>
+    /// <param name="cameraForward">The direction the CAMERA is looking — not the session's
+    /// spawn aim, which is a direction fixed at launch. Facing and the billboard basis were
+    /// built from the spawn aim, so the Sun was culled for (and aligned to) a camera that
+    /// had not existed since the first frame.</param>
+    /// <param name="cameraUp">The camera's up.</param>
     /// <param name="view">The view matrix, with the observer at the origin.</param>
     /// <param name="projection">The projection matrix.</param>
     /// <param name="scale">Render units per kilometre.</param>
-    internal void Draw(FlightSession session, Matrix view, Matrix projection, float scale)
+    internal void Draw(FlightSession session, Fix128Vec cameraForward, Fix128Vec cameraUp,
+        Matrix view, Matrix projection, float scale)
     {
         if (_effect is null)
         {
@@ -98,7 +104,7 @@ internal sealed class SunRenderer : IDisposable
         }
 
         Vector3 toSun = centre / distance;
-        Vector3 forward = Unit(session.Forward);
+        Vector3 forward = Unit(cameraForward);
 
         // Behind the camera, or far enough off the axis that the corona cannot reach the frame.
         float facing = Vector3.Dot(toSun, forward);
@@ -113,7 +119,7 @@ internal sealed class SunRenderer : IDisposable
         // The quad is placed at the Sun's centre and sized so that its own radius is GlowExtent disc
         // radii as seen from the observer. It faces the camera, so its axes are the camera's.
         Vector3 right = Vector3.Normalize(
-            Unit(FlightSession.Cross(session.Forward, session.Up)));
+            Unit(FlightSession.Cross(cameraForward, cameraUp)));
 
         Vector3 up = Vector3.Cross(toSun, right);
         if (up.LengthSquared() < 1e-8f)

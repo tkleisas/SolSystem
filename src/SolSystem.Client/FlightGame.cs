@@ -652,11 +652,11 @@ internal sealed class FlightGame : Game
         _sprites.End();
 
         // Then the bodies, so a planet occults the stars behind it and the Earth occults everything.
-        _bodies.Draw(_session, view, projection, KilometresPerUnit);
+        _bodies.Draw(_session, cameraForward, view, projection, KilometresPerUnit);
 
         // The Sun after them: it is a source, drawn additively, and anything nearer should paint
         // over its glow rather than be painted over by it.
-        _sun.Draw(_session, view, projection, KilometresPerUnit);
+        _sun.Draw(_session, cameraForward, cameraUp, view, projection, KilometresPerUnit);
 
         // And the player's hull, seen from outside. A chase camera rather than a cockpit, because
         // there is no cockpit interior modelled and a hull you cannot see is a hull you cannot tell
@@ -756,13 +756,15 @@ internal sealed class FlightGame : Game
     }
 
     /// <summary>
-    /// The camera, built from the session's position and orientation.
+    /// The camera, built fresh each frame from the ship's attitude and the camera mode.
     /// </summary>
     /// <remarks>
-    /// The camera sits at the observer and looks along <see cref="FlightSession.Forward"/>. The
-    /// translation is by the negative of the observer's position <em>relative to the Earth's
-    /// centre</em> rather than its heliocentric position, because a float cannot resolve a metre at
-    /// 1.5 × 10⁸ kilometres and the local frame is where everything being drawn already lives.
+    /// The camera sits at the observer and looks wherever <see cref="Camera.Build"/> last put it —
+    /// the session's own spawn aim (<see cref="FlightSession.Forward"/>) is written once at launch
+    /// and used for nothing but that first aim since. The translation is by the negative of the
+    /// observer's position <em>relative to the Earth's centre</em> rather than its heliocentric
+    /// position, because a float cannot resolve a metre at 1.5 × 10⁸ kilometres and the local frame
+    /// is where everything being drawn already lives.
     /// </remarks>
 
     /// <summary>

@@ -260,10 +260,15 @@ internal sealed class BodyRenderer : IDisposable
     /// Draws the bodies, lit from the Sun.
     /// </summary>
     /// <param name="session">Where the observer is and when it is.</param>
+    /// <param name="cameraForward">The direction the CAMERA is looking, not the session's
+    /// spawn aim. Culling against the spawn direction emptied the sky whenever the view
+    /// swung past about half a field of view from it — the view matrices have used the
+    /// live camera all along, and the cull has to use the same one.</param>
     /// <param name="view">The view matrix, which has the observer at the origin.</param>
     /// <param name="projection">The projection matrix.</param>
     /// <param name="scale">Render units per kilometre.</param>
-    internal void Draw(FlightSession session, Matrix view, Matrix projection, float scale)
+    internal void Draw(FlightSession session, Fix128Vec cameraForward,
+        Matrix view, Matrix projection, float scale)
     {
         _effect.View = view;
         _effect.Projection = projection;
@@ -314,9 +319,9 @@ internal sealed class BodyRenderer : IDisposable
             // distances the ones behind you are most of them.
             Fix128Vec direction = offset.Normalized();
             double facing =
-                (direction.X.ToDouble() * session.Forward.X.ToDouble())
-                + (direction.Y.ToDouble() * session.Forward.Y.ToDouble())
-                + (direction.Z.ToDouble() * session.Forward.Z.ToDouble());
+                (direction.X.ToDouble() * cameraForward.X.ToDouble())
+                + (direction.Y.ToDouble() * cameraForward.Y.ToDouble())
+                + (direction.Z.ToDouble() * cameraForward.Z.ToDouble());
 
             double angularRadius = Math.Asin(Math.Clamp(
                 body.RadiusKilometres / Math.Max(distance, body.RadiusKilometres), 0.0, 1.0));
