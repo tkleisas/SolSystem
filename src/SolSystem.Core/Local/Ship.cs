@@ -194,7 +194,7 @@ internal struct Ship
             // Only the component along the nose produces thrust. Commanding a direction the
             // ship is not yet facing gives a reduced burn rather than a turn, which is what
             // makes the helm and the throttle one control instead of two.
-            Fix128 alignment = Dot(nose, desired);
+            Fix128 alignment = Fix128Vec.Dot(nose, desired);
             if (alignment > Fix128.Zero)
             {
                 // kN / t is exactly m/s², which is the frame's unit — no conversion at all.
@@ -226,10 +226,6 @@ internal struct Ship
         Fix128Vec newAcceleration = Gravity(sources, Position) + thrustAcceleration;
         Velocity += (acceleration + newAcceleration) * halfDt;
     }
-
-    /// <summary>Unit vector in the same direction as <paramref name="v"/>.</summary>
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 
     /// <summary>Total gravitational acceleration from every source, at a position.</summary>
     private static Fix128Vec Gravity(ReadOnlySpan<GravitySource> sources, Fix128Vec position)

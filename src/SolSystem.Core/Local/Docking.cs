@@ -184,7 +184,7 @@ internal static class Docking
     {
         // Offset from the port to the ship, and its components along the port axis and across.
         Fix128Vec offset = ship.Position - port.Position;
-        Fix128 along = Dot(offset, port.Axis);
+        Fix128 along = Fix128Vec.Dot(offset, port.Axis);
         Fix128Vec alongComponent = port.Axis * along;
 
         Fix128 range = offset.Length;
@@ -204,13 +204,13 @@ internal static class Docking
         // negative of the same size — which reads as a ship running away at exactly the speed
         // it was closing at, and turned every approach into a departure.
         Fix128Vec relativeVelocity = ship.Velocity - portVelocity;
-        Fix128 closingSpeed = Dot(relativeVelocity, approach);
+        Fix128 closingSpeed = Fix128Vec.Dot(relativeVelocity, approach);
 
         // The nose must point down the corridor, towards the port: the ship arrives nose-first.
         // Zero when aligned, a half turn when it arrives tail-first, a quarter turn when
         // broadside.
         Fix128Vec nose = ship.Attitude.Forward;
-        Fix128 misalignment = Acos(Dot(nose, approach));
+        Fix128 misalignment = Acos(Fix128Vec.Dot(nose, approach));
 
         if (range > CaptureRange)
         {
@@ -339,7 +339,4 @@ internal static class Docking
     }
 
     private static Fix128 Abs(Fix128 v) => v.Negative ? -v : v;
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 }

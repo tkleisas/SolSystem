@@ -183,17 +183,17 @@ internal sealed class FlightSession
         Fix128Vec unit = forward.Normalized();
         Fix128Vec pole = up.Normalized();
 
-        Fix128Vec right = Cross(unit, pole);
+        Fix128Vec right = Fix128Vec.Cross(unit, pole);
         if (right.Length < Fix128.FromDouble(1e-6))
         {
-            right = Cross(unit, new Fix128Vec(Fix128.Zero, Fix128.One, Fix128.Zero));
+            right = Fix128Vec.Cross(unit, new Fix128Vec(Fix128.Zero, Fix128.One, Fix128.Zero));
         }
 
         // The session's own aim direction used to be published here as Forward. Nothing read
         // it: the camera is built from the ship's attitude every frame, and the last renderer
         // consumer went in the audit's first batch. The property is gone; what remains is the
         // up vector, which the sky observer's triad is built around.
-        Up = Cross(right.Normalized(), unit).Normalized();
+        Up = Fix128Vec.Cross(right.Normalized(), unit).Normalized();
     }
 
     private static Fix128Vec PreferredUp() => new(Fix128.Zero, Fix128.Zero, Fix128.One);
@@ -283,11 +283,6 @@ internal sealed class FlightSession
     /// <summary>The distance from the observer to a heliocentric point, in kilometres.</summary>
     internal double DistanceTo(Fix128Vec heliocentricPoint) =>
         (heliocentricPoint - ObserverPosition).Length.ToDouble();
-
-    internal static Fix128Vec Cross(Fix128Vec a, Fix128Vec b) => new(
-        (a.Y * b.Z) - (a.Z * b.Y),
-        (a.Z * b.X) - (a.X * b.Z),
-        (a.X * b.Y) - (a.Y * b.X));
 
     /// <summary>The repository root, found by walking up for the art directory.</summary>
     internal static string RepositoryRoot()

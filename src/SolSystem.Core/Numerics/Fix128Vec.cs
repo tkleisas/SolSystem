@@ -5,8 +5,8 @@ namespace SolSystem.Core.Numerics;
 /// kilometres per second squared, according to context.
 /// </summary>
 /// <remarks>
-/// The solar frame's vector type, and the local frame's too: metres and kilometres are
-/// magnitudes are small enough for a Q32.32 value and the arithmetic is narrower.
+/// The solar frame's vector type, and the local frame's too: what changes between the
+/// frames is only what a unit means — kilometres here, metres there.
 /// </remarks>
 internal readonly struct Fix128Vec : IEquatable<Fix128Vec>
 {
@@ -32,6 +32,21 @@ internal readonly struct Fix128Vec : IEquatable<Fix128Vec>
     public static Fix128Vec operator *(Fix128Vec a, Fix128 s) => new(a.X * s, a.Y * s, a.Z * s);
 
     public static Fix128Vec operator *(Fix128 s, Fix128Vec a) => a * s;
+
+    /// <summary>The dot product, with no scaling and no guard.</summary>
+    /// <remarks>
+    /// Each product is a Q64.64 multiply, so the same headroom caveat as
+    /// <see cref="LengthSquared"/> applies: a component past 2^63.5 overflows it. Every
+    /// caller dots unit vectors, port axes or corridor offsets, which are nowhere near.
+    /// </remarks>
+    internal static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
+        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
+
+    /// <summary>The cross product.</summary>
+    internal static Fix128Vec Cross(Fix128Vec a, Fix128Vec b) => new(
+        (a.Y * b.Z) - (a.Z * b.Y),
+        (a.Z * b.X) - (a.X * b.Z),
+        (a.X * b.Y) - (a.Y * b.X));
 
     /// <summary>Sum of the squared components, with no scaling and no guard.</summary>
     /// <remarks>

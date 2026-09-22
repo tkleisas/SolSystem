@@ -203,7 +203,7 @@ internal struct Approach
         // while steering by the other runs away: a hundred kilometres of it, with "closing" reading a
         // steady ten metres a second.
         Fix128Vec toPort = offset.IsZero ? inward : -offset.Normalized();
-        Fix128 closing = Dot(ship.Velocity, toPort);
+        Fix128 closing = Fix128Vec.Dot(ship.Velocity, toPort);
 
         Fix128 accel = DriveAcceleration(ship);
         Fix128 commanded = _profile.RateAt(range);
@@ -360,7 +360,7 @@ internal struct Approach
         }
 
         Fix128Vec turn = TurnTowards(ship.Attitude, direction);
-        Fix128 alignment = Dot(ship.Attitude.Forward, direction);
+        Fix128 alignment = Fix128Vec.Dot(ship.Attitude.Forward, direction);
 
         Fix128 needed = wanted.Length;
         Fix128 demand = accel > Fix128.Zero ? Fix128.Clamp(needed / accel, Fix128.Zero, Fix128.One) : Fix128.Zero;
@@ -417,7 +417,7 @@ internal struct Approach
     private static Fix128Vec LateralCorrection(in Ship ship, DockingPort port, Fix128Vec offset,
         Fix128 range, Fix128 accel)
     {
-        Fix128Vec lateral = offset - (port.Axis * Dot(offset, port.Axis));
+        Fix128Vec lateral = offset - (port.Axis * Fix128Vec.Dot(offset, port.Axis));
         if (lateral.Length == Fix128.Zero)
         {
             return Fix128Vec.Zero;
@@ -434,7 +434,7 @@ internal struct Approach
         // computes zero correction and leaves it there. That is not hypothetical — it is what the
         // twenty-four-metre drift above did once it had been thrown off, and it would have stayed
         // there for the whole approach.
-        Fix128 speed = Dot(ship.Velocity, direction);
+        Fix128 speed = Fix128Vec.Dot(ship.Velocity, direction);
         Fix128 offsetMetres = lateral.Length;
 
         // Five centimetres a second per metre of error, so twenty metres asks for a metre a second
@@ -546,7 +546,4 @@ internal struct Approach
 
     /// <summary>The lateral deadband's range scaling: the deadband never exceeds this share of the range.</summary>
     private static readonly Fix128 DeadbandPerMetre = Fix128.FromDouble(0.1);
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
 }

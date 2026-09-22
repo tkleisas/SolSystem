@@ -69,7 +69,7 @@ internal static class SkyProjection
         // displacement at all — a star straight ahead stays straight ahead — so the correction is
         // the velocity with its radial part removed.
         Fix128Vec beta = observer.Velocity * Fix128.FromDouble(1.0 / LightKilometresPerSecond);
-        Fix128 radial = Dot(direction, beta);
+        Fix128 radial = Fix128Vec.Dot(direction, beta);
         Fix128Vec perpendicular = beta - (direction * radial);
 
         Fix128Vec apparent = direction + perpendicular;
@@ -93,9 +93,9 @@ internal static class SkyProjection
                 "Give it a surface position, or use the direction vector directly.");
         }
 
-        double up = Dot(direction, observer.Up).ToDouble();
-        double east = Dot(direction, observer.East).ToDouble();
-        double north = Dot(direction, observer.North).ToDouble();
+        double up = Fix128Vec.Dot(direction, observer.Up).ToDouble();
+        double east = Fix128Vec.Dot(direction, observer.East).ToDouble();
+        double north = Fix128Vec.Dot(direction, observer.North).ToDouble();
 
         double altitude = Math.Asin(Math.Clamp(up, -1.0, 1.0)) * 180.0 / Math.PI;
 
@@ -124,11 +124,8 @@ internal static class SkyProjection
             (a.X * b.Y) - (a.Y * b.X));
 
         double sine = cross.Length.ToDouble();
-        double cosine = Dot(a, b).ToDouble();
+        double cosine = Fix128Vec.Dot(a, b).ToDouble();
 
         return Math.Atan2(sine, cosine) * 180.0 / Math.PI * 3600.0;
     }
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
 }

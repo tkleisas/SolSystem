@@ -112,8 +112,8 @@ internal struct Attitude
 
         // q_new = q_delta * q_rotation, in that order: the commanded rotation is in world axes, so
         // it applies on the LEFT of the attitude the ship already has.
-        Fix128 w = (deltaW * rotationW) - Dot(deltaV, rotationV);
-        Fix128Vec v = (rotationV * deltaW) + (deltaV * rotationW) + Cross(deltaV, rotationV);
+        Fix128 w = (deltaW * rotationW) - Fix128Vec.Dot(deltaV, rotationV);
+        Fix128Vec v = (rotationV * deltaW) + (deltaV * rotationW) + Fix128Vec.Cross(deltaV, rotationV);
 
         RotationVector = ToRotationVector(w, v);
     }
@@ -185,8 +185,8 @@ internal struct Attitude
         Fix128 sinAngle = Trig128.SinTurn(turns);
 
         Fix128Vec axis = RotationVector * (Fix128.One / angle);
-        Fix128Vec axisCrossV = Cross(axis, v);
-        Fix128 axisDotV = Dot(axis, v);
+        Fix128Vec axisCrossV = Fix128Vec.Cross(axis, v);
+        Fix128 axisDotV = Fix128Vec.Dot(axis, v);
         Fix128 oneMinusCos = Fix128.One - cosAngle;
 
         Fix128Vec rotated = v * cosAngle + axisCrossV * sinAngle + axis * (axisDotV * oneMinusCos);
@@ -209,11 +209,4 @@ internal struct Attitude
     private static readonly Fix128 Pi = Fix128.FromDouble(Math.PI);
     private static readonly Fix128 TwoPi = Fix128.FromDouble(2.0 * Math.PI);
 
-    private static Fix128Vec Cross(Fix128Vec a, Fix128Vec b) => new(
-        a.Y * b.Z - a.Z * b.Y,
-        a.Z * b.X - a.X * b.Z,
-        a.X * b.Y - a.Y * b.X);
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 }

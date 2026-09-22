@@ -179,14 +179,14 @@ internal sealed class CorridorGates
             return;
         }
 
-        double along = Dot(offset, port.Axis).ToDouble();
+        double along = Fix128Vec.Dot(offset, port.Axis).ToDouble();
 
         // Closing speed, positive approaching — the Docking.Evaluate convention, not the nav
         // overlay's. Measured along the live bearing to the port rather than the fixed axis, for
         // the reason Approach records: the two disagree once the ship is past the port.
         Fix128Vec toPort = offset.IsZero ? -port.Axis : -offset.Normalized();
         Fix128Vec relative = flight.Ship.Velocity - session.Station.Velocity;
-        double closing = Dot(relative, toPort).ToDouble();
+        double closing = Fix128Vec.Dot(relative, toPort).ToDouble();
 
         // The drive's deceleration, computed the way the approach law computes it — thrust over
         // mass, capped by the hull's ceiling — because the braking law has to be the same law the
@@ -381,9 +381,6 @@ internal sealed class CorridorGates
         _sprites.Draw(_pixel, from, null, colour, MathF.Atan2(d.Y, d.X),
             new Vector2(0f, 0.5f), new Vector2(length, thickness), SpriteEffects.None, 0f);
     }
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
 
     private static Vector3 Unit(Fix128Vec v) => new(
         (float)v.X.ToDouble(), (float)v.Y.ToDouble(), (float)v.Z.ToDouble());

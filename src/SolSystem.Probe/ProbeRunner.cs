@@ -563,7 +563,7 @@ internal sealed class ProbeRunner
     {
         (Ship ship, Station home) = RequireShip();
         Fix128Vec offset = ship.Position - home.Port.Position;
-        Fix128Vec lateral = offset - home.Port.Axis * Dot(offset, home.Port.Axis);
+        Fix128Vec lateral = offset - home.Port.Axis * Fix128Vec.Dot(offset, home.Port.Axis);
         return lateral.Length.ToDouble();
     }
 
@@ -585,7 +585,7 @@ internal sealed class ProbeRunner
             return 0.0;
         }
 
-        return Dot(ship.Velocity, -offset.Normalized()).ToDouble();
+        return Fix128Vec.Dot(ship.Velocity, -offset.Normalized()).ToDouble();
     }
 
     private (Ship Ship, Station Home) RequireShip()
@@ -624,9 +624,6 @@ internal sealed class ProbeRunner
         $"({v.X.ToDouble().ToString("G17", CultureInfo.InvariantCulture)}, "
         + $"{v.Y.ToDouble().ToString("G17", CultureInfo.InvariantCulture)}, "
         + $"{v.Z.ToDouble().ToString("G17", CultureInfo.InvariantCulture)})";
-
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        a.X * b.X + a.Y * b.Y + a.Z * b.Z;
 
     private static void AppendScalar(List<byte> bytes, double value) =>
         bytes.AddRange(BitConverter.GetBytes(value));

@@ -247,7 +247,7 @@ internal struct Autohelm
         Fix128Vec wanted = direction.Normalized();
         Fix128Vec nose = attitude.Forward;
 
-        Fix128Vec axis = Cross(nose, wanted);
+        Fix128Vec axis = Fix128Vec.Cross(nose, wanted);
         Fix128 alignment = (nose.X * wanted.X) + (nose.Y * wanted.Y) + (nose.Z * wanted.Z);
 
         if (axis.Length < Tiny)
@@ -261,13 +261,13 @@ internal struct Autohelm
             // Any perpendicular will do, and the deck is the one that keeps the ship the right way
             // up through the turn.
             Fix128Vec deck = attitude.Rotate(new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
-            axis = Cross(deck, nose);
+            axis = Fix128Vec.Cross(deck, nose);
 
             if (axis.Length < Tiny)
             {
                 // The nose is along the deck, which a ship's never is, but a hull at exactly that
                 // attitude would otherwise be un-turnable. Any axis at all is better than none.
-                axis = Cross(new Fix128Vec(Fix128.Zero, Fix128.One, Fix128.Zero), nose);
+                axis = Fix128Vec.Cross(new Fix128Vec(Fix128.Zero, Fix128.One, Fix128.Zero), nose);
             }
         }
 
@@ -301,11 +301,6 @@ internal struct Autohelm
 
     /// <summary>Dot-product tolerance for lighting the engine at all.</summary>
     private static readonly Fix128 BurnTolerance = Fix128.FromDouble(0.15);
-
-    private static Fix128Vec Cross(Fix128Vec a, Fix128Vec b) => new(
-        (a.Y * b.Z) - (a.Z * b.Y),
-        (a.Z * b.X) - (a.X * b.Z),
-        (a.X * b.Y) - (a.Y * b.X));
 
     /// <summary>A one-word description, for the heads-up display.</summary>
     internal readonly string Describe() => Stage switch

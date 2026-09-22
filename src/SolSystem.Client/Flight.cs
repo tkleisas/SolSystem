@@ -155,7 +155,7 @@ internal sealed class Flight
 
         // The ship's own axes, as directions in the world. `starboard` is cross(nose, deck), which
         // for the simulation's frame -- nose on +x, deck on +z -- comes out on -y.
-        Fix128Vec starboard = FlightSession.Cross(nose, deck).Normalized();
+        Fix128Vec starboard = Fix128Vec.Cross(nose, deck).Normalized();
 
         // D turns right, which is a rotation about the ship's DOWN axis: about +deck the nose goes
         // to port, so the sign is the whole of it.

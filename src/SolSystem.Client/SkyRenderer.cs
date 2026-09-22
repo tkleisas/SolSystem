@@ -187,7 +187,7 @@ internal sealed class SkyRenderer : IDisposable
     internal void DrawStars(FlightSession session, Fix128Vec forward, Fix128Vec up,
         float fieldOfViewDegrees)
     {
-        Fix128Vec right = FlightSession.Cross(forward, up).Normalized();
+        Fix128Vec right = Fix128Vec.Cross(forward, up).Normalized();
 
         Vector3 f = Unit(forward);
         Vector3 u = Unit(up);

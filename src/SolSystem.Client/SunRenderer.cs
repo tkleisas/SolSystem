@@ -119,7 +119,7 @@ internal sealed class SunRenderer : IDisposable
         // The quad is placed at the Sun's centre and sized so that its own radius is GlowExtent disc
         // radii as seen from the observer. It faces the camera, so its axes are the camera's.
         Vector3 right = Vector3.Normalize(
-            Unit(FlightSession.Cross(cameraForward, cameraUp)));
+            Unit(Fix128Vec.Cross(cameraForward, cameraUp)));
 
         Vector3 up = Vector3.Cross(toSun, right);
         if (up.LengthSquared() < 1e-8f)

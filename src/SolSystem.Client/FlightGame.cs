@@ -1037,7 +1037,7 @@ internal sealed class FlightGame : Game
 
         // And the same thing along the corridor, signed: positive is outside the port, negative is
         // past it. A range alone cannot tell a pilot which side of the dock they are on.
-        double along = Dot(_flight.Ship.Position - _session.Station.Port.Position,
+        double along = Fix128Vec.Dot(_flight.Ship.Position - _session.Station.Port.Position,
             _session.Station.Port.Axis).ToDouble();
 
         var ink = new Color(150, 220, 175);
@@ -1148,7 +1148,7 @@ internal sealed class FlightGame : Game
         Fix128Vec nose = direction.Normalized();
         var reference = new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero);
 
-        Fix128Vec axis = FlightSession.Cross(reference, nose);
+        Fix128Vec axis = Fix128Vec.Cross(reference, nose);
 
         double cross = axis.Length.ToDouble();
         double dot = ((reference.X * nose.X) + (reference.Y * nose.Y) + (reference.Z * nose.Z))
@@ -1402,9 +1402,6 @@ internal sealed class FlightGame : Game
     private static string Describe(Fix128Vec v) =>
         $"({v.X.ToDouble(),6:F3},{v.Y.ToDouble(),6:F3},{v.Z.ToDouble(),6:F3})";
 
-    private static Fix128 Dot(Fix128Vec a, Fix128Vec b) =>
-        (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
-
     private static Vector3 Unit(Fix128Vec v) => new(
         (float)v.X.ToDouble(), (float)v.Y.ToDouble(), (float)v.Z.ToDouble());
 
@@ -1433,7 +1430,7 @@ internal sealed class FlightGame : Game
                 Fix128Vec nose = attitude.Forward;
                 Fix128Vec deck = attitude.Rotate(
                     new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One));
-                Fix128Vec starboard = FlightSession.Cross(nose, deck).Normalized();
+                Fix128Vec starboard = Fix128Vec.Cross(nose, deck).Normalized();
 
                 Console.WriteLine($"    nose {Describe(nose)}  deck {Describe(deck)}");
 
