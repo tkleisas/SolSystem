@@ -279,6 +279,7 @@ internal sealed class FlightGame : Game
 
             _simulatedSeconds += step;
             _session.Advance(step);
+            _sun.Update(step);
 
             // The ship is always on the clock, held keys or not: since the station genuinely
             // orbits, a ship left unsimulated is a ship the station leaves behind at 7.7 km/s,
@@ -558,6 +559,7 @@ internal sealed class FlightGame : Game
         double seconds = gameTime.ElapsedGameTime.TotalSeconds * _timeRate;
         _simulatedSeconds += seconds;
         _session.Advance(seconds);
+        _sun.Update(seconds);
 
         SimulateTicks(keys, seconds);
 
