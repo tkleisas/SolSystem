@@ -38,6 +38,45 @@ public class Fix64Tests
     }
 
     [Fact]
+    public void FromMetres_RoundsToTheNearestRepresentableValue()
+    {
+        // One metre is 1e-6 Mm, which is 2^32 / 1e6 = 4294.967296 raw units. The
+        // earlier form took OneRaw / 1_000_000 as integers first and answered 4294
+        // for every metre converted.
+        Assert.Equal(4295, Fix64.FromMetres(1).Raw);
+        Assert.Equal(-4295, Fix64.FromMetres(-1).Raw);
+
+        // Whole megametres are exact.
+        Assert.Equal(Fix64.One.Raw, Fix64.FromMetres(1_000_000).Raw);
+
+        // A metre value round-trips to within the type's own grid (233 nm).
+        foreach (long metres in new[] { 1L, 7L, 999_983L, 40_000_000L, 6_778_100_000L })
+        {
+            double back = Fix64.FromMetres(metres).ToDouble() * 1_000_000.0;
+            Assert.True(Math.Abs(back - metres) < 1.0,
+                $"{metres} m round-tripped to {back} m");
+        }
+    }
+
+    [Fact]
+    public void FromMetres_RangeChecksRatherThanWrapping()
+    {
+        // The largest value that fits: integer part 0x7FFFFFFF.
+        Fix64 top = Fix64.FromMetres(2_147_483_647_000_000L);
+        Assert.Equal(2_147_483_647.0, top.ToDouble(), 6);
+
+        // One whole unit past it is outside the range and must refuse, not wrap. The
+        // negative side has one more value of headroom, because Fix64 is two's
+        // complement: |MinRaw| = |MaxRaw| + 1, so -2^31 whole units is exactly MinValue.
+        Assert.Throws<OverflowException>(() => Fix64.FromMetres(2_147_483_648_000_000L));
+        Assert.Equal(Fix64.MinValue.Raw, Fix64.FromMetres(-2_147_483_648_000_000L).Raw);
+        Assert.Throws<OverflowException>(() => Fix64.FromMetres(-2_147_483_648_000_001L));
+
+        // And the huge inputs the old long multiply wrapped on now refuse cleanly.
+        Assert.Throws<OverflowException>(() => Fix64.FromMetres(9_000_000_000_000_000_000L));
+    }
+
+    [Fact]
     public void AdditionAndSubtraction_AreExact()
     {
         Fix64 a = Fix64.FromDouble(1.25);

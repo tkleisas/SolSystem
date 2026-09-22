@@ -86,10 +86,37 @@ internal readonly struct Fix64 : IEquatable<Fix64>, IComparable<Fix64>
     }
 
     /// <summary>
-    /// Converts metres to megametres exactly, at 2^-32 Mm resolution (which is
-    /// finer than a nanometre, so no metre value is ever lost this way).
+    /// Converts metres to megametres, rounding to the nearest representable value.
     /// </summary>
-    internal static Fix64 FromMetres(long metres) => FromRaw(metres * (OneRaw / 1_000_000));
+    /// <remarks>
+    /// <para>
+    /// The nearest representable value is exact in the only sense the type can mean: no
+    /// metre value is lost below the type's own grid, because 2^-32 Mm is 233
+    /// nanometres. The earlier form evaluated <c>OneRaw / 1_000_000</c> as integers
+    /// first — 4 294 rather than 4 294.967296, a 225 ppm error on every metre converted —
+    /// and multiplied in <see cref="long"/>, which wraps past about 2.1 × 10¹⁵ metres.
+    /// The multiply is taken at <see cref="Int128"/> and the result range-checked.
+    /// </para>
+    /// </remarks>
+    internal static Fix64 FromMetres(long metres)
+    {
+        Int128 scaled = (Int128)metres * OneRaw;
+
+        // Round to nearest, half away from zero: integer division truncates toward
+        // zero, so the round is the divisor's half added with the value's own sign.
+        Int128 raw = scaled >= 0
+            ? (scaled + 500_000) / 1_000_000
+            : -((-scaled + 500_000) / 1_000_000);
+
+        if (raw > MaxRaw || raw < MinRaw)
+        {
+            throw new OverflowException(
+                $"{metres} metres is outside the representable range of Fix64 "
+                + $"(maximum magnitude is {MaxWholeUnits} whole units).");
+        }
+
+        return new Fix64((long)raw);
+    }
 
     // ---------------------------------------------------------------- constants
 
