@@ -14,6 +14,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The build names itself with git describe; a shallow clone has no
+          # tags to describe from.
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:

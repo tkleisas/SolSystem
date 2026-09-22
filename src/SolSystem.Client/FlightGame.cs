@@ -1052,6 +1052,11 @@ internal sealed class FlightGame : Game
         _sprites.DrawString(_hud, $"ON CORRIDOR{along,10:F0} m", at, dim);
         at.Y += Line;
 
+        // The build's own name, dimmest thing on the panel: a screenshot in a bug report
+        // that carries the version is a screenshot you can reproduce.
+        _sprites.DrawString(_hud, $"BUILD      {BuildInfo.Version,10}", at, dim);
+        at.Y += Line;
+
         // The clock, because the sky turns and the player should be able to see it turn.
         _sprites.DrawString(_hud, $"EPOCH JD   {_session.JulianDate,10:F4}", at, dim);
         at.Y += Line;

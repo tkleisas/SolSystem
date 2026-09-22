@@ -48,5 +48,21 @@
         Command="dotnet tool run ShadowDuskCLI -- Content/Sun.fx Content/Sun.mgfx /Profile:OpenGL"
         WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
+  <!--
+    The version shown in the app is the repository's own name for the build, from
+    git describe over the tags: exactly the tag on a tagged commit (v0.0.1 -> 0.0.1),
+    tag-plus-distance past it (0.0.1-5-g5be8afa), and a dirty marker on a dirty tree.
+    A release build therefore names itself without any workflow input, and a
+    development build always says which commit it actually is. Stamped into
+    InformationalVersion; BuildInfo reads it back.
+  -->
+  <Target Name="StampGitVersion" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git describe --tags --always --dirty" ConsoleToMsBuild="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitDescribe" />
+    </Exec>
+    <PropertyGroup Condition="'$(GitDescribe)' != ''">
+      <InformationalVersion>$(GitDescribe.TrimStart('v'))</InformationalVersion>
+    </PropertyGroup>
+  </Target>
 
 </Project>

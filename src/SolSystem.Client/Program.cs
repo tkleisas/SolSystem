@@ -20,6 +20,10 @@ if (args.Length > 0 && args[0] is "--help" or "-h")
     return 0;
 }
 
+// The build names itself before anything else runs: a headless transcript or a bug report
+// that does not say which version produced it is a transcript you cannot reproduce.
+Console.WriteLine($"SolSystem.Client {BuildInfo.Version}");
+
 try
 {
     LaunchOptions options = LaunchOptions.Parse(args);
@@ -30,7 +34,7 @@ try
 catch (Exception exception)
 {
     // A windowed executable has no console, so a startup failure looks like nothing happening.
-    string message = $"SolSystem.Client failed to start:\n{exception}";
+    string message = $"SolSystem.Client {BuildInfo.Version} failed to start:\n{exception}";
     Console.Error.WriteLine(message);
 
     try
