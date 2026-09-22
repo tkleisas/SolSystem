@@ -1,7 +1,7 @@
 namespace SolSystem.Core.Numerics;
 
 /// <summary>
-/// Integer square root and the 128-bit helpers the fixed-point type needs.
+/// Integer square root and the 128-bit helpers <see cref="Fix128"/> needs.
 /// </summary>
 /// <remarks>
 /// Everything here is exact integer arithmetic, so it produces identical results
@@ -10,50 +10,6 @@ namespace SolSystem.Core.Numerics;
 /// </remarks>
 internal static class IntMath
 {
-    /// <summary>
-    /// Floor of the square root of a non-negative 64-bit integer, by bit-pair
-    /// extraction. Exact: the result r satisfies r*r &lt;= n &lt; (r+1)*(r+1).
-    /// </summary>
-    /// <remarks>
-    /// A seedless bit-pair algorithm rather than Newton's method. Newton is fewer
-    /// iterations on paper, but it needs a correct initial guess and a correction
-    /// pass, and getting those subtle is how a square root ends up wrong once in
-    /// every few billion calls. This version has no seed and no correction step.
-    /// </remarks>
-    /// <exception cref="ArgumentOutOfRangeException">If <paramref name="n"/> is negative.</exception>
-    internal static ulong Isqrt(ulong n)
-    {
-        ulong result = 0;
-
-        // Start at the largest power of four that is <= n. Taken from the bit length
-        // rather than a fixed 2^62: a fixed ceiling silently returns 0 for any input
-        // larger than it, which is exactly the range Fix64.Sqrt operates in.
-        int bitLength = 64 - System.Numerics.BitOperations.LeadingZeroCount(n);
-        ulong bit = bitLength <= 0 ? 0UL : 1UL << ((bitLength - 1) & ~1);
-
-        while (bit != 0)
-        {
-            if (n >= result + bit)
-            {
-                n -= result + bit;
-                result = (result >> 1) + bit;
-            }
-            else
-            {
-                result >>= 1;
-            }
-
-            bit >>= 2;
-        }
-
-        return result;
-    }
-
-    /// <summary>Floor of the square root of a non-negative value.</summary>
-    internal static ulong Isqrt(long n) => n < 0
-        ? throw new ArgumentOutOfRangeException(nameof(n), n, "Isqrt is undefined for negative values.")
-        : Isqrt((ulong)n);
-
     /// <summary>
     /// Floor of the square root of a non-negative 128-bit integer.
     /// </summary>
@@ -97,17 +53,6 @@ internal static class IntMath
         return result;
     }
 
-    /// <summary>
-    /// <c>(numerator &lt;&lt; 64) / denominator</c> for values below 2^127, without ever
-    /// forming the shifted numerator.
-    /// </summary>
-    /// <remarks>
-    /// Shifting first is not possible: <c>numerator &lt;&lt; 64</c> overflows
-    /// <see cref="UInt128"/> for any numerator at or above 1.0 in a Q64.64 value, and
-    /// C# truncates silently. The quotient is instead assembled from an exact 2-limb
-    /// long division: each step keeps its remainder below the divisor, so the running
-    /// value stays under 2^127 and the top limb comes out zero for in-range inputs.
-    /// </remarks>
     /// <summary>
     /// The top 128 bits of the product of two 128-bit values, which is what a fixed-point
     /// multiply wants: the true product shifted down by 64 bits.
@@ -192,44 +137,6 @@ internal static class IntMath
     }
 
     /// <summary>
-    /// Floor of the square root of a non-negative 128-bit integer, by bit-pair
-    /// extraction. Seedless and exact.
-    /// </summary>
-    internal static UInt128 Sqrt128(UInt128 n)
-    {
-        if (n == UInt128.Zero)
-        {
-            return UInt128.Zero;
-        }
-
-        ulong high = (ulong)(n >> 64);
-        int bits = high != 0
-            ? 128 - System.Numerics.BitOperations.LeadingZeroCount(high)
-            : 64 - System.Numerics.BitOperations.LeadingZeroCount((ulong)n);
-
-        // The largest power of four not exceeding n.
-        UInt128 root = UInt128.Zero;
-        UInt128 bit = UInt128.One << (((bits - 1) / 2) * 2);
-
-        while (bit != UInt128.Zero)
-        {
-            if (n >= root + bit)
-            {
-                n -= root + bit;
-                root = (root >> 1) + bit;
-            }
-            else
-            {
-                root >>= 1;
-            }
-
-            bit >>= 2;
-        }
-
-        return root;
-    }
-
-    /// <summary>
     /// Floor of the square root of <c>n &lt;&lt; 64</c> for <c>n</c> below 2^126, so the
     /// result is the Q64.64 square root of <c>n</c>.
     /// </summary>
@@ -309,21 +216,4 @@ internal static class IntMath
         return root;
     }
 
-    /// <summary>
-    /// Signed 128-bit product of two 64-bit integers.
-    /// </summary>
-    /// <remarks>
-    /// This is the operation that makes or breaks a Q32.32 type. Multiplying two
-    /// fixed-point values overflows a 64-bit intermediate for almost any realistic
-    /// magnitude, so the product must be taken at full width before it is shifted
-    /// back down.
-    /// </remarks>
-    internal static Int128 Mul128(long a, long b) => (Int128)a * b;
-
-    /// <summary>
-    /// Arithmetic right shift of a 128-bit value by 32 — the narrowing half of a
-    /// fixed-point multiply. Arithmetic shift rounds towards negative infinity,
-    /// which keeps <c>Fix64</c> division and multiplication floors consistent.
-    /// </summary>
-    internal static long NarrowMul(Int128 product) => (long)(product >> Fix64.FractionalBits);
 }

@@ -16,9 +16,6 @@ namespace SolSystem.Core.Orbits;
 /// </remarks>
 internal static class Constants
 {
-    /// <summary>Megametres in one astronomical unit.</summary>
-    internal const long MegametresPerAu = 149_597_870;
-
     /// <summary>
     /// The strategic propagation step, in seconds.
     /// </summary>

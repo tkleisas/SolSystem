@@ -5,9 +5,9 @@ namespace SolSystem.Core.Numerics;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A second trigonometry module, alongside <see cref="Angle"/>, because the two frames
+/// The only trigonometry module now: the old 32-bit one is deleted, and the two frames
 /// need different resolution rather than the same function at two scales.
-/// <see cref="Angle"/> works on a 32-bit turn: one part in 2³² of a revolution, about
+/// The deleted 32-bit module worked on a 32-bit turn: one part in 2³² of a revolution, about
 /// 1.5 × 10⁻¹⁰ radians. That is ample for the local frame, where it points a turret.
 /// </para>
 /// <para>
@@ -18,7 +18,7 @@ namespace SolSystem.Core.Numerics;
 /// gets its own 64-bit turn.
 /// </para>
 /// <para>
-/// The table is Q64.64 and <b>separate from <see cref="Angle"/>'s</b>. Reusing the 32-bit
+/// The table is Q64.64 and was always <b>separate from the 32-bit module's</b>. Reusing the 32-bit
 /// table would silently return values 2³² times too small: the entries carry an implicit
 /// scale, and the two modules' scales differ.
 /// </para>

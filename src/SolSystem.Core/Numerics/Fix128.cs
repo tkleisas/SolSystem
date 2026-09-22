@@ -27,8 +27,11 @@ namespace SolSystem.Core.Numerics;
 /// without a sign-extension trap.
 /// </para>
 /// <para>
-/// The unit is the kilometre, matching the design's solar frame. <see cref="Fix64"/>
-/// remains the local frame's type.
+/// The unit is the kilometre, matching the design's solar frame. The local frame —
+/// metres, for ships and docking corridors — is this same type at a different unit,
+/// which is why no conversion ever crosses between them. The superseded Q32.32
+/// generation that used to hold the local frame is gone; this header recorded the
+/// range problem correctly and its host file did not survive to misstate it.
 /// </para>
 /// </remarks>
 internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
@@ -245,7 +248,7 @@ internal readonly struct Fix128 : IEquatable<Fix128>, IComparable<Fix128>
     /// <remarks>
     /// <para>
     /// Computed in fixed point throughout, and the first version was not: it converted both
-    /// arguments to <c>double</c>, called the Fix64 arctangent, and converted the answer back. That
+    /// arguments to <c>double</c>, called the platform arctangent, and converted the answer back. That
     /// is three 128-bit-to-floating conversions on a type whose whole point is not to use them, and
     /// it made an attitude update <b>seventeen times slower</b> — a docking approach went from six
     /// seconds to a hundred.

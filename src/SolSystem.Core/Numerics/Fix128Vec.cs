@@ -5,7 +5,7 @@ namespace SolSystem.Core.Numerics;
 /// kilometres per second squared, according to context.
 /// </summary>
 /// <remarks>
-/// The solar frame's vector type. <see cref="Fix3"/> stays the local frame's, where the
+/// The solar frame's vector type, and the local frame's too: metres and kilometres are
 /// magnitudes are small enough for a Q32.32 value and the arithmetic is narrower.
 /// </remarks>
 internal readonly struct Fix128Vec : IEquatable<Fix128Vec>
@@ -52,7 +52,7 @@ internal readonly struct Fix128Vec : IEquatable<Fix128Vec>
     /// are all divided by the same power of two.
     /// </para>
     /// <para>
-    /// This is the same shape as <see cref="Fix3"/>'s, arrived at twice: a fixed-point square
+    /// This is the same shape as the old Q32.32 vector's, arrived at twice: a fixed-point square
     /// is the thing that runs out of range first, and the solar frame is exactly where it
     /// happens. Neptune's components are 4.5 x 10^9 km and their squares reach 2 x 10^19,
     /// past the 1.8 x 10^19 the type can hold, so a vector 30 AU long reports itself as 8.3.
