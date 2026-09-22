@@ -53,7 +53,7 @@ one-bit drift — which is exactly what a determinism check is for.
 
 | Script | Question | State |
 |---|---|---|
-| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | The transcript is byte-identical. The script ends mid-creep — at 253 600 ticks the ship is in the terminal phase, 148 m out and closing at the fixed 0.15 m/s — so arrival itself is pinned by the test suite: `ApproachTests.AShipFlownFromTwoKilometres_Docks` docks in 131 556 ticks |
+| `docking.probe` | Does the ship arrive, and does it arrive the same way twice? | Passing: contact at about 131 600 ticks, the same clock the tests pin; the hold is asserted (latched, engine quiet), and the transcript is byte-identical |
 | `station-keeping.probe` | Does a station hold its orbit, and does the Moon keep its own? | Passing |
 | `scale.probe` | Are the frames and the ephemeris telling the same story? | Passing |
 
@@ -77,6 +77,8 @@ success:
 | Ran away at 44 m/s | Past the port, "close faster" and "back away" swap meanings along a fixed axis |
 | Parked 2.3 m outside a 2 m envelope | A fixed creep speed approaches the port asymptotically |
 | Hovered 8 mm from the port, never captured | A switching law cannot regulate a five-centimetre-a-second target |
+| Sailed through the envelope and receded at the handover rate, every check green | The probe launched the ship nose-outward — a leftover from when the world modelled gravity — and the turn's throttle-gate leakage left nine centimetres too much lateral error at the port plane |
+| Thrown through the port at full throttle after a good contact | The hold phase "stopped manoeuvring" by clamping the closing rate, which on a nose-first ship is one command — full burn down the corridor; no test had ever ticked past contact |
 | Helm reversed every 8 ms | A P-D helm with a rate-limited actuator oscillates at the tick rate |
 | **Tumbled on the spot forever** | **Three sign errors and a fold that scaled instead of flipping the axis** |
 
@@ -87,9 +89,17 @@ direction flips, and it nudges back. One version reached 3.5 cm and hovered ther
 is the two decisions now documented in `Approach`: the handover from braking to creeping happens
 on the *rate* (0.15 m/s), not on the profile, and the creep is thrust-only — nose forward, the
 ship can only accelerate, so it regulates the last metres by coasting and can never overshoot into
-another reversal. The ship docks. In the test's fixed-port world that takes 1 096 s from two
-kilometres; the probe's live world is slower and the script ends mid-creep, and the difference
-between the two clocks has not been chased down.
+another reversal. The ship docks, in 1 096 s from two kilometres in the test's world — and the probe
+now asserts it, on the same clock. For a while the probe's transcript showed a ship 148 m out and
+"closing", and the difference between the two clocks went unexplained. Chased down, the probe was
+not slower: it never docked. Its launch pointed the nose outward for a gravity the world no longer
+modelled, the turn's throttle-gate leakage left 0.49 m of lateral error at the port plane, and the
+eighty-centimetre contact sphere was missed by nine — after which the thrust-only creep cannot
+return, and the ship receded at the handover rate with every check green. Aligning the launch with
+the law then exposed a second fault that had never been ticked: the hold phase, entered for the
+first time, threw the ship through the port at full throttle, because every docking test stops at
+contact. The hold now stops manoeuvring, which is what its documentation always said, and the probe
+asserts both halves: contact happened, and the law then left the ship alone.
 
 The item marked as an attitude failure was three separate faults conspiring:
 

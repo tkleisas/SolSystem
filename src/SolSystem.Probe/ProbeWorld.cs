@@ -72,7 +72,7 @@ internal sealed class ProbeWorld
     internal Station? HomeStation =>
         HomeStationName is null ? null : Station(HomeStationName);
 
-    /// <summary>Where in its approach the ship is: 0 closing, 1 braking, 2 terminal.</summary>
+    /// <summary>Where in its approach the ship is: 0 closing, 1 braking, 2 terminal, 3 hold.</summary>
     internal int Phase { get; private set; }
 
     /// <summary>Prints the pilot's decisions at intervals. Diagnostic only.</summary>
@@ -141,16 +141,21 @@ internal sealed class ProbeWorld
         // held and the ship starts at rest in it.
         var velocity = inward * F(closingMetresPerSecond);
 
-        // Launched already pointing along the direction the pilot will ask for, which is the
-        // corridor-normal. This is not a convenience and it took three attempts to see why.
+        // Launched pointing at the port, the way the docking tests launch. This is not a
+        // convenience and it took an investigation to see why.
         //
-        // A ship at rest two kilometres above a station is not hovering — it is falling at
-        // 8.7 m/s², and the engine makes 0.039. The pilot's law therefore aims the nose
-        // *outward* to hold station, exactly as a landing rocket does, and a ship launched
-        // nose-inward is ninety degrees away from that: the alignment gate keeps the engine
-        // shut while the ship falls, by the time it can fire it is closing at 8.6 m/s, and no
-        // controller recovers. The launch attitude has to agree with the control law.
-        Fix128Vec wanted = port.Axis;
+        // The nose used to point OUTWARD, for a reason that had already left the world. When
+        // this probe still modelled gravity, a ship at rest two kilometres above a station was
+        // not hovering — it was falling at 8.7 m/s², and the law aimed the nose outward to hold
+        // station, exactly as a landing rocket does. The gravity went when the stations were
+        // held (see HoldStations), and the outward nose stayed: a 180-degree turn before
+        // anything else, whose throttle-gate leakage leaves half a metre of lateral error at
+        // the port plane. The contact sphere is eighty centimetres across, so the ship missed
+        // by nine centimetres, sailed through, and the thrust-only creep could not come back —
+        // the transcript showed a ship that never docked, receding at the handover rate, while
+        // every check stayed green. The launch attitude has to agree with the control law, and
+        // the law flies nose-first down the corridor.
+        Fix128Vec wanted = -port.Axis;
         Fix128 angle = Fix128.FromDouble(
             Math.Atan2(wanted.Y.ToDouble(), wanted.X.ToDouble()));
 
@@ -226,7 +231,8 @@ internal sealed class ProbeWorld
     /// <remarks>
     /// Three phases, chosen by distance rather than by time so they cannot drift apart as
     /// the mass changes under the burn: close along the corridor, come about and brake, then
-    /// creep the last few metres. The ship goes by <c>ref</c> because it is a mutable struct;
+    /// creep the last few metres — plus the hold, entered at contact, which is the law leaving
+    /// the ship to the latches. The ship goes by <c>ref</c> because it is a mutable struct;
     /// passing it by value would write every burn to a copy and the probe would report a
     /// ship that never moved.
     /// </remarks>

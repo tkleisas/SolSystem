@@ -35,10 +35,14 @@ range
 closing
 ship
 
-# The script ends mid-creep: in this live world the ship is still about 150 m out at
-# 253 600 ticks, closing at the fixed 0.15 m/s handover rate. Arrival is pinned by
-# ApproachTests.AShipFlownFromTwoKilometres_Docks; what this probe checks is that the
-# transcript is reproducible and that the world stays self-consistent.
-expect "the ship is still in the simulation" range 1000000.0 less
+# Contact comes at about 131 600 ticks — the same clock the tests pin — and the hold
+# latches there. What happens after is honest but bare: the law stops flying, nothing
+# models the latches taking the ship yet, and the 0.15 m/s residual carries it gently
+# through the port and away. The run continues for two more minutes because that is
+# what catches a hold that thrusts: one version did, and threw the ship through the
+# port and forty metres a second out the other side. So the checks are that contact
+# happened and that the law then left the ship alone.
+expect "the latches have it" phase 3 exactly
+expect "a held ship is not thrown anywhere" speed 0.2 less
 
 hash docking

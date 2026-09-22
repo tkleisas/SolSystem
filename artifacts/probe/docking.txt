@@ -11,33 +11,36 @@ stations: Anchorage, Meridian
 > advance 3600
   world at tick 3600 (0.000347 days from J2000)
 > range
-  range     1999.979421 m
+  range     1982.360000 m
 > closing
-  closing   0.039869502 m/s
+  closing   1.176000000 m/s
 > ship
-  position  (6780099.9794209711, 0.0026880931302764805, 0) m
-  velocity  (-0.039869509043836932, 0.0050306269662840214, 0) m/s
-  mass      99.9321966244444 t (90 t dry, 9.93219662444444 t propellant)
-  nose      (-0.99340735765168076, 0.114637785060187, 0)
-  delta-v   125618.702320112 m/s
+  position  (6780082.3600000003, 0, 0) m
+  velocity  (-1.1759999999999997, 0, 0) m/s
+  mass      99.932102 t (90 t dry, 9.932102 t propellant)
+  nose      (-1, 2.7105054312137611E-19, 0)
+  delta-v   125617.566055816 m/s
 > advance 250000
   world at tick 253600 (0.024460 days from J2000)
 > phase
-  phase     2 (terminal)
+  phase     3 (hold)
 > range
-  range     148.010562 m
+  range     152.335940 m
 > closing
-  closing   -0.150076401 m/s
+  closing   -0.150004377 m/s
 > ship
-  position  (6777952.1457280321, -6.8000551587231524, 0) m
-  velocity  (-0.14993945394277239, -0.0064269482968837216, 0) m/s
-  mass      99.9313630997095 t (90 t dry, 9.93136309970955 t propellant)
-  nose      (-0.99505556996122868, -0.099319749743615515, 0)
-  delta-v   125608.693195055 m/s
-> expect "the ship is still in the simulation" range 1000000.0 less
-  ok        the ship is still in the simulation
-            range = 148.0105620869472, expected less 1000000
+  position  (6777947.710053755, -3.7431273612179554, 0) m
+  velocity  (-0.1499671134861123, -0.0033592687393327078, 0) m/s
+  mass      99.9313985095794 t (90 t dry, 9.93139850957944 t propellant)
+  nose      (-0.99496851913085238, 0.10018805287337723, 0)
+  delta-v   125609.118405269 m/s
+> expect "the latches have it" phase 3 exactly
+  ok        the latches have it
+            phase = 3, expected exactly 3
+> expect "a held ship is not thrown anywhere" speed 0.2 less
+  ok        a held ship is not thrown anywhere
+            speed = 0.15000473263807226, expected less 0.20000000000000001
 > hash docking
-  hash      docking 8cdd21828f12f8fcd156907d4a5b8318d005a4323e99d81f868b9e2e1eb9a443
+  hash      docking bf99c4b8de6e149e5e073d546294dbffe30e9b1014aed3efe48e2c75a2eeaf92
 
-probe: 14 commands, 0 errors, 0 checks failed
+probe: 15 commands, 0 errors, 0 checks failed
