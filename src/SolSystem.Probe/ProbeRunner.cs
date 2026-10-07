@@ -1,7 +1,6 @@
 using System.Globalization;
-using System.Numerics;
-using System.Security.Cryptography;
 using System.Text;
+using SolSystem.Core.Determinism;
 using SolSystem.Core.Local;
 using SolSystem.Core.Sky;
 using SolSystem.Core.Numerics;
@@ -462,31 +461,29 @@ internal sealed class ProbeRunner
     {
         string label = command.ArgumentCount > 0 ? command.Argument(0, "a label", "hash [label]") : "state";
 
-        var bytes = new List<byte>();
-        AppendScalar(bytes, _world.Time.Magnitude);
-        AppendScalar(bytes, _world.Time.Negative);
-        AppendScalar(bytes, _world.Ticks);
-        AppendScalar(bytes, _world.Phase);
+        var words = new WorldHashBuilder();
+        words.Add(_world.Time);
+        words.Add(_world.Ticks);
+        words.Add(_world.Phase);
 
         foreach (string name in _world.StationNames.OrderBy(n => n, StringComparer.Ordinal))
         {
             Station station = _world.Station(name);
-            AppendVector(bytes, station.Offset);
-            AppendVector(bytes, station.Velocity);
+            words.Add(station.Offset);
+            words.Add(station.Velocity);
         }
 
         if (_world.Ship is Ship ship)
         {
-            AppendVector(bytes, ship.Position);
-            AppendVector(bytes, ship.Velocity);
-            AppendVector(bytes, ship.Attitude.RotationVector);
-            AppendVector(bytes, ship.Attitude.AngularVelocity);
-            AppendScalar(bytes, ship.Mass.ToDouble());
-            AppendScalar(bytes, ship.Propellant.ToDouble());
+            words.Add(ship.Position);
+            words.Add(ship.Velocity);
+            words.Add(ship.Attitude.RotationVector);
+            words.Add(ship.Attitude.AngularVelocity);
+            words.Add(ship.Mass.ToDouble());
+            words.Add(ship.Propellant.ToDouble());
         }
 
-        byte[] digest = SHA256.HashData(bytes.ToArray());
-        Emit($"  hash      {label} {Convert.ToHexString(digest).ToLowerInvariant()}");
+        Emit($"  hash      {label} {words.Digest()}");
     }
 
     /// <summary>
@@ -624,40 +621,4 @@ internal sealed class ProbeRunner
         $"({v.X.ToDouble().ToString("G17", CultureInfo.InvariantCulture)}, "
         + $"{v.Y.ToDouble().ToString("G17", CultureInfo.InvariantCulture)}, "
         + $"{v.Z.ToDouble().ToString("G17", CultureInfo.InvariantCulture)})";
-
-    private static void AppendScalar(List<byte> bytes, double value) =>
-        bytes.AddRange(BitConverter.GetBytes(value));
-
-    private static void AppendScalar(List<byte> bytes, long value) =>
-        bytes.AddRange(BitConverter.GetBytes(value));
-
-    /// <summary>
-    /// A raw 128-bit fixed-point magnitude, byte for byte.
-    /// </summary>
-    /// <remarks>
-    /// Hashed directly rather than through <c>double</c>. A double carries 53 bits of
-    /// mantissa, so the cast drops the low eleven bits of a Q64.64 word — the bits a
-    /// one-bit drift lives in — and the type carries no sign at all, so <c>x</c> and
-    /// <c>-x</c> hashed identically. The remark above the hash claims raw words; this
-    /// is what makes the claim true. There is no <c>BitConverter</c> overload for
-    /// <see cref="UInt128"/>, so the two 64-bit halves go in explicitly.
-    /// </remarks>
-    private static void AppendScalar(List<byte> bytes, UInt128 value)
-    {
-        bytes.AddRange(BitConverter.GetBytes((ulong)(value & ulong.MaxValue)));
-        bytes.AddRange(BitConverter.GetBytes((ulong)(value >> 64)));
-    }
-
-    private static void AppendScalar(List<byte> bytes, bool value) =>
-        bytes.Add(value ? (byte)1 : (byte)0);
-
-    private static void AppendVector(List<byte> bytes, Fix128Vec v)
-    {
-        AppendScalar(bytes, v.X.Magnitude);
-        AppendScalar(bytes, v.X.Negative);
-        AppendScalar(bytes, v.Y.Magnitude);
-        AppendScalar(bytes, v.Y.Negative);
-        AppendScalar(bytes, v.Z.Magnitude);
-        AppendScalar(bytes, v.Z.Negative);
-    }
 }

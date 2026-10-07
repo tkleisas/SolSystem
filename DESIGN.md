@@ -1221,6 +1221,23 @@ order. An external driver can therefore reproduce a session tick-for-tick, which
 whole point of the instrument. A wall-clock mode (for a live external UI) is a later,
 explicit decision, and it reopens the §7 pause question.
 
+**[DECIDED] One request per update.** The listener thread owns nothing but the queue: it
+never touches the simulation, the renderer, or the game's fields. The game's update drains
+at most one request per tick — bounded, ordered, no re-entrancy into the tick from a
+network thread, and a request that arrives mid-draw waits for the boundary like a
+keystroke does. The failure modes to avoid are the classic ones: a request processed
+mid-draw, `Dispose` racing a queued request, a stall when the update loop stops consuming.
+
+**[DECIDED] A narrow surface.** The controller reads and commands the simulation through a
+defined interface — the way `NavOverlay` and `CorridorGates` read the session — not by
+reaching into the game's internals. The client just stopped being a god class; the
+controller does not get to be the thing that un-does it.
+
+**[DECIDED] Loopback, and graceful failure.** The listener binds 127.0.0.1; a game binary
+does not serve a REST surface to the network. Endpoints that need a GL context (render,
+movie) fail with an explicit error when there is none — the narrator's silence, again:
+capabilities degrade by answer, not by crash.
+
 **[DECIDED] The world hash is part of the API.** The probe's byte-exact hash over the
 world's raw fixed-point words is exposed as an endpoint: any driver, on any machine, can
 verify it is talking to the same world. Determinism as a service rather than as a promise.
