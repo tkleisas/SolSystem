@@ -1,9 +1,11 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SolSystem.Core.Determinism;
 using SolSystem.Core.Numerics;
 using SolSystem.Core.Local;
 using SolSystem.Core.Orbits;
+using SolSystem.Core.Sky;
 using SolSystem.Speech;
 
 namespace SolSystem.Client;
@@ -29,7 +31,7 @@ namespace SolSystem.Client;
 /// into pixels and keystrokes.
 /// </para>
 /// </remarks>
-internal sealed class FlightGame : Game
+internal sealed class FlightGame : Game, IControllerTarget
 {
     /// <summary>
     /// Field of view, in degrees.
@@ -112,6 +114,43 @@ internal sealed class FlightGame : Game
     private double _simulatedSeconds;
     private double _lastAdvanced;
     private int _frame;
+
+    /// <summary>
+    /// The controller, when the run was started with <c>--controller</c>. Null is the
+    /// ordinary case: the pilot's own keyboard is the only input, and the world advances
+    /// at the rate the pilot asked for.
+    /// </summary>
+    private ControllerHost? _controller;
+
+    /// <summary>
+    /// How many navigation ticks the world has stepped since the run began.
+    /// </summary>
+    /// <remarks>
+    /// Not simulation state — the session's clock is the simulation's own record of time —
+    /// but the driver's instrument: a hash that changes when the tick count does would be a
+    /// hash of something the driver cannot see. This counter is the number the driver's
+    /// advance requests added up to.
+    /// </remarks>
+    private long _worldTicks;
+
+    /// <summary>
+    /// Frames left in a controller render run, and where they are being saved.
+    /// </summary>
+    /// <remarks>
+    /// A render run is the ordinary loop: each update advances the shot step, each draw
+    /// saves one numbered PNG. Zero means no render is running, and the driven world
+    /// waits, frozen, for the next request.
+    /// </remarks>
+    private int _renderRemaining;
+    private int _renderIndex;
+    private string _renderDirectory = string.Empty;
+
+    /// <summary>
+    /// A driver asked for the client to close. The answer to <c>/quit</c> flies first, and
+    /// the next update honours the request — <see cref="Game.Exit"/> called from inside the
+    /// request itself races the response out the socket.
+    /// </summary>
+    private bool _quitRequested;
 
     /// <summary>
     /// The time compression ladder.
@@ -262,6 +301,11 @@ internal sealed class FlightGame : Game
         _sharedPixel = pixel;
         _sharedFont = hud;
 
+        if (_options.ControllerPort > 0)
+        {
+            _controller = ControllerHost.Start(_options.ControllerPort, this);
+        }
+
         if (_options.Destination.Length > 0
             && Enum.TryParse(_options.Destination, ignoreCase: true, out Ephemeris.Body chosen))
         {
@@ -302,7 +346,11 @@ internal sealed class FlightGame : Game
             ReadTimeCompression(keys);
         }
 
-        if (_options.Headless)
+        if (_controller is not null)
+        {
+            UpdateDriven(keys, mouse);
+        }
+        else if (_options.Headless)
         {
             // No keyboard, and a fixed step, so that frame N is at N/60 of a second and two renders
             // of the same frame are the same image. The compression still applies to it.
@@ -355,6 +403,64 @@ internal sealed class FlightGame : Game
     /// watch the Sun come round.
     /// </remarks>
     /// <summary>
+    /// The update when the run was started with <c>--controller</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// EXTERNAL DRIVE: the world advances only when a request moves it, because the driver
+    /// is the pilot and §12.1's step-driven rule is the whole instrument. The window still
+    /// draws every frame — a driver's session can be watched — and the camera still follows
+    /// the mouse, because looking is presentation and touches nothing. The keyboard flies
+    /// nothing: two pilots on one hull is a fight neither can win.
+    /// </para>
+    /// <para>
+    /// At most one queued request runs, here, at the boundary. If it was an advance, the
+    /// job stepped the world itself. A render run then advances the shot step per frame so
+    /// that frame N is at N/60 of a second, exactly as the headless loop does; otherwise the
+    /// world is frozen until the next request.
+    /// </para>
+    /// </remarks>
+    private void UpdateDriven(KeyboardState keys, MouseState mouse)
+    {
+        if (_quitRequested || JustPressed(keys, Keys.Escape))
+        {
+            Exit();
+            return;
+        }
+
+        ReadCamera(keys, mouse);
+
+        _controller!.DrainOne(this);
+
+        if (_renderRemaining > 0)
+        {
+            double step = ShotSeconds * _timeRate;
+            _simulatedSeconds += step;
+            _session.Advance(step);
+            _sun.Update(step);
+            SimulateTicks(default(KeyboardState), step);
+            Reanchor();
+        }
+    }
+
+    /// <summary>
+    /// Carries the observer with the ship: the session's local frame is the ship's frame.
+    /// </summary>
+    /// <remarks>
+    /// The camera, the panels, the narrator and the chart all read the session, and the
+    /// session wants an offset from the station. The ship's position is Earth-centred, so
+    /// the station's own offset is what joins the two frames — one place, called after
+    /// every advance, whoever asked for it.
+    /// </remarks>
+    private void Reanchor()
+    {
+        _session.SetLocalOffset(
+            _flight.Ship.Position - _session.Station.Offset,
+            _flight.Ship.Velocity - _session.Station.Velocity,
+            _session.Earth());
+    }
+
+    /// <summary>
     /// Steps the ship, at the rate the physics was written for.
     /// </summary>
     /// <remarks>
@@ -369,6 +475,7 @@ internal sealed class FlightGame : Game
         sources[0] = _session.Station.GravitySource;
 
         int ticks = Math.Clamp((int)Math.Round(seconds / TickSeconds), 0, 240);
+        _worldTicks += ticks;
 
         if (_helm.Engaged)
         {
@@ -489,7 +596,8 @@ internal sealed class FlightGame : Game
     /// <summary>
     /// Hands the controls to the flight computer for the chosen course.
     /// </summary>
-    private void Engage(Ephemeris.Body destination, TransferOption? optionOrNull)
+    /// <remarks>Returns the reason for a refusal, or null when the controls were taken.</remarks>
+    private string? Engage(Ephemeris.Body destination, TransferOption? optionOrNull)
     {
         SolarSystem system = _session.System;
 
@@ -497,9 +605,7 @@ internal sealed class FlightGame : Game
         // the chart had never been drawn — a full-throttle crossing to nowhere, chosen silently.
         if (optionOrNull is not TransferOption option)
         {
-            Console.WriteLine(
-                "  nothing to engage: no course is planned. Open the chart, pick a body, plan.");
-            return;
+            return "no course is planned: open the chart, pick a body, plan";
         }
 
         // The option owns its own throttle now: the planner quotes what flying it commands,
@@ -512,9 +618,8 @@ internal sealed class FlightGame : Game
         // a ballistic course hands over the heading and leaves the pilot the timing.
         if (option.Name == "BALLISTIC")
         {
-            Console.WriteLine("  ballistic courses are not flown by this computer; "
-                + "the plan is a heading and a window, not an autopilot");
-            return;
+            return "ballistic courses are not flown by this computer; "
+                + "the plan is a heading and a window, not an autopilot";
         }
 
         // THE TARGET HAS TO BE IN THE SHIP'S OWN FRAME. The ship is in the Earth-centred local frame
@@ -534,9 +639,7 @@ internal sealed class FlightGame : Game
 
         if (FlightPlan.ThrustToGravity(gmKm, radiusKm, acceleration) < 1.0)
         {
-            Console.WriteLine(
-                "  cannot engage: the drive is weaker than the local gravity. Spiral out first.");
-            return;
+            return "the drive is weaker than the local gravity; spiral out first";
         }
 
         // The arrival radius is coarse on purpose: the autohelm is a transit computer, not a
@@ -556,7 +659,135 @@ internal sealed class FlightGame : Game
 
         Console.WriteLine($"  autohelm engaged: {destination}, {option.Name}, "
             + $"{option.Seconds / 86400.0:F1} days, {option.DeltaV / 1000.0:F1} km/s");
+        return null;
     }
+
+    // ----------------------------------------------------------------- the controller
+
+    /// <summary>
+    /// The controller's reads and commands, through <see cref="IControllerTarget"/>'s narrow
+    /// surface. Explicit implementations, so none of this widens the class's own API.
+    /// </summary>
+    double IControllerTarget.JulianDate => _session.JulianDate;
+
+    long IControllerTarget.WorldTicks => _worldTicks;
+
+    Fix128Vec IControllerTarget.StationOffset => _session.Station.Offset;
+
+    Fix128Vec IControllerTarget.StationVelocity => _session.Station.Velocity;
+
+    Ship IControllerTarget.Ship => _flight.Ship;
+
+    double IControllerTarget.Throttle => _flight.Throttle;
+
+    bool IControllerTarget.HelmEngaged => _helm.Engaged;
+
+    /// <summary>
+    /// The world hash, over the same raw fixed-point words the probe folds.
+    /// </summary>
+    /// <remarks>
+    /// The clock is folded as raw seconds from J2000 — the same expression the session's
+    /// ephemeris uses — so two runs driven through the same request sequence produce the
+    /// same digest, and one that has drifted shows it. The tick counter is a client
+    /// bookkeeping number, and the rest is the world's own words.
+    /// </remarks>
+    string IControllerTarget.WorldHash()
+    {
+        var words = new WorldHashBuilder();
+        words.Add(Fix128.FromDouble((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
+        words.Add(_worldTicks);
+        words.Add(_session.Station.Offset);
+        words.Add(_session.Station.Velocity);
+        words.Add(_flight.Ship.Position);
+        words.Add(_flight.Ship.Velocity);
+        words.Add(_flight.Ship.Attitude.RotationVector);
+        words.Add(_flight.Ship.Attitude.AngularVelocity);
+        words.Add(_flight.Ship.Mass.ToDouble());
+        words.Add(_flight.Ship.Propellant.ToDouble());
+        return words.Digest();
+    }
+
+    /// <summary>
+    /// Steps the world N navigation ticks under the current throttle or the helm.
+    /// </summary>
+    /// <remarks>
+    /// The same stepping the interactive loop performs — same sources, same tick, the same
+    /// hands-off command the lever held — only uncapped, because the cap is a render policy
+    /// and a driver asking for a hundred thousand ticks has asked for a hundred thousand.
+    /// </remarks>
+    void IControllerTarget.AdvanceTicks(int ticks)
+    {
+        Span<GravitySource> sources = stackalloc GravitySource[1];
+        sources[0] = _session.Station.GravitySource;
+
+        // One command, read once: hands off the stick, the lever where it was set. Reading it
+        // again per tick would only be re-deriving the same values, since no key can change it.
+        Command command = _flight.Read(default(KeyboardState), 0.0);
+        Fix128 dt = Fix128.FromDouble(TickSeconds);
+
+        for (int i = 0; i < ticks; i++)
+        {
+            if (_helm.Engaged)
+            {
+                _helm.Step(ref _flight.Ship, sources, dt);
+            }
+            else
+            {
+                _flight.Step(sources, TickSeconds, command);
+            }
+        }
+
+        _worldTicks += ticks;
+        Reanchor();
+    }
+
+    void IControllerTarget.SetThrottle(double fraction) => _flight.SetThrottle(fraction);
+
+    string? IControllerTarget.Engage(string bodyName, string? optionName)
+    {
+        if (!Enum.TryParse(bodyName, ignoreCase: true, out Ephemeris.Body destination))
+        {
+            return $"no such body '{bodyName}'";
+        }
+
+        // The planner is Core's one planner; the chart shows its output and so does this. The
+        // ship's here-Km is the session's observer, which Reanchor keeps riding the hull.
+        double hereKm = _session.ObserverPosition.Length.ToDouble();
+        double thereKm = SolarSystem.MeanOrbitKm(destination);
+        double acceleration = _flight.Ship.Engine.MaxAccelerationInMetresPerSecondSquared.ToDouble();
+        List<TransferOption> options = FlightPlan.Options(hereKm, thereKm, acceleration, _flight.DeltaV);
+
+        TransferOption? chosen = optionName is null
+            ? options.FirstOrDefault(option => option.Feasible && option.Name != "BALLISTIC")
+            : options.FirstOrDefault(option =>
+                option.Feasible
+                && option.Name.Equals(optionName, StringComparison.OrdinalIgnoreCase));
+
+        if (chosen is not TransferOption option)
+        {
+            return optionName is null
+                ? $"no feasible course to {destination}: the drive cannot reach it on what is left"
+                : $"no feasible course named '{optionName}' to {destination}";
+        }
+
+        return Engage(destination, option);
+    }
+
+    bool IControllerTarget.BeginRender(int frames, string directory)
+    {
+        if (_renderRemaining > 0)
+        {
+            return false;
+        }
+
+        Directory.CreateDirectory(directory);
+        _renderRemaining = frames;
+        _renderIndex = 0;
+        _renderDirectory = directory;
+        return true;
+    }
+
+    void IControllerTarget.Quit() => _quitRequested = true;
 
     private void Simulate(GameTime gameTime, KeyboardState keys)
     {
@@ -567,13 +798,8 @@ internal sealed class FlightGame : Game
 
         SimulateTicks(keys, seconds);
 
-        // The camera is inside the ship, so the ship drives the observer and not the reverse. The
-        // session wants an offset from the station's centre and the ship's position is measured from
-        // the Earth's, so the station's own offset is what joins the two.
-        _session.SetLocalOffset(
-            _flight.Ship.Position - _session.Station.Offset,
-            _flight.Ship.Velocity - _session.Station.Velocity,
-            _session.Earth());
+        // The camera is inside the ship, so the ship drives the observer and not the reverse.
+        Reanchor();
 
         if (JustPressed(keys, Keys.Escape))
         {
@@ -593,7 +819,9 @@ internal sealed class FlightGame : Game
         // happened on every frame from the trigger onwards, and a run that produced one image wrote
         // it sixty times a second until it exited.
         RenderTarget2D? target = null;
-        bool saving = _options.OneShot
+        bool renderRun = _renderRemaining > 0;
+        bool saving = renderRun
+            || _options.OneShot
             || (_options.ShotPath is not null && _options.Frames > 0 && _frame == _options.Frames - 1);
 
         if (saving)
@@ -750,18 +978,41 @@ internal sealed class FlightGame : Game
         FinishFrame(target, gameTime);
     }
     /// <summary>The tail of a frame: save if asked, and count it.</summary>
+    /// <remarks>
+    /// A controller render run saves one numbered PNG per frame — <c>frame_0000.png</c> and
+    /// on — so a directory of them is a movie ffmpeg can consume whole, and two runs of the
+    /// same request sequence produce the same bytes. When the last frame lands, the parked
+    /// request is answered.
+    /// </remarks>
     private void FinishFrame(RenderTarget2D? target, GameTime gameTime)
     {
         if (target is not null)
         {
             GraphicsDevice.SetRenderTarget(null);
-            Save(target, _options.ShotPath!);
-            target.Dispose();
 
-            // A one-shot has nothing left to do; a bounded run does too, once it has its frame.
-            if (_options.ShotPath is not null)
+            if (_renderRemaining > 0)
             {
-                Exit();
+                string file = Path.Combine(_renderDirectory, $"frame_{_renderIndex:0000}.png");
+                Save(target, file);
+                target.Dispose();
+                _renderIndex++;
+                _renderRemaining--;
+
+                if (_renderRemaining == 0)
+                {
+                    _controller?.RenderFinished(_renderIndex, _renderDirectory, file);
+                }
+            }
+            else
+            {
+                Save(target, _options.ShotPath!);
+                target.Dispose();
+
+                // A one-shot has nothing left to do; a bounded run does too, once it has its frame.
+                if (_options.ShotPath is not null)
+                {
+                    Exit();
+                }
             }
         }
 

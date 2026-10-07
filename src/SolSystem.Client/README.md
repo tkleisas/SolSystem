@@ -188,6 +188,31 @@ presets, `--narrator-prompt <file>` to clone one from a 16-bit PCM recording) an
 numbers in the course lines are generated, not authored — a fixed set of audio could not say what
 the simulation says.
 
+## The controller
+
+`--controller <port>` opens HTTP on `127.0.0.1:<port>` and puts the client in **external drive**:
+the world advances only when a request moves it. The window keeps drawing, so a driven session can
+be watched; the camera still follows the mouse; the keyboard flies nothing, because the driver is
+the pilot.
+
+The requests, all JSON:
+
+| Request | What it does |
+|---|---|
+| `GET /state` | Clock, ticks, station, ship — metres, the simulation's own frame |
+| `GET /hash` | SHA-256 over the world's raw fixed-point words |
+| `POST /advance` | `{"ticks":n}` or `{"seconds":n}` or `{"days":n}` — steps the world, answers with state |
+| `POST /throttle` | `{"fraction":0..1}` — sets the lever |
+| `POST /engage` | `{"body":"Mars"}` (or `{"option":"torch-1"}`) — the chart's course, computed |
+| `POST /render` | `{"frames":n,"dir":path}` — saves numbered PNGs through the ordinary loop |
+| `POST /quit` | `{}` — closes the client |
+
+POSTs take a body (send `{}` when there is nothing to say — the listener refuses a bodyless POST).
+At most one request runs per update, at a tick boundary, in order: a driver drives the same loop a
+player flies and can prove it is the same world by hashing it. Two runs given the same request
+sequence produce the same hashes — and the same PNGs, byte for byte. A render run is the ordinary
+frame loop with the ordinary save; `ffmpeg` turns a directory of its frames into a movie.
+
 ## Two scales, and why
 
 The far pass has a unit of a thousand kilometres, because Neptune is four and a half million of them

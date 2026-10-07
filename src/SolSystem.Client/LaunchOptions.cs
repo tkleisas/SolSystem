@@ -111,6 +111,17 @@ internal sealed class LaunchOptions
     /// <summary>A reference recording to clone the narrator's voice from, when given.</summary>
     internal string NarratorPrompt { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// Port for the controller, HTTP on loopback, or 0 for none.
+    /// </summary>
+    /// <remarks>
+    /// With a controller the client runs in external drive: the world advances only when a
+    /// request moves it — <c>/advance</c> steps it, <c>/render</c> saves frames, <c>/hash</c>
+    /// answers whether two runs met the same world. The window still draws, so a driven
+    /// session can be watched.
+    /// </remarks>
+    internal int ControllerPort { get; private set; }
+
     /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
     internal double CameraYaw { get; private set; }
 
@@ -149,6 +160,7 @@ internal sealed class LaunchOptions
           --camera-pitch <deg> start the camera at this pitch
           --camera-distance <m> start the camera at this distance
           --lineup             draw every asset at true size, side by side
+          --controller <port>  HTTP on 127.0.0.1:port; the world advances when driven
         """;
 
     internal enum ViewAim
@@ -217,6 +229,10 @@ internal sealed class LaunchOptions
 
                 case "--narrator-prompt":
                     options.NarratorPrompt = Require(args, ref i);
+                    break;
+
+                case "--controller":
+                    options.ControllerPort = (int)Number(args, ref i, 1.0, 65535.0);
                     break;
 
                 case "--hold":
