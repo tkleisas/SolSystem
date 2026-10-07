@@ -213,6 +213,18 @@ player flies and can prove it is the same world by hashing it. Two runs given th
 sequence produce the same hashes — and the same PNGs, byte for byte. A render run is the ordinary
 frame loop with the ordinary save; `ffmpeg` turns a directory of its frames into a movie.
 
+## The mission
+
+`--mission <file>` loads a Lua script that watches the flight and speaks to the pilot over the
+narrator's channel (and prints what it logs when there is no voice to say it). It reads the
+simulation through the probe's vocabulary — `sim.range()`, `sim.lateral()`, `sim.closing()`,
+`sim.docked()`, `sim.in_contact()`, the lever and the tanks — registers outcome verdicts with
+`mission.outcome(name, predicate)`, and talks with `mission.say(text)` / `mission.note(text)`.
+The world moves on the world's schedule; the script is a passenger with opinions, and a script
+that throws says nothing more. The interpreter is MoonSharp's soft sandbox: no filesystem, no
+operating system, no dynamic `load`, no `math.random`. The first mission is the docking tutorial
+(`tools/missions/docking-tutorial.lua`).
+
 ## Two scales, and why
 
 The far pass has a unit of a thousand kilometres, because Neptune is four and a half million of them

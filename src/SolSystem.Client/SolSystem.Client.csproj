@@ -21,6 +21,7 @@
     <!-- Runs mgcb over Content/Content.mgcb during the build, so a shader is compiled as part of
          the project rather than by a step somebody has to remember. -->
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5.1" />
+    <PackageReference Include="MoonSharp" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,14 +41,9 @@
     finds by walking up from the project directory. The compiled .mgfx lands next to its
     source and is NOT committed: a build regenerates it when the .fx changes.
   -->
-  <Target Name="CompileEffects"
-      BeforeTargets="RunContentBuilder"
-      Inputs="Content\Sun.fx"
-      Outputs="Content\Sun.mgfx">
+  <Target Name="CompileEffects" BeforeTargets="RunContentBuilder" Inputs="Content\Sun.fx" Outputs="Content\Sun.mgfx">
     <Exec Command="dotnet tool restore" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="false" />
-    <Exec EnvironmentVariables="DOTNET_ROLL_FORWARD=Major"
-        Command="dotnet tool run ShadowDuskCLI -- Content/Sun.fx Content/Sun.mgfx /Profile:OpenGL"
-        WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Exec EnvironmentVariables="DOTNET_ROLL_FORWARD=Major" Command="dotnet tool run ShadowDuskCLI -- Content/Sun.fx Content/Sun.mgfx /Profile:OpenGL" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
   <!--
     The version shown in the app is the repository's own name for the build, from

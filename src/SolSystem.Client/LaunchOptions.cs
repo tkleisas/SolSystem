@@ -122,6 +122,16 @@ internal sealed class LaunchOptions
     /// </remarks>
     internal int ControllerPort { get; private set; }
 
+    /// <summary>
+    /// A mission script to load, or the empty string for an ordinary flight.
+    /// </summary>
+    /// <remarks>
+    /// The view-side missionary of §12.3: it watches the flight, talks to the pilot, and
+    /// declares outcomes. It commands nothing on its own except the throttle lever, which
+    /// the pilot's own hands also move.
+    /// </remarks>
+    internal string MissionFile { get; private set; } = string.Empty;
+
     /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
     internal double CameraYaw { get; private set; }
 
@@ -161,6 +171,7 @@ internal sealed class LaunchOptions
           --camera-distance <m> start the camera at this distance
           --lineup             draw every asset at true size, side by side
           --controller <port>  HTTP on 127.0.0.1:port; the world advances when driven
+          --mission <file>     a Lua mission that watches the flight and talks
         """;
 
     internal enum ViewAim
@@ -233,6 +244,10 @@ internal sealed class LaunchOptions
 
                 case "--controller":
                     options.ControllerPort = (int)Number(args, ref i, 1.0, 65535.0);
+                    break;
+
+                case "--mission":
+                    options.MissionFile = Require(args, ref i);
                     break;
 
                 case "--hold":

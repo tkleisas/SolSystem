@@ -163,6 +163,9 @@ internal sealed class FlightGame : Game, IControllerTarget
     /// </remarks>
     private bool? _windowFocused;
 
+    /// <summary>The loaded mission script, or null for an unaccompanied flight.</summary>
+    private MissionHost? _mission;
+
     /// <summary>
     /// The time compression ladder.
     /// </summary>
@@ -314,6 +317,15 @@ internal sealed class FlightGame : Game, IControllerTarget
             // The comm log prints what the voice says, as the voice starts saying it.
             _narrator.LineSpoken += line => _commLog.WriteLine(line);
         }
+
+        if (_options.MissionFile.Length > 0)
+        {
+            // The mission watches the flight, talks through the voice's channel, and sees
+            // the autohelm's answer for "is the computer flying". The comm log is the one
+            // place its unspoken notes go.
+            _mission = MissionHost.Load(_options.MissionFile, _flight, _session, _narrator,
+                () => _helm.Engaged, line => _commLog.WriteLine(line));
+        }
         _sharedPixel = pixel;
         _sharedFont = hud;
 
@@ -395,7 +407,12 @@ internal sealed class FlightGame : Game, IControllerTarget
         // advanced this frame — the nav lights' clock, not the wall's — so a scripted run
         // types deterministically, frame for frame.
         _narrator?.Update(_flight, _session);
+
+        // The mission reads the world after whatever advanced it this frame — drives,
+        // renders or the pilot's own clock — so its verdicts are about the world the
+        // renderers are drawing.
         double advanced = _simulatedSeconds - _lastAdvanced;
+        _mission?.Advanced(advanced);
         _commLog.Update(advanced);
         _lastAdvanced = _simulatedSeconds;
 
