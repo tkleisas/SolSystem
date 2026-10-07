@@ -450,7 +450,14 @@ internal sealed class Hull : IDisposable
         var narrow = new short[count];
         for (int i = 0; i < count; i++)
         {
-            narrow[i] = (short)indices[i];
+            // The narrow path moves a BIT PATTERN, not a value: a sixteen-bit index buffer
+            // is what the GPU reads, and an index at or above 32 768 lands in the negative
+            // half of a short with its sixteen bits untouched — which is the point. The
+            // wrap is the design; a checked build is told here.
+            unchecked
+            {
+                narrow[i] = (short)indices[i];
+            }
         }
 
         var narrowBuffer = new IndexBuffer(device, IndexElementSize.SixteenBits, count,

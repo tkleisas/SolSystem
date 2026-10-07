@@ -147,6 +147,41 @@ the preview.
 
 `SolSystem.Client --shot <file>` renders one frame headlessly. See `art/previews/flight/`.
 
+## `tts/`
+
+The narrator's model stack — no Python at run time; this is only the one-time fetch.
+
+```sh
+tools/tts/fetch_models.sh        # ~770 MB into gitignored artifacts/moss-tts/, once
+```
+
+Synthesis is [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano)'s ONNX CPU deployment,
+ported to C# in `src/SolSystem.Speech` and run in-process by the client. The tool's own surface:
+
+```sh
+dotnet run -c Release --project src/SolSystem.Speech -- --self-test
+dotnet run -c Release --project src/SolSystem.Speech -- --voices
+dotnet run -c Release --project src/SolSystem.Speech -- --text "Meridian." --voice Adam --out out.wav --seed 1234
+dotnet run -c Release --project src/SolSystem.Speech -- --text "Harbour control." --prompt voice.wav   # clone
+```
+
+`--self-test` pins the SentencePiece BPE encoder against the two reference id sets the export's
+manifest ships, loads all eight graphs, and hashes a greedy synthesis. Greedy mode uses no random
+numbers; the sampled mode draws uniforms from a port-local seeded generator, so the same seed says
+the same words every run.
+
+A cloned voice is encoded once and saved beside its recording as a validated sidecar
+(`prompt.wav.codes`: magic, version, codec identity, and the SHA-256 of the recording). A session
+then loads the codes instead of running the encoder; a sidecar that disagrees with its recording
+is refused and re-encoded, never spoken.
+
+Spoken lines are cached the same way, and the cache is the project's general database:
+`artifacts/solsystem.db` carries the `cache_voice` table — the line as given and as normalised,
+the voice identity and the seed that produced it, and the SHA-256 of the WAV file it names in
+`artifacts/voice/`. A line already rendered is played from its file, and no inference runs; a
+missing or invalid file is re-rendered and the row updated. Both are gitignored; deleting them
+costs one synthesis per line ever spoken.
+
 ## `blender/`
 
 The model pipeline. See [`blender/README.md`](blender/README.md) for the build conventions and

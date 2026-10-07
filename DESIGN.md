@@ -856,6 +856,60 @@ rather than as lamps.
 
 ---
 
+## 6.7 The narrator — [DECIDED]
+
+**The voice that tells the player where they are and what it costs.** Synthesis is
+[MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano) (Apache-2.0), a 0.1B-parameter
+multilingual TTS model whose **ONNX CPU deployment runs in-process in C#** — no Python, no
+sidecar, no service, no network at play time. It generates 48 kHz stereo on a causal audio
+tokenizer, proposes 16-token frames at 12.5 Hz through a one-layer local model, and streams
+decoded PCM straight into MonoGame's `DynamicSoundEffectInstance`; measured on this machine it
+synthesizes about 1.2× faster than real time, with first audio ~330 ms after the weights are
+warm.
+
+The choices worth writing down:
+
+1. **Runtime synthesis, not baked files.** The docking callouts read live numbers from the
+   simulation — range and closing rate, spelled by `NumberWords` ("two hundred metres out,
+   closing zero point one five metres a second") — and a fixed set of baked audio cannot say
+   what the sim says this tick. Repeated lines could be cached later; correctness first.
+2. **The model never touches the fixed-point discipline.** `SolSystem.Speech` is a separate
+   project the client consumes, like the renderers: the simulation cannot hear it, and audio
+   playback cannot change a tick. `SolSystem.Core` remains float-free and speech-free.
+3. **Determinism inside this port.** Greedy mode touches no random numbers, so the self-test
+   pins a token stream hash exactly. The sampled mode's randomness lives in uniform draws
+   that a fused graph consumes; the reference draws them from numpy's PCG64 and this port
+   draws them from its own seeded generator — same seed, same audio, every run, which is the
+   guarantee a game needs. Agreement with the Python implementation is therefore not claimed,
+   and the tokenizer is pinned instead against the reference ids shipped in the export's
+   manifest.
+4. **The tokenizer is BPE and the export's copy is trustworthy.** A first pass treated the
+   pieces' scores as unigram log-probabilities (they look like them) and got a Viterbi that
+   reproduced the Chinese sample and diverged on the English one; the BPE merge reproduces
+   both. The lesson is the repo's usual one: check against the independent reference, not
+   against what the numbers look like.
+5. **Silence is a mode, not an error.** `--mute`, a headless shot, or simply not having
+   fetched the weights (tools/tts/fetch_models.sh, ~770 MB, stored in gitignored
+   `artifacts/moss-tts/`) all leave the game running silent. A missing voice is never a
+   missing game.
+6. **Rendered speech is cached in the project's database.** `artifacts/solsystem.db`
+   carries a `cache_voice` table: the line as given and as normalised, the voice identity
+   and the seed, and the SHA-256 of the WAV file it names in `artifacts/voice/` — the
+   audio itself rendered as WAV, stored as a file in a subdirectory, the row only the
+   mapping. A line spoken once is a file read afterwards; a missing or hash-mismatched
+   file is re-rendered and the row updated. The database is the general store — this
+   caching is one task of several it will carry — so the table carries the `cache_`
+   prefix that says what it is for.
+
+The first narration set: the opening (the setting in one sentence, spoken over the first
+frame), the arrival at Meridian (said once, when the port plane first comes under two
+kilometres), and the corridor callouts (one per band crossing, computed from the sim). Text
+goes through a C# port of the reference's robust normalizer — protected tokens, underscore
+folding, whitespace collapse, terminal punctuation — minus WeTextProcessing, which the
+narrator does not need because its numbers arrive as words already.
+
+---
+
 ## 7. Time
 
 **[DECIDED] One clock, one tick rate, variable compression.** The simulation ticks
@@ -1134,6 +1188,73 @@ staged state machine.
 | 16 | ~~Drive specific power for each faction~~ | **Closed: 52 kW/kg Workers, 94 kW/kg Illuminus**, plant *and* radiator charged. Who has fast ships is now a question of radiator temperature |
 | 14 | Is a fast transit available to civilians, or only to warships? | It is a specific-power question, so it is a cost question |
 | 11 | How does a cull read in the cockpit — witnessed, broadcast, or discovered after? (§1.4) | Tone |
+
+---
+
+## 12. The controller, and the mission scripting
+
+Two instruments for driving the simulation from outside a cockpit: a **REST controller**
+(HTTP into the running client) and a **Lua mission layer** (scripts that construct missions
+and outcomes inside it). They exist for two customers at once: the developer's rigging —
+verification, scenarios, evidence — and the player's missions, including **scripted
+training missions**: a docking tutorial that watches the approach and verifies it as it
+happens.
+
+### 12.1 The controller
+
+**[DECIDED] The controller lives in the client.** The client is the one thing that can
+render, so the controller is a feature of `SolSystem.Client`, not a parallel host: the
+same world, the same loop, the same renderer. Started with `--controller <port>`, off
+without it. A separate host would have meant either a second renderer or a renderer
+bridge, and both are the baked-textures mistake again.
+
+**[DECIDED] Controllers own no state.** The client-owns-no-state rule (§6.1) generalizes to
+every client of the simulation: the HTTP layer is a window, exactly as the keyboard and
+mouse are. A controller that mutates a tick from inside a request handler is the same fault
+a renderer that changed the outcome of a tick would be.
+
+**[DECIDED] The API is step-driven, never wall-clock-driven.** Requests enqueue commands;
+the world advances when a driver asks it to — N ticks, or days, or until a condition — and
+state is read between steps. The handlers never touch the simulation directly: a request
+is queued on its own thread and processed by the game's update, at a tick boundary, in
+order. An external driver can therefore reproduce a session tick-for-tick, which is the
+whole point of the instrument. A wall-clock mode (for a live external UI) is a later,
+explicit decision, and it reopens the §7 pause question.
+
+**[DECIDED] The world hash is part of the API.** The probe's byte-exact hash over the
+world's raw fixed-point words is exposed as an endpoint: any driver, on any machine, can
+verify it is talking to the same world. Determinism as a service rather than as a promise.
+
+**[DECIDED] One renderer.** The render endpoint drives the client's existing headless
+machinery — the `--frames`/`--shot` path, whose byte-identical output is already the
+project's visual evidence. A movie is a directory of deterministic frames; ffmpeg lives in
+`tools/`, a pipeline dependency like the HYG fetch. There is no second renderer.
+
+### 12.2 The mission scripting
+
+**[DECIDED] Lua, embedded by MoonSharp** — pure C#, no native binaries in the deployment,
+sandboxing by construction (no `os`, no `io`, a seeded generator instead of `math.random`),
+and an interpreter whose arithmetic does not drift with a system library. Missions run
+thousands of ticks, not per-frame hot paths; the engine's speed is not the binding
+constraint.
+
+**[DECIDED] The sandbox API is the probe's vocabulary, grown outward**: read state,
+advance, spawn, emit, expect — plus event hooks (`on_tick`, `on_range`, `on_docked`) and
+`declare_outcome(name, condition)`. A mission is a data header (patron, objective,
+deadline, payment — the §9 contract table) with a script body for the mechanics; the
+loader refuses a script that touches anything outside the allowlist.
+
+**[DECIDED] Parallel surfaces, converging.** The probe language keeps running as it is —
+it is cheap, working, and the numerics probes stay in it. The docking probe migrates to
+Lua, flown **in the client's real frame** — stations propagated, the ship under the
+station's uniform gravity — as the convergence proof. Until that migration, the probe
+world's held frame is recorded as what it is: a world the player does not fly (§6.1's
+carve-out applies to probes until #1 of the probe plan lands).
+
+**[OPEN]** The wall-clock mode. The exact mission-file layout (header/body split, version
+stamp, validation messages). What else `solsystem.db` carries — if the controller persists
+worlds and replays, that is a second table family, and the schema boundary should be drawn
+once, deliberately, when the first non-cache table is written.
 
 ---
 

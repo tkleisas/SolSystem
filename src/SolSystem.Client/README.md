@@ -174,6 +174,20 @@ from this mode.
 `--frames` runs the loop a player gets — update, keyboard, fixed timestep — rather than the
 one-frame path, which is the only way to check that the thing a person actually types starts.
 
+## The narrator
+
+The session speaks. The opening plays over the first frame; the arrival at a body is said once
+when its position comes within reach; and the main engine's burn, the tanks, and the dock approach
+each have a line, read from the same state the renderer draws and the session advances. The voice
+is [MOSS-TTS-Nano](https://github.com/OpenMOSS/MOSS-TTS-Nano) (Apache-2.0) — 0.1B parameters,
+evaluated on CPU, in-process: no service, no sidecar, no network. The weights are not committed;
+`tools/tts/fetch_models.sh` fetches them once (~770 MB, gitignored under `artifacts/moss-tts/`).
+
+A session's voice is one channel: chosen at startup (`--narrator-voice <name>` for the built-in
+presets, `--narrator-prompt <file>` to clone one from a 16-bit PCM recording) and held. The
+numbers in the course lines are generated, not authored — a fixed set of audio could not say what
+the simulation says.
+
 ## Two scales, and why
 
 The far pass has a unit of a thousand kilometres, because Neptune is four and a half million of them

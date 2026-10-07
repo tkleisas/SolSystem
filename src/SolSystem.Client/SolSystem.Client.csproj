@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../SolSystem.Core/SolSystem.Core.csproj" />
+    <ProjectReference Include="../SolSystem.Speech/SolSystem.Speech.csproj" />
   </ItemGroup>
 
   <!--

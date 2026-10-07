@@ -42,3 +42,18 @@ publish/
 # nupkg it contains is already covered above. The directory is named so that the next
 # stray pack lands somewhere the ignore covers too.
 artifacts/package/
+
+# The MOSS-TTS-Nano ONNX weights: ~770 MB, fetched once by tools/tts/fetch_models.sh
+# and never committed. Synthesis output (the speech tool's scratch WAVs) too.
+artifacts/moss-tts/
+generated_audio/
+
+# The project's runtime store: the database (cache_voice and later tables) and the
+# rendered voice WAVs it maps to. Both regenerable; deleting both costs one synthesis
+# per line ever spoken.
+artifacts/solsystem.db
+artifacts/voice/
+
+# ORT's per-node profiling dumps, written by the speech tool's --bench --profile.
+onnxruntime_profile__*
+__pycache__/

@@ -310,4 +310,9 @@ internal sealed class FlightSession
         throw new InvalidOperationException(
             $"could not find the repository root above {AppContext.BaseDirectory}");
     }
+
+    /// <summary>
+    /// The MOSS-TTS-Nano ONNX bundle's root, or null when the weights are not fetched.
+    /// </summary>
+    internal static string? FindModelRoot() => SolSystem.Speech.MossModel.FindDeployment();
 }

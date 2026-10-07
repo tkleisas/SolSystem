@@ -102,6 +102,15 @@ internal sealed class LaunchOptions
     /// <summary>Which body to select on the chart, by name.</summary>
     internal string Destination { get; private set; } = string.Empty;
 
+    /// <summary>Whether the narrator is silent. Headless shots are silent regardless.</summary>
+    internal bool Mute { get; private set; }
+
+    /// <summary>Which built-in voice preset narrates.</summary>
+    internal string NarratorVoice { get; private set; } = "Bella";
+
+    /// <summary>A reference recording to clone the narrator's voice from, when given.</summary>
+    internal string NarratorPrompt { get; private set; } = string.Empty;
+
     /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
     internal double CameraYaw { get; private set; }
 
@@ -132,6 +141,9 @@ internal sealed class LaunchOptions
           --throttle <0-1>     start with the engine lit, for rendering the plume
           --chart              open the solar-system chart
           --destination <name> select a body on the chart, e.g. Mars
+          --mute               run without the narrator
+          --narrator-voice <name>  built-in voice preset (default Bella)
+          --narrator-prompt <file> clone the narrator's voice from this 16-bit PCM recording
           --hold <keys>        hold these keys down, e.g. --hold D
           --camera-yaw <deg>   start the camera at this yaw
           --camera-pitch <deg> start the camera at this pitch
@@ -193,6 +205,18 @@ internal sealed class LaunchOptions
 
                 case "--destination":
                     options.Destination = Require(args, ref i);
+                    break;
+
+                case "--mute":
+                    options.Mute = true;
+                    break;
+
+                case "--narrator-voice":
+                    options.NarratorVoice = Require(args, ref i);
+                    break;
+
+                case "--narrator-prompt":
+                    options.NarratorPrompt = Require(args, ref i);
                     break;
 
                 case "--hold":

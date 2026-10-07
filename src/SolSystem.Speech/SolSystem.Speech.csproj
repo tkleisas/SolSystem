@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SolSystem.Speech</RootNamespace>
+    <AssemblyName>SolSystem.Speech</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <!-- Pinned above Microsoft.Data.Sqlite's 2.1.11: GHSA-2m69-gcr7-jv3q, known high. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SolSystem.Client" />
+    <InternalsVisibleTo Include="SolSystem.Speech.Tests" />
+  </ItemGroup>
+
+</Project>

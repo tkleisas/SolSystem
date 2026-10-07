@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using SolSystem.Core.Numerics;
 using SolSystem.Core.Local;
 using SolSystem.Core.Orbits;
+using SolSystem.Speech;
 
 namespace SolSystem.Client;
 
@@ -70,7 +71,10 @@ internal sealed class FlightGame : Game
     private SpriteBatch _sprites = null!;
     private FlightPanel _panel = null!;
     private ChartScreen _chartScreen = null!;
+    private Narrator? _narrator;
+    private readonly CommLog _commLog = new();
     private Texture2D _sharedPixel = null!;
+    private SpriteFont _sharedFont = null!;
     private readonly Camera _camera = new();
     private Plume _plume = null!;
     private NavOverlay _nav = null!;
@@ -106,6 +110,7 @@ internal sealed class FlightGame : Game
 
     private KeyboardState _previousKeys;
     private double _simulatedSeconds;
+    private double _lastAdvanced;
     private int _frame;
 
     /// <summary>
@@ -248,7 +253,14 @@ internal sealed class FlightGame : Game
         _panel = new FlightPanel(GraphicsDevice, _sprites, pixel, hud, _session, _flight,
             _camera, _hulls);
         _chartScreen = new ChartScreen(GraphicsDevice, _sprites, hud);
+        _narrator = Narrator.Start(_options);
+        if (_narrator is not null)
+        {
+            // The comm log prints what the voice says, as the voice starts saying it.
+            _narrator.LineSpoken += line => _commLog.WriteLine(line);
+        }
         _sharedPixel = pixel;
+        _sharedFont = hud;
 
         if (_options.Destination.Length > 0
             && Enum.TryParse(_options.Destination, ignoreCase: true, out Ephemeris.Body chosen))
@@ -313,6 +325,15 @@ internal sealed class FlightGame : Game
 
         _previousKeys = keys;
         _previousMouse = mouse;
+
+        // The narrator reads the same state the panel prints; what is new gets said. The
+        // terminal prints what the voice says, and both advance on the seconds the WORLD
+        // advanced this frame — the nav lights' clock, not the wall's — so a scripted run
+        // types deterministically, frame for frame.
+        _narrator?.Update(_flight, _session);
+        double advanced = _simulatedSeconds - _lastAdvanced;
+        _commLog.Update(advanced);
+        _lastAdvanced = _simulatedSeconds;
 
         // A bounded interactive run, for checking that the loop a player gets actually runs. It
         // goes through Update and Draw exactly as an unbounded one does; only the exit differs.
@@ -527,6 +548,12 @@ internal sealed class FlightGame : Game
 
         _chartOpen = false;
 
+        // The course, said. The pilot picked a way to spend fuel and time; the voice reads
+        // it back the way a flight officer would: destination, the way it burns, and the
+        // fuel the transfer costs, spoken outright.
+        _narrator?.Say($"affirmative. Course for {destination}, {option.Name.ToLowerInvariant()}. "
+            + $"{NumberWords.Say((int)Math.Round(option.DeltaV / 1000.0))} kilometres a second.");
+
         Console.WriteLine($"  autohelm engaged: {destination}, {option.Name}, "
             + $"{option.Seconds / 86400.0:F1} days, {option.DeltaV / 1000.0:F1} km/s");
     }
@@ -708,9 +735,20 @@ internal sealed class FlightGame : Game
         }
 
         _panel.Draw(_timeRate, _timeRateIndex, _dragPixels, _wheelNotches, IsActive);
+
+        // The comm terminal, bottom-right: six lines of what the voice is saying, typed.
+        // It is an instrument on a live channel: with the narrator off, the display is
+        // dark — no text, and no cursor pretending the channel is up.
+        if (_narrator is not null)
+        {
+            _commLog.Draw(_sprites, _sharedPixel, _sharedFont, new Rectangle(
+                GraphicsDevice.Viewport.Width - 420,
+                GraphicsDevice.Viewport.Height - (6 * 21 + 16),
+                420, 6 * 21 + 16));
+        }
+
         FinishFrame(target, gameTime);
     }
-
     /// <summary>The tail of a frame: save if asked, and count it.</summary>
     private void FinishFrame(RenderTarget2D? target, GameTime gameTime)
     {
@@ -1030,6 +1068,7 @@ internal sealed class FlightGame : Game
 
     protected override void UnloadContent()
     {
+        _narrator?.Dispose();
         _sky.Dispose();
         _bodies.Dispose();
         _sun.Dispose();
