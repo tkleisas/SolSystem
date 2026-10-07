@@ -1273,6 +1273,59 @@ stamp, validation messages). What else `solsystem.db` carries — if the control
 worlds and replays, that is a second table family, and the schema boundary should be drawn
 once, deliberately, when the first non-cache table is written.
 
+### 12.3 Two interpreters, one line
+
+Both sides get Lua, and the split between them is the line the architecture already draws:
+the simulation's truth on one side, the client's presentation on the other. Two interpreters,
+one engine (MoonSharp), two registries.
+
+**[DECIDED] Simulation-side Lua is the world's own machinery.** The mission's hulls, the
+scenario's initial state, the checkpoints that advance its state machine, the outcomes it
+declares — all of it runs on the simulation's side: validated at load, executed at tick
+boundaries, and folded into the world hash, because everything it touches is a world
+effect. Its first customers are the dev rigging and the scenario definitions.
+
+**[DECIDED] Client-side Lua is the pilot's telling.** Guidance text, overlays, and
+whatever talks during a training mission run on the view's side: it reads the simulation,
+drives presentation, and may *enqueue* commands — the same act a keystroke and an HTTP
+request are — but it may not mutate a tick. The reason is the same reason the client owns
+no state: a tutorial's "reset the ship on failure" is a world event, so the reset belongs
+to the mission script on the simulation side, or the replay could not reproduce it.
+
+**[DECIDED] The handshake is events, not state.** The simulation fires what happened
+(`on_range`, `on_docked`); the view's script decides what to say about it and where on
+the glass. Two pairs of hands on one flight: the view's script holds the lesson plan,
+the mission script holds the verdict.
+
+### 12.4 Multiplayer: what is already there, and the one hard part
+
+The architecture was drawn along the seam multiplayer needs, and the controller already
+crosses most of it. The reuses: one authoritative simulation (a self-contained object any
+number of clients can point at), command-shaped inputs (pilot, driver, remote player —
+more producers of the same command type), and the hash as the lockstep verifier: every
+machine runs the same ticks and a mismatch is a divergence alarm, not a heisenbug.
+
+**[DECIDED] The fixed-point core is the multiplayer-enabling property.** Two machines
+executing the same ticks in the same command order produce bit-identical state. Most
+games fight float drift for years or abandon lockstep; this one gets deterministic
+lockstep by construction.
+
+**[DECIDED] Listen-server is the controller with a different socket; a dedicated server
+is the headless client stepping at wall-clock pace.** Transport, input ordering (commands
+gaining a source and a canonical per-tick order), and the §7 pause question being
+promoted from deferrable to required are the additions; none touches the Core's tick
+model. The replay file already is the network protocol in embryo.
+
+**[OPEN]** Client prediction. Strict lockstep makes remote input latency visible as
+world delay; the fix (simulate ahead, correct against the authority) strains the
+client-owns-no-state rule unless prediction is an ephemeral overlay. Deferrable, and
+probably for a long time: the game's timescales — corridor approaches, orbital
+transfers — are seconds-to-minutes, where a hundred milliseconds is nearly invisible.
+
+**[DECIDED] The bound to respect meanwhile:** multiplayer must not bend anything built
+above. The client owns no state; determinism is a contract; the hash is the check. A
+multiplayer design that violated any of them is a redesign, not a mode.
+
 ---
 
 ## Appendix A — settled decisions, at a glance

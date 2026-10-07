@@ -153,6 +153,17 @@ internal sealed class FlightGame : Game, IControllerTarget
     private bool _quitRequested;
 
     /// <summary>
+    /// The window's focus, for reporting a change to the console instead of drawing it.
+    /// </summary>
+    /// <remarks>
+    /// Focus used to be a clause in the HUD's mouse line, which put a window-manager fact
+    /// into a frame whose bytes two runs have to share. Xvfb flaps it, and one frame said
+    /// NOT FOCUSED while its twin said nothing. The pixels hold the simulation; the
+    /// window's own state is uttered once, out loud, when it changes.
+    /// </remarks>
+    private bool? _windowFocused;
+
+    /// <summary>
     /// The time compression ladder.
     /// </summary>
     /// <remarks>
@@ -180,8 +191,13 @@ internal sealed class FlightGame : Game, IControllerTarget
         IsMouseVisible = true;
 
         // A shot runs as fast as it can and exits; an interactive session is a game and should
-        // behave like one.
-        IsFixedTimeStep = !options.Headless;
+        // behave like one. A DRIVEN session runs like the shot loop operationally — one update
+        // per draw, no fixed-step accumulator — because the fixed step can catch up with a
+        // second update between two draws, and then frame N's underwater is at (N+1)/60 of a
+        // second: two identical render requests, two different frames. That is the headless
+        // loop's discipline (its byte-identical frame runs prove it) keeping driven sessions'
+        // renders byte-reproducible too.
+        IsFixedTimeStep = !options.Headless && options.ControllerPort == 0;
         // ASCII ONLY in the window title, and it is not fussiness.
         //
         // This was "SolSystem — flight" with an em dash, and the title bar rendered it as
@@ -390,7 +406,29 @@ internal sealed class FlightGame : Game, IControllerTarget
             Exit();
         }
 
+        NoteFocusChange();
+
         base.Update(gameTime);
+    }
+
+    /// <summary>
+    /// Utters a window-focus change once, to the console, never into the frame.
+    /// </summary>
+    private void NoteFocusChange()
+    {
+        if (_windowFocused == IsActive)
+        {
+            return;
+        }
+
+        if (_windowFocused is not null)
+        {
+            Console.WriteLine(IsActive
+                ? "  window took the focus"
+                : "  window lost the focus; the camera and the ship will not answer the mouse or the keys");
+        }
+
+        _windowFocused = IsActive;
     }
 
     /// <summary>
@@ -711,12 +749,17 @@ internal sealed class FlightGame : Game, IControllerTarget
     /// Steps the world N navigation ticks under the current throttle or the helm.
     /// </summary>
     /// <remarks>
-    /// The same stepping the interactive loop performs — same sources, same tick, the same
-    /// hands-off command the lever held — only uncapped, because the cap is a render policy
-    /// and a driver asking for a hundred thousand ticks has asked for a hundred thousand.
+    /// The same stepping the interactive loop performs — and the station is not optional in
+    /// it. Station and hull both orbit the host's point field; a driver that advanced only
+    /// the ship would watch the station leave at seven kilometres a second, which is the
+    /// exact fault the audit caught in the probe world and the reason this instrument
+    /// exists: to fly the frame the player gets.
     /// </remarks>
     void IControllerTarget.AdvanceTicks(int ticks)
     {
+        // The clock and the station: exactly N ticks, uncapped.
+        _session.AdvanceExactly(ticks);
+
         Span<GravitySource> sources = stackalloc GravitySource[1];
         sources[0] = _session.Station.GravitySource;
 
@@ -737,6 +780,9 @@ internal sealed class FlightGame : Game, IControllerTarget
             }
         }
 
+        double seconds = ticks * TickSeconds;
+        _sun.Update(seconds);
+        _simulatedSeconds += seconds;
         _worldTicks += ticks;
         Reanchor();
     }
@@ -962,7 +1008,7 @@ internal sealed class FlightGame : Game, IControllerTarget
             _gates.Draw(GraphicsDevice, _session, _flight, nearView, FieldOfViewDegrees);
         }
 
-        _panel.Draw(_timeRate, _timeRateIndex, _dragPixels, _wheelNotches, IsActive);
+        _panel.Draw(_timeRate, _timeRateIndex, _dragPixels, _wheelNotches);
 
         // The comm terminal, bottom-right: six lines of what the voice is saying, typed.
         // It is an instrument on a live channel: with the narrator off, the display is

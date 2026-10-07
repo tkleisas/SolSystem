@@ -63,8 +63,7 @@ internal sealed class FlightPanel
         double timeRate,
         int timeRateIndex,
         double dragPixels,
-        double wheelNotches,
-        bool active)
+        double wheelNotches)
     {
         _sprites.Begin();
 
@@ -88,7 +87,7 @@ internal sealed class FlightPanel
         _sprites.Draw(_pixel, new Rectangle(_device.Viewport.Width - 1, 0, 1,
             _device.Viewport.Height), edge);
 
-        DrawFlightPanel(timeRate, timeRateIndex, dragPixels, wheelNotches, active);
+        DrawFlightPanel(timeRate, timeRateIndex, dragPixels, wheelNotches);
 
         _sprites.End();
     }
@@ -97,8 +96,7 @@ internal sealed class FlightPanel
         double timeRate,
         int timeRateIndex,
         double dragPixels,
-        double wheelNotches,
-        bool active)
+        double wheelNotches)
     {
         // Speed relative to the station, which is the number that matters for a docking and the one
         // that reads zero when the ship is holding station. Its speed relative to the EARTH is seven
@@ -180,8 +178,7 @@ internal sealed class FlightPanel
         _sprites.DrawString(_font, $"VIEW       {_camera.Describe()}", at, ink);
         at.Y += FlightUi.Line;
         _sprites.DrawString(_font, $"MOUSE      drag {dragPixels,5:F0} px   "
-            + $"wheel {wheelNotches,4:F0}   {(active ? "window active" : "WINDOW NOT FOCUSED")}",
-            at, active ? dim : warn);
+            + $"wheel {wheelNotches,4:F0}", at, dim);
         at.Y += FlightUi.Line;
         _sprites.DrawString(_font, "  C view   L-drag look   R-drag orbit   wheel zoom", at, dim);
         at.Y += FlightUi.Line;

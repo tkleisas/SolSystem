@@ -259,6 +259,28 @@ internal sealed class FlightSession
     }
 
     /// <summary>
+    /// Advances the clock and the station by exactly N ticks, uncapped.
+    /// </summary>
+    /// <remarks>
+    /// The 240-tick cap is a render policy — the interactive loop's way of keeping the hull and
+    /// the clock together on a slow machine. A driver asking for a hundred thousand ticks has
+    /// asked for a hundred thousand, and "exactly" must mean exactly, or two runs of the same
+    /// request sequence hash differently. The ship steps over the same ticks on the caller's
+    /// side, in its own loop, as the interactive path does.
+    /// </remarks>
+    internal void AdvanceExactly(int ticks)
+    {
+        Fix128 dt = Fix128.FromDouble(TickSeconds);
+        for (int i = 0; i < ticks; i++)
+        {
+            _station.Step(dt);
+        }
+
+        JulianDate += ticks * TickSeconds / 86400.0;
+        Recompose(System.Heliocentric(Ephemeris.Body.Earth));
+    }
+
+    /// <summary>
     /// Where the observer sits relative to the station's port, in metres.
     /// </summary>
     /// <remarks>
