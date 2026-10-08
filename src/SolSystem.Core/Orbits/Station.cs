@@ -243,4 +243,15 @@ internal struct Station
 
     /// <summary>The gravity source this station's host presents to a ship in the same frame.</summary>
     internal readonly GravitySource GravitySource => new(Fix128Vec.Zero, GmMetres);
+
+    /// <summary>
+    /// The station's mean orbital motion, in radians per second.
+    /// </summary>
+    /// <remarks>
+    /// The measure the attitude turn already uses: the station's own speed over its own
+    /// radius. A rendezvous law needs it because the relative dynamics it flies are
+    /// themselves a function of how fast the station turns — the Hill frame is the station's
+    /// own, and the Coriolis that appears in it is <c>2n</c>, not anybody else's figure.
+    /// </remarks>
+    internal readonly Fix128 OrbitalRate => Velocity.Length / Offset.Length;
 }

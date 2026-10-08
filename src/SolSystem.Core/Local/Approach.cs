@@ -98,6 +98,57 @@ internal struct Approach
     /// </remarks>
     private static readonly Fix128 HandoverRate = ContactRate * Fix128.FromDouble(1.5);
 
+    /// <summary>
+    /// The range the rendezvous hands the corridor's profile its ship at, in metres.
+    /// </summary>
+    /// <remarks>
+    /// The corridor's own launch convention: 400 m of standoff, the same figure a client
+    /// session starts a player at. A profile built from a range the ship is already inside
+    /// would be a slope the ship has to catch up with rather than give way to.
+    /// </remarks>
+    private static readonly Fix128 RendezvousHandoverRange = Fix128.FromDouble(450.0);
+
+    /// <summary>
+    /// The relative speed the ship must be under to enter the corridor, in m/s.
+    /// </summary>
+    /// <remarks>
+    /// The pilot delivers the ship AT the corridor's own pace rather than at rest — at rest
+    /// at a radial offset is not a held state in the Hil frame, and a law that aimed for it
+    /// handed the profile a ship the orbital drift was already carrying away. The delivery
+    /// rate is the profile's own initial figure for the hand-over range, so a hull arriving
+    /// slightly above its own slope meets the brake with slope to spare; five metres a
+    /// second is that with a margin too generous to be clever.
+    /// </remarks>
+    private static readonly Fix128 RendezvousHandoverSpeed = Fix128.FromDouble(5.0);
+
+    /// <summary>
+    /// The rendezvous's position gain, per metre of error, in m/s².
+    /// </summary>
+    /// <remarks>
+    /// A closed-loop rate of about 0.004 s⁻¹ — a quarter hour's settle — and deliberately
+    /// slow, and the reason is the Hill coupling rather than the torch. A full-order radial
+    /// burn drove the ship inward at fourteen metres a second, and the along-track drift
+    /// that motion generates (<c>−2nẋ</c>, half the torch at that rate) outran the
+    /// along-track correction the saturated burn had left: the ship arrived at the mouth
+    /// 245 m off the centreline and the profile had no line left to fly. A slow loop keeps
+    /// the radial speed near a metre a second, and the drift it generates is one the
+    /// along-track correction can actually cancel. At two kilometres of error the gain
+    /// asks for 0.024 m/s² — the torch saturates only in the opening minutes, and the loop
+    /// otherwise unwinds at the drive's own pace, which is the honest constraint.
+    /// </remarks>
+    private static readonly Fix128 RendezvousGainP = Fix128.FromDouble(1.5e-5);
+
+    /// <summary>
+    /// The rendezvous's rate gain, per m/s of velocity error, in m/s².
+    /// </summary>
+    /// <remarks>
+    /// ζ ≈ 0.9 against the position gain. It exists so the ship arrives at the corridor's
+    /// mouth going the slope's speed rather than standing still — a standing stop at a
+    /// radial offset is a forward eccentric orbit, and the Hill dynamics would carry a
+    /// static ship away while the profile was starting to fly.
+    /// </remarks>
+    private static readonly Fix128 RendezvousGainD = Fix128.FromDouble(0.007);
+
 
     /// <summary>Lateral offset inside which no correction is attempted, in metres.</summary>
     private static readonly Fix128 LateralDeadband = Fix128.FromDouble(0.05);
@@ -156,6 +207,17 @@ internal struct Approach
     /// <summary>Whether the corridor's profile has been captured yet.</summary>
     private bool _haveProfile;
 
+    /// <summary>
+    /// Whether the rendezvous has delivered the ship to the corridor yet.
+    /// </summary>
+    /// <remarks>
+    /// A field of the law's own state, not a decision remade per tick: the hand-over fires
+    /// once, and after it the corridor's profile is rebuilt from the range the ship
+    /// actually arrived at — a hull that reached the mouth four hundred metres out and one
+    /// that limps in at eighty should not share a glideslope.
+    /// </remarks>
+    private bool _rendezvousComplete;
+
     /// <summary>The approach profile, built from the corridor the ship was launched down.</summary>
     private Glideslope _profile;
 
@@ -178,20 +240,48 @@ internal struct Approach
     /// frame too: the law cancels nothing, and the tidal pull left over is orders of
     /// magnitude below a torch.
     /// </param>
-    internal Command Next(in Ship ship, DockingPort port, Fix128Vec portVelocity, Fix128Vec frameGravity)
+    internal Command Next(in Ship ship, DockingPort port, Fix128Vec portVelocity, Fix128Vec frameGravity,
+        Fix128 meanMotion = default)
     {
-        if (!_haveProfile)
+        Fix128Vec inward = -port.Axis;
+        Fix128Vec offset = ship.Position - port.Position;
+        Fix128 range = offset.Length;
+        Fix128 accel = DriveAcceleration(ship);
+
+        // THE RENDEZVOUS: from the launch down to the corridor's mouth. In the world's real
+        // frame the ship and the station are two bodies of one field, and the relative
+        // dynamics between them are the Hill frame's own — an approach a torch cannot hour
+        // out of the profile's shape. The law therefore grows a pilot that flies the Hill
+        // dynamics instead of pretending they are not there, and the corridor's profile
+        // starts where the rendezvous hands over, with the range the ship actually arrived
+        // at. A mean motion of zero is the held frame: no station turning above a fixed
+        // port, no Hill terms, and the law is exactly the laws the held-frame tests proved.
+        if (meanMotion > Fix128.Zero && !_rendezvousComplete)
+        {
+            Fix128Vec relativeVelocity = ship.Velocity - portVelocity;
+            Fix128 closingAtHandover = -Fix128Vec.Dot(relativeVelocity, port.Axis.Normalized());
+
+            if (range <= RendezvousHandoverRange && closingAtHandover.Abs() < RendezvousHandoverSpeed)
+            {
+                // At the mouth, at rest: the ship and its corridor can now share one
+                // profile. This is the pilot's whole verdict, and it is final.
+                _rendezvousComplete = true;
+                _profile = ProfileFor(range, accel);
+                _haveProfile = true;
+            }
+            else
+            {
+                return RendezvousCommand(ship, port, portVelocity, meanMotion, accel);
+            }
+        }
+        else if (!_haveProfile)
         {
             // Built from the corridor the ship actually starts down, so it is feasible by
             // construction: the rate is reduced until the drive can fly the line.
             Fix128 startRange = (ship.Position - port.Position).Length;
-            _profile = ProfileFor(startRange, DriveAcceleration(ship));
+            _profile = ProfileFor(startRange, accel);
             _haveProfile = true;
         }
-
-        Fix128Vec inward = -port.Axis;
-        Fix128Vec offset = ship.Position - port.Position;
-        Fix128 range = offset.Length;
 
         // Closing rate, measured toward the port rather than along the axis, and measured
         // AGAINST THE PORT'S OWN MOTION. The two agree until the ship passes the port and
@@ -202,7 +292,6 @@ internal struct Approach
         Fix128Vec toPort = offset.IsZero ? inward : -offset.Normalized();
         Fix128 closing = Fix128Vec.Dot(ship.Velocity - portVelocity, toPort);
 
-        Fix128 accel = DriveAcceleration(ship);
         Fix128 commanded = _profile.RateAt(range);
 
         // The latches have it: stop manoeuvring. Everything before this is trying to reach a state;
@@ -411,6 +500,139 @@ internal struct Approach
     {
         Fix128 accel = ship.Engine.ThrustKilonewtons / ship.Mass;
         return Fix128.Min(accel, ship.Engine.MaxAccelerationInMetresPerSecondSquared);
+    }
+
+    /// <summary>
+    /// When set, the rendezvous pilot emits one arithmetic trace per call, for the same
+    /// reasons <c>--pilot-debug</c> exists on the probe world.
+    /// </summary>
+    internal static bool DumpPilot;
+
+    /// <summary>
+    /// The rendezvous pilot: one command, from the launch to the corridor's mouth.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The physics it flies is the Hill dynamics — the relative motion of two bodies under
+    /// one point field, measured in the rotating frame of the station's orbit. Written with
+    /// the radial axis outward, the along-track the way the station itself moves, and the
+    /// normal the orbit's pole, the relative accelerations are:
+    /// </para>
+    /// <para>
+    /// <c>ẍ = 3n²x + 2nẏ + ax</c><br/>
+    /// <c>ÿ = −2nẋ + ay</c><br/>
+    /// <c>z̈ = −n²z + az</c>
+    /// </para>
+    /// <para>
+    /// The law inverts them — that is the whole of the feedforward — so what remains for
+    /// the feedback is three decoupled double integrators, on which a position gain and a
+    /// rate gain behave the way an instrument panel says they do. The inversion is what
+    /// makes the torch loop honest: the <c>3n²x</c> tidal term at two kilometres is 7.7e-3
+    /// m/s² and the Coriolis at eight metres a second of relative motion is half the torch,
+    /// and neither the position gain nor the rate gain would have survived them
+    /// uncompensated — the pilot on the held frame's assumptions could not hold formation,
+    /// and the launch the Kepler race took away is it.
+    /// </para>
+    /// </remarks>
+    /// <param name="meanMotion">The station's mean orbital motion, radians per second.</param>
+    private static Command RendezvousCommand(
+        in Ship ship, DockingPort port, Fix128Vec portVelocity, Fix128 meanMotion, Fix128 accel)
+    {
+        // The Hill frame about the station. The port's axis is the radial direction in this
+        // world's orbits — the corridor is carried around at nearly the same rate the
+        // station turns — the normal is the orbit's pole, and the along-track is their
+        // cross product, which is the direction the station itself is going.
+        Fix128Vec radial = port.Axis.Normalized();
+        Fix128Vec orbitNormal = new(Fix128.Zero, Fix128.Zero, Fix128.One);
+        Fix128Vec alongTrack = Fix128Vec.Cross(orbitNormal, radial).Normalized();
+
+        Fix128Vec relativePosition = ship.Position - port.Position;
+        Fix128Vec relativeVelocity = ship.Velocity - portVelocity;
+
+        // The delivery point: the corridor's mouth, 450 m out along the port's axis.
+        Fix128Vec targetPosition = radial * RendezvousHandoverRange;
+
+        // The delivery plan. The pilot does not chase one fixed figure — a coast with one
+        // constant target builds speed the whole way and finishes at twelve metres a
+        // second where the profile asked for four. The plan is the slope the drive can
+        // honestly fly: the velocity the ship could own if it braked now and a half of its
+        // error remains, bounded by the corridor's own ceiling. And the plan's direction is
+        // THE SIGN OF THE ERROR: a ship that has fallen through the target radius is told
+        // to climb back, not to keep its inward-bound plan — the first version here
+        // hard-wired "always inward" and the ship, past the target, drew an orbital
+        // oscillation around it instead of stopping.
+        Fix128Vec offsetToTarget = targetPosition - relativePosition;
+        Fix128 distanceToTarget = offsetToTarget.Length;
+        Fix128 descentRate = Fix128.Sqrt(Fix128.FromWhole(2) * accel * distanceToTarget);
+        descentRate = Fix128.Min(descentRate, CorridorRate);
+        Fix128Vec targetVelocity = distanceToTarget == Fix128.Zero
+            ? Fix128Vec.Zero
+            : offsetToTarget * (descentRate / distanceToTarget);
+
+        // The errors, decomposed onto the frame's axes.
+        Fix128 ex = Fix128Vec.Dot(targetPosition - relativePosition, radial);
+        Fix128 ey = Fix128Vec.Dot(targetPosition - relativePosition, alongTrack);
+        Fix128 ez = Fix128Vec.Dot(targetPosition - relativePosition, orbitNormal);
+        Fix128 evx = Fix128Vec.Dot(targetVelocity - relativeVelocity, radial);
+        Fix128 evy = Fix128Vec.Dot(targetVelocity - relativeVelocity, alongTrack);
+        Fix128 evz = Fix128Vec.Dot(targetVelocity - relativeVelocity, orbitNormal);
+
+        // The relative position and velocity, decomposed, for the dynamics' own terms.
+        Fix128 px = Fix128Vec.Dot(relativePosition, radial);
+        Fix128 py = Fix128Vec.Dot(relativePosition, alongTrack);
+        Fix128 pz = Fix128Vec.Dot(relativePosition, orbitNormal);
+        Fix128 vx = Fix128Vec.Dot(relativeVelocity, radial);
+        Fix128 vy = Fix128Vec.Dot(relativeVelocity, alongTrack);
+        Fix128 vz = Fix128Vec.Dot(relativeVelocity, orbitNormal);
+
+        // The wanted accelerations, then the dynamics' terms cancelled out of them.
+        Fix128 desiredAx = RendezvousGainP * ex + RendezvousGainD * evx;
+        Fix128 desiredAy = RendezvousGainP * ey + RendezvousGainD * evy;
+        Fix128 desiredAz = RendezvousGainP * ez + RendezvousGainD * evz;
+
+        Fix128 ux = desiredAx - (Fix128.FromWhole(3) * meanMotion * meanMotion * px) - (Fix128.FromWhole(2) * meanMotion * vy);
+        Fix128 uy = desiredAy + (Fix128.FromWhole(2) * meanMotion * vx);
+        Fix128 uz = desiredAz + (meanMotion * meanMotion * pz);
+
+        // Reassemble onto the world's axes, then ask for it as a thrust the hull can make.
+        Fix128Vec wanted = radial * ux + alongTrack * uy + orbitNormal * uz;
+        Fix128 magnitude = wanted.Length;
+
+        if (DumpPilot)
+        {
+            Console.WriteLine(
+                $"  [pilot] e=({ex.ToDouble():F1},{ey.ToDouble():F1},{ez.ToDouble():F3}) "
+                + $"ev=({evx.ToDouble():F3},{evy.ToDouble():F3},{evz.ToDouble():F3}) "
+                + $"u=({ux.ToDouble():F5},{uy.ToDouble():F5},{uz.ToDouble():F5}) "
+                + $"basis=({radial.X.ToDouble():F3},{radial.Y.ToDouble():F3})");
+        }
+
+        Fix128Vec turn;
+        Fix128 throttle;
+        if (magnitude == Fix128.Zero)
+        {
+            // Nothing to burn yet, and still a nose to hold: the corridor's law takes over
+            // later and wants a nose-first hull.
+            turn = TurnTowards(ship.Attitude, -port.Axis);
+            throttle = Fix128.Zero;
+            return new Command(Fix128Vec.Zero, throttle, turn);
+        }
+
+        Fix128Vec direction = wanted * (Fix128.One / magnitude);
+        Fix128 demand = accel > Fix128.Zero
+            ? Fix128.Clamp(magnitude / accel, Fix128.Zero, Fix128.One)
+            : Fix128.Zero;
+
+        // The throttle is gated on the nose pointing where it thrusts, the way the corridor's
+        // own gates are: a misaligned burn is an unplanned vector and the engine's place on
+        // the hull does not allow steering around it.
+        Fix128 alignment = Fix128Vec.Dot(ship.Attitude.Forward, direction);
+        Fix128 required = FiringAtIdle + ((FiringAtFullThrottle - FiringAtIdle) * demand);
+
+        turn = TurnTowards(ship.Attitude, direction);
+        throttle = alignment > required ? demand : Fix128.Zero;
+
+        return new Command(direction, throttle, turn);
     }
 
     /// <summary>

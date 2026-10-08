@@ -32,6 +32,7 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--pilot-debug":
             ProbeWorld.Debug = true;
+            SolSystem.Core.Local.Approach.DumpPilot = true;
             break;
         case "--help":
         case "-h":

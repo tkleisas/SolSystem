@@ -210,6 +210,22 @@ internal sealed class ProbeWorld
                 ship.Step(sources, F(TickSeconds), Command.Coast);
             }
 
+            // THE LATCH. Contact made the law stop flying; contact is also the moment the
+            // ship is mechanically the station's. A "docked" hull whose own orbit keeps
+            // integrating is not docked — it is in formation, and the Hill dynamics of a
+            // contact-scale residual + the phase race take it away over minutes, which is
+            // what the first real-frame run did: contact, then eighty metres and falling.
+            // Latched means kinematic: the ship's position and velocity are the port's,
+            // every tick, until something undocks. No elasticity, no resonance — a hard
+            // clamp worth naming as that.
+            if (Phase == (int)SolSystem.Core.Local.Approach.Stage.Hold
+                && HomeStationName is not null)
+            {
+                Station latched = Station(HomeStationName);
+                ship = new Ship(latched.Port.Position, latched.Velocity,
+                    ship.DryMass, ship.Propellant, ship.Engine, ship.Attitude);
+            }
+
             Ship = ship;
         }
 
@@ -245,20 +261,31 @@ internal sealed class ProbeWorld
         // every fix had to be re-derived without tests. What is left here is the frame
         // decision, which is the probe's business, and nothing else. The real frame hands
         // the law the port's own velocity and nothing to cancel: two bodies sharing an orbit
-        // are falling together, and the tidal residue is below any torch's resolution.
-        Command command = _approach.Next(ship, home.Port, home.Velocity, Fix128Vec.Zero);
+        // are falling together, and the tidal residue is below any torch's resolution. The
+        // station's mean motion rides along, which is what tells the law the Hill frame's
+        // terms and turns the rendezvous pilot on.
+        Command command = _approach.Next(ship, home.Port, home.Velocity, Fix128Vec.Zero,
+            home.OrbitalRate);
         Phase = (int)_approach.Phase;
 
-        if (Debug && Ticks < 60)
+        if (Debug && (Ticks < 60 || Ticks % 10000 == 0))
         {
             DockingReport report = Docking.Evaluate(ship, home.Port, home.Velocity);
-            Fix128Vec toPort = (home.Port.Position - ship.Position).IsZero
-                ? Fix128Vec.Zero
-                : (home.Port.Position - ship.Position).Normalized();
-            Fix128 closingNext = Fix128Vec.Dot(ship.Velocity - home.Velocity, toPort);
-            Console.WriteLine($"  [law] t={Ticks,5} phase={_approach.Phase} "
-                + $"closing(nex)={closingNext.ToDouble():F4} unit-toPort={toPort.X.ToDouble():F4} "
-                + $"opts axis=({home.Port.Axis.X.ToDouble():F4},{home.Port.Axis.Y.ToDouble():F4})");
+            Fix128Vec nose = ship.Attitude.Forward;
+            Fix128Vec radialB = home.Port.Axis.Normalized();
+            Fix128Vec normalB = new(Fix128.Zero, Fix128.Zero, Fix128.One);
+            Fix128Vec alongB = SolSystem.Core.Numerics.Fix128Vec.Cross(normalB, radialB).Normalized();
+            Fix128Vec rp = ship.Position - home.Port.Position;
+            Fix128Vec rv = ship.Velocity - home.Velocity;
+            Console.WriteLine($"  [law] t={Ticks,7} phase={Phase} "
+                + $"hill p=({SolSystem.Core.Numerics.Fix128Vec.Dot(rp, radialB).ToDouble():F1},"
+                + $"{SolSystem.Core.Numerics.Fix128Vec.Dot(rp, alongB).ToDouble():F1},"
+                + $"{SolSystem.Core.Numerics.Fix128Vec.Dot(rp, normalB).ToDouble():F3}) "
+                + $"v=({SolSystem.Core.Numerics.Fix128Vec.Dot(rv, radialB).ToDouble():F3},"
+                + $"{SolSystem.Core.Numerics.Fix128Vec.Dot(rv, alongB).ToDouble():F3},"
+                + $"{SolSystem.Core.Numerics.Fix128Vec.Dot(rv, normalB).ToDouble():F3}) "
+                + $"dir=({command.ThrustDirection.X.ToDouble():F3},{command.ThrustDirection.Y.ToDouble():F3}) "
+                + $"nose={nose.X.ToDouble():F3},{nose.Y.ToDouble():F3}");
         }
 
         if (Debug && Ticks % 24000 == 0)
