@@ -142,12 +142,16 @@ internal struct Approach
     /// The rendezvous's rate gain, per m/s of velocity error, in m/s².
     /// </summary>
     /// <remarks>
-    /// ζ ≈ 0.9 against the position gain. It exists so the ship arrives at the corridor's
-    /// mouth going the slope's speed rather than standing still — a standing stop at a
-    /// radial offset is a forward eccentric orbit, and the Hill dynamics would carry a
-    /// static ship away while the profile was starting to fly.
+    /// ζ ≈ 2.5 against the position gain — deliberately over-damped, and the reason is the
+    /// runway. The plan's slope tightens as the ship closes, and a loop that merely matches
+    /// the slope carries a tracking lag of 1/k_d of a second; at one point the ship arrived
+    /// at the mouth at four hundred and fifty metres going six point three, with
+    /// sqrt(2·a·114) = five hundred fourteen metres of stopping distance and a
+    /// hundred-and-fourteen-metre runway, so it coasted through the mouth and the profile
+    /// had no line to fly. The over-damped loop makes the ship's own velocity its own
+    /// business and arrive at the slope's pace instead.
     /// </remarks>
-    private static readonly Fix128 RendezvousGainD = Fix128.FromDouble(0.007);
+    private static readonly Fix128 RendezvousGainD = Fix128.FromDouble(0.02);
 
 
     /// <summary>Lateral offset inside which no correction is attempted, in metres.</summary>
