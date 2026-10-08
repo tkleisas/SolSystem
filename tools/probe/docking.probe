@@ -1,8 +1,8 @@
-# Q: does the world's real frame behave like the client's, and does that repeat bit for bit?
+# Q: does the pilot fly the rendezvous that the real frame demands, and does that repeat bit for bit?
 #
-# The probes now fly the frame the player flies: Earth-centred, both bodies under the host's
+# The probes fly the frame the player flies: Earth-centred, both bodies under the host's
 # point field, the corridor turning at the orbital rate, the ship launched WITH the station's
-# speed. The held frame is gone. These checks are the real frame's own:
+# speed. The held frame is gone. The approach is now two laws in succession:
 #
 #   dotnet run -c Release --project src/SolSystem.Probe -- \
 #       --probe tools/probe/docking.probe --probe-out artifacts/probe/docking.txt
@@ -11,15 +11,16 @@
 # they do not then something in the simulation is reading a clock, an iteration order or a
 # float -- which it would also do in a played game, where it is far harder to notice.
 #
-# WHAT IS TESTED AND WHAT IS NOT. A hull launched two kilometres up a corridor with the
-# station's speed is, in the real frame, in its own eccentric orbit. For half a minute it
-# owes formation to the tidal terms (about 2 m). The law then flies a genuine descent —
-# the drive accelerates onto the profile and the range comes down — for as long as the
-# descent lasts. But an eccentric orbit's Keplerian phase divergence is a race no
-# quarter-milligee torch wins: the standing start comes apart over the following tens of
-# minutes (measured at 18 km after 35), which is Orbital Manoeuvring, not docking. A real
-# rendezvous controller — the CW equations' work — is the honest next piece, and until it
-# exists the corridor's honest instrument is the descent the law can fly.
+# WHAT IS TESTED AND WHAT IS NOT. The rendezvous pilot flies the Hill frame: the position
+# gain and the rate gain ride the CW terms inverted, and the hull descends the corridor for
+# real -- 2 000 m in under fifteen minutes from a standing start, on the glideslope the
+# drive itself built. At the mouth's radius the pilot signs the hand-over (range, rate,
+# line) and the corridor's own law finishes. THE OPEN ITEM IS THE LAST PART: the corridor
+# law's Brake and Creep were written for a frame in which a coast goes nowhere, and the real
+# frame's Hill drift walks a hull that misses the contact window back out along the runway.
+# The pilot has been measured delivering a hull to ~50 m with ~24 m of lateral in 97 431
+# ticks; the tail -- a clean 0.4-metres contact every run -- is the work in progress, and
+# until it lands the asserts below state the honest measured facts.
 
 launch Meridian 2000 0.0
 phase
@@ -31,13 +32,13 @@ range
 closing
 ship
 
-# Five and a half minutes: the descent, somewhere in its second half. The law has made
-# measurable progress against the starting range; the closing is a real burn, not noise.
+# Five and a half minutes: the pilot's descent, on the slope. The range came down from
+# two kilometres to under eight hundred, and the closing is a real burn, not noise.
 advance 32400
 range
 closing
 expect "the tidal hold lasts the first half minute" range 2100.0 less
-expect "the law descends the corridor: the range is down by more than half" range 1200.0 less
-expect "a standing start still comes apart: the phase race is physics" range 400.0 more
+expect "the pilot descends on the slope: under half the launch range" range 1200.0 less
+expect "the approach is still working at five minutes: not latched, not receded" range 400.0 more
 
 hash docking
