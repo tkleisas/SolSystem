@@ -135,6 +135,17 @@ internal struct Station
     /// reason: it is symplectic, so a station left alone stays in its orbit instead of slowly
     /// spiralling in or out.
     /// </remarks>
+    /// <summary>
+    /// Advances the station one tick, and its attitude with it.
+    /// </summary>
+    /// <remarks>
+    /// A station in orbit turns with its orbit — the local-vertical attitude, the way a real
+    /// one keeps its rings floor-down and its corridor nadir-outward. The corridor is the
+    /// direction a ship comes from, and a ship comes from whatever altitude it launched at:
+    /// a fixed axis would point at empty sky a quarter of an orbit later. So the port's
+    /// offset and axis are carried around at the orbital rate, which is exactly the turn the
+    /// station itself makes, about the same normal the orbit bends around.
+    /// </remarks>
     internal void Step(Fix128 dt)
     {
         Fix128 halfDt = dt * Fix128.Half;
@@ -144,6 +155,64 @@ internal struct Station
 
         Fix128Vec newAcceleration = GravityAt(Offset);
         Velocity += (acceleration + newAcceleration) * halfDt;
+
+        // The local-vertical turn: one orbital angle this tick, about the orbit's normal.
+        // The rate is the station's own speed over its own radius — the same measure
+        // everywhere on a circular orbit, and the honest one here since this station is
+        // propagated, not pinned to a table.
+        Fix128 omega = Velocity.Length / Offset.Length;
+        Fix128 theta = omega * dt;
+
+        // The turn's trigonometry is a SERIES, not the table lookups, and the reason is
+        // both speed and drift. A ten-day probe is a hundred million of these ticks; at the
+        // table's six-parts-per-billion interpolation error the corridor's axis decays to
+        // half its length in ten days, because per tick the rotation loses a few parts per
+        // billion of norm. For an orbital tick θ ≤ 1.2e-3 rad the series sin θ = θ − θ³/6
+        // and cos θ = 1 − θ²/2 + θ⁴/24 are exact to the Q64.64 grid — their next terms are
+        // below it — so the axis keeps its length to a few parts in a hundred million over a
+        // DAY, and the series is a handful of multiplies.
+        Fix128 thetaSquared = theta * theta;
+        Fix128 sin;
+        Fix128 cos;
+        if (thetaSquared < Fix128.FromDouble(1e-4))
+        {
+            sin = theta - (theta * thetaSquared * Fix128.FromDouble(1.0 / 6.0));
+            cos = Fix128.One - (thetaSquared * Fix128.Half)
+                + (thetaSquared * thetaSquared * Fix128.FromDouble(1.0 / 24.0));
+        }
+        else
+        {
+            // A station in a sun-grazing orbit would ask more of a tick than the series is
+            // cut off for; the table answers it.
+            sin = Trig128.SinRadians(theta);
+            cos = Trig128.CosRadians(theta);
+        }
+
+        PortAxis = RotatedAbout(PortAxis, new(Fix128.Zero, Fix128.Zero, Fix128.One), sin, cos);
+        if (PortOffset != Fix128Vec.Zero)
+        {
+            PortOffset = RotatedAbout(PortOffset, new(Fix128.Zero, Fix128.Zero, Fix128.One), sin, cos);
+        }
+    }
+
+    /// <summary>Rotates a vector about the z axis, with the angle's sine and cosine given.</summary>
+    /// <remarks>
+    /// Rodrigues' rotation, in fixed point: <c>v cos θ + (u×v) sin θ + u(u·v)(1 − cos θ)</c>,
+    /// with the trigonometry hoisted to the caller. The rotation in use here spends one sine,
+    /// one cosine and a dozen multiplies on the orbital turn; the first version of this
+    /// primitive kept the cross terms and dropped <c>v cos θ</c>, which shrinks a vector by
+    /// cos θ a tick and quietly sends a corridor's axis to zero, where a docking report
+    /// divides by it. The wind-down was a divide-by-zero at the first docking probe; the
+    /// general formula is checked by the same probe continuing to fly.
+    /// </remarks>
+    private static Fix128Vec RotatedAbout(Fix128Vec vector, Fix128Vec unitAxis, Fix128 sin, Fix128 cos)
+    {
+        Fix128Vec rotated =
+            vector * cos
+            + Fix128Vec.Cross(unitAxis, vector) * sin
+            + unitAxis * (Fix128Vec.Dot(unitAxis, vector) * (Fix128.One - cos));
+
+        return rotated;
     }
 
     /// <summary>The station's docking port, in the host's local frame.</summary>

@@ -153,20 +153,8 @@ internal struct Approach
 
 
 
-    /// <summary>Whether the corridor axis and the profile have been captured yet.</summary>
+    /// <summary>Whether the corridor's profile has been captured yet.</summary>
     private bool _haveProfile;
-
-    /// <summary>
-    /// The direction the ship travels to reach the port, latched on the first tick.
-    /// </summary>
-    /// <remarks>
-    /// Latched rather than recomputed, and from the port's axis rather than from the live bearing.
-    /// Inside the last metres a lateral error of a few centimetres swings the bearing through tens of
-    /// degrees, so a law that chases it is steering on noise — one trace shows the nose at −0.93, then
-    /// +0.98, then −0.94 within seconds. A corridor is a fixed direction, and that is exactly what
-    /// makes it flyable.
-    /// </remarks>
-    private Fix128Vec _axis;
 
     /// <summary>The approach profile, built from the corridor the ship was launched down.</summary>
     private Glideslope _profile;
@@ -176,17 +164,24 @@ internal struct Approach
     /// </summary>
     /// <param name="ship">The ship, read only. It is a struct, so pass it by value.</param>
     /// <param name="port">The port being approached.</param>
-    /// <param name="frameGravity">
-    /// Gravitational acceleration on the ship in this frame, if any. In a station's own frame there
-    /// is none — both are falling together. Pass the real figure in a frame where the pull is not
-    /// cancelled.
+    /// <param name="portVelocity">
+    /// The port's own velocity, at this instant. A docking law that measures closing against
+    /// absolute speed reads a ship in perfect formation as approaching at close to the
+    /// orbital speed, and never sees contact — the world's frame is Earth-centred, and both
+    /// bodies carry 7 668 m/s of it. Held-frame callers pass zero, and the law is exactly the
+    /// laws those tests proved.
     /// </param>
-    internal Command Next(in Ship ship, DockingPort port, Fix128Vec frameGravity)
+    /// <param name="frameGravity">
+    /// Gravitational acceleration on the ship in this frame, if any — a real figure the ship's
+    /// own integration has already applied, which the thrust cancels. In a station's own
+    /// frame there is none — both are falling together — and so it is in the world's real
+    /// frame too: the law cancels nothing, and the tidal pull left over is orders of
+    /// magnitude below a torch.
+    /// </param>
+    internal Command Next(in Ship ship, DockingPort port, Fix128Vec portVelocity, Fix128Vec frameGravity)
     {
         if (!_haveProfile)
         {
-            _axis = port.Axis;
-
             // Built from the corridor the ship actually starts down, so it is feasible by
             // construction: the rate is reduced until the drive can fly the line.
             Fix128 startRange = (ship.Position - port.Position).Length;
@@ -194,16 +189,18 @@ internal struct Approach
             _haveProfile = true;
         }
 
-        Fix128Vec inward = -_axis;
+        Fix128Vec inward = -port.Axis;
         Fix128Vec offset = ship.Position - port.Position;
         Fix128 range = offset.Length;
 
-        // Closing rate, measured toward the port rather than along the fixed axis. The two agree
-        // until the ship passes the port and then they are opposites, and a law that throttles on one
-        // while steering by the other runs away: a hundred kilometres of it, with "closing" reading a
-        // steady ten metres a second.
+        // Closing rate, measured toward the port rather than along the axis, and measured
+        // AGAINST THE PORT'S OWN MOTION. The two agree until the ship passes the port and
+        // then they are opposites, and a law that throttles on one while steering by the
+        // other runs away: a hundred kilometres of it, with "closing" reading a steady ten
+        // metres a second. The relative part is the real frame's: two bodies sharing an
+        // orbit share 7 668 m/s of it, and none of that is docking.
         Fix128Vec toPort = offset.IsZero ? inward : -offset.Normalized();
-        Fix128 closing = Fix128Vec.Dot(ship.Velocity, toPort);
+        Fix128 closing = Fix128Vec.Dot(ship.Velocity - portVelocity, toPort);
 
         Fix128 accel = DriveAcceleration(ship);
         Fix128 commanded = _profile.RateAt(range);
@@ -211,7 +208,7 @@ internal struct Approach
         // The latches have it: stop manoeuvring. Everything before this is trying to reach a state;
         // this is the state. Left flying, the law keeps correcting and a correction at a few
         // centimetres is a charge through the port and out the other side.
-        if (Phase != Stage.Hold && Docking.Evaluate(ship, port, Fix128Vec.Zero).Contact)
+        if (Phase != Stage.Hold && Docking.Evaluate(ship, port, portVelocity).Contact)
         {
             Phase = Stage.Hold;
         }
@@ -349,8 +346,11 @@ internal struct Approach
             // ninety degrees as the range closes: the ship's nose followed it round and arrived at
             // twenty degrees and opening.
             //
-            // The aim is the corridor. It is the direction the port faces, it is what the envelope
-            // measures against, and it does not move.
+            // The aim is the corridor. It is the direction the port faces, it is what the
+            // envelope measures against — and in the real frame it turns with the orbit,
+            // slow enough that the hull's own turn rate chases it without effort. What it
+            // still never does is swing inside the last metres; the port's axis rotates at
+            // the orbital rate, not at the rate a centimetre of lateral error moves it.
             return new Command(inward, Fix128.Zero, TurnTowards(ship.Attitude, inward));
         }
 

@@ -251,6 +251,9 @@ internal sealed class ProbeRunner
         double speed = station.Velocity.Length.ToDouble();
 
         Emit($"  offset    {Vec(station.Offset)} m from the host");
+        Emit($"  velocity  {Vec(station.Velocity)} m/s");
+        Emit($"  corridor  {Vec(station.PortAxis)} (length "
+            + $"{station.PortAxis.Length.ToDouble():G17})");
         Emit($"  altitude  {radius / 1000.0:F3} km, speed {speed:F3} m/s");
     }
 
@@ -521,6 +524,9 @@ internal sealed class ProbeRunner
             "mass" => _world.Ship?.Mass.ToDouble() ?? throw new ProbeException("no ship"),
             "propellant" => _world.Ship?.Propellant.ToDouble() ?? throw new ProbeException("no ship"),
             "speed" => _world.Ship?.Velocity.Length.ToDouble() ?? throw new ProbeException("no ship"),
+            "relative" => _world.Ship is Ship relativeShip && _world.HomeStation is Station relativeHome
+                ? (relativeShip.Velocity - relativeHome.Velocity).Length.ToDouble()
+                : throw new ProbeException("no ship launched from a station"),
             "sun" => SunDistanceAu(),
             _ => throw new ProbeException($"no quantity called '{what}'"),
         };
@@ -568,11 +574,13 @@ internal sealed class ProbeRunner
     /// Closing speed toward the port, live. Positive means approaching.
     /// </summary>
     /// <remarks>
-    /// Measured toward the port itself rather than along the fixed corridor axis, which is the
-    /// same thing only until the ship overshoots — after that the fixed axis reads a retreat as
-    /// an approach, which is how a probe ends up reporting a ship parked two metres from a port
-    /// as closing at a quarter of a metre a second while it drifts away.
-    /// </remarks>
+    /// The port's own velocity comes out: the ship and the station both fall, and a closing
+    /// measured against absolute speed reads a ship in perfect formation as closing at a
+    /// quarter of the orbital speed — the held frame hid that by freezing the station, and
+    /// the number stayed above the ship's honest closing by orders of magnitude. Measured
+    /// toward the port rather than along the corridor axis, for the same overshoot reason
+    /// as before: a fixed axis reads a retreat as an approach.
+    /// </summary>
     private double MeasuredClosing()
     {
         (Ship ship, Station home) = RequireShip();
@@ -582,7 +590,7 @@ internal sealed class ProbeRunner
             return 0.0;
         }
 
-        return Fix128Vec.Dot(ship.Velocity, -offset.Normalized()).ToDouble();
+        return Fix128Vec.Dot(ship.Velocity - home.Velocity, -offset.Normalized()).ToDouble();
     }
 
     private (Ship Ship, Station Home) RequireShip()

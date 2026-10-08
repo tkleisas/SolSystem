@@ -127,17 +127,15 @@ internal sealed class ProbeWorld
 
         var position = port.Position + port.Axis * F(standoffMetres);
 
-        // No launch velocity but the closing speed, because the frame is held.
-        //
-        // This is the counterpart to HoldStations and it is worth being explicit about,
-        // because the obvious version is wrong in a way that takes a while to see. Giving the
-        // ship the station's orbital velocity — 7 668 m/s of it — is right in an inertial
-        // frame and wrong in this one: with the port held still, a ship carrying that
-        // velocity simply leaves, at 7.7 kilometres a second, and the range grows quadratically
-        // while every number the pilot prints stays perfectly sensible. The two choices have
-        // to agree: either both are in orbit and the station is propagated, or the frame is
-        // held and the ship starts at rest in it.
-        var velocity = inward * F(closingMetresPerSecond);
+        // THE SHIP LAUNCHES WITH THE STATION'S ORBITAL VELOCITY, plus the closing it was
+        // asked for. In the world's real frame — the client's frame, Earth-centred, both
+        // bodies under the same point field — there is no such thing as a ship at rest
+        // beside a station: at 6 778 km the local speed is 7 668 m/s, and a launched ship
+        // that was handed anything else is not rendezvousing, it is being left behind at
+        // that rate. The closing speed rides on top of the shared orbital velocity, which
+        // is also exactly what holds formation in the client: two bodies with the same
+        // state, in the same field, stay together to the tidal terms.
+        var velocity = home.Velocity + (inward * F(closingMetresPerSecond));
 
         // Launched pointing at the port, the way the docking tests launch. This is not a
         // convenience and it took an investigation to see why.
@@ -168,7 +166,6 @@ internal sealed class ProbeWorld
         HomeStationName = stationName;
         Phase = 0;
     }
-
     /// <summary>Advances the world by <paramref name="ticks"/> navigation ticks.</summary>
     /// <remarks>
     /// One tick at a time through the same path a played frame would take. A probe that
@@ -188,21 +185,17 @@ internal sealed class ProbeWorld
         // The ephemeris is analytic, so the clock is the only thing the system needs.
         _system.Advance(Tick);
 
-        // Stations are held by default. See HoldStations for why, and for what this probe
-        // therefore does not test.
-        if (!HoldStations)
-        {
-            foreach (string name in _stations.Keys.ToList())
-            {
-                Station station = _stations[name];
-                station.Step(F(TickSeconds));
-                _stations[name] = station;
-            }
-        }
-
+        // THE LAW AND THE SHIP FLY ON ONE INSTANT. The port's state is read BEFORE the
+        // stations move, so the law sees ship and port at the same tick. The held frame
+        // hid the price of getting this wrong: the port moves 64 m per tick in the real
+        // frame, and a law fed the port of tick t+1 and the ship of tick t reads a corridor
+        // whose direction swings by forty degrees every step. Stations then step; the
+        // ship's step uses the host's timeless field. At the end of the tick, ship and
+        // stations agree on the instant; at the next, the law reads that instant twice.
         if (Ship is Ship ship && HomeStationName is not null)
         {
             Station home = Station(HomeStationName);
+            var sources = new[] { home.GravitySource };
 
             if (!Manual)
             {
@@ -211,14 +204,25 @@ internal sealed class ProbeWorld
             else
             {
                 // Coasting: the pilot is off and the engine is shut, so the ship falls
-                // purely under the station's gravity. Two identical bodies in the same
-                // field have to stay in the same place relative to each other, so this is
-                // how the frame arithmetic gets checked without a controller in the way.
-                var sources = new[] { home.GravitySource };
+                // purely under the host's gravity — the same field the station falls
+                // under, which is what makes this the honest frame: two identical
+                // bodies in one field have to stay in formation.
                 ship.Step(sources, F(TickSeconds), Command.Coast);
             }
 
             Ship = ship;
+        }
+
+        // Stations orbit their host, uncapped, exactly as the client's session advances
+        // them: every tick, under the same point field the ship feels. A probe whose
+        // stations did not move would be testing a frame no player flies — and its ship,
+        // left behind at the station's own orbital speed, would narrate the distance
+        // growing while every instrument read green.
+        foreach (string name in _stations.Keys.ToList())
+        {
+            Station station = _stations[name];
+            station.Step(F(TickSeconds));
+            _stations[name] = station;
         }
     }
 
@@ -239,76 +243,59 @@ internal sealed class ProbeWorld
         // The law lives in the core now. The probe used to carry its own copy, and that copy
         // was written four times because a probe is the worst place to develop a controller:
         // every fix had to be re-derived without tests. What is left here is the frame
-        // decision, which is the probe's business, and nothing else.
-        Command command = _approach.Next(ship, home.Port, Fix128Vec.Zero);
+        // decision, which is the probe's business, and nothing else. The real frame hands
+        // the law the port's own velocity and nothing to cancel: two bodies sharing an orbit
+        // are falling together, and the tidal residue is below any torch's resolution.
+        Command command = _approach.Next(ship, home.Port, home.Velocity, Fix128Vec.Zero);
         Phase = (int)_approach.Phase;
+
+        if (Debug && Ticks < 60)
+        {
+            DockingReport report = Docking.Evaluate(ship, home.Port, home.Velocity);
+            Fix128Vec toPort = (home.Port.Position - ship.Position).IsZero
+                ? Fix128Vec.Zero
+                : (home.Port.Position - ship.Position).Normalized();
+            Fix128 closingNext = Fix128Vec.Dot(ship.Velocity - home.Velocity, toPort);
+            Console.WriteLine($"  [law] t={Ticks,5} phase={_approach.Phase} "
+                + $"closing(nex)={closingNext.ToDouble():F4} unit-toPort={toPort.X.ToDouble():F4} "
+                + $"opts axis=({home.Port.Axis.X.ToDouble():F4},{home.Port.Axis.Y.ToDouble():F4})");
+        }
 
         if (Debug && Ticks % 24000 == 0)
         {
-            DockingReport report = Docking.Evaluate(ship, home.Port, Fix128Vec.Zero);
+            DockingReport report = Docking.Evaluate(ship, home.Port, home.Velocity);
             Console.WriteLine($"  [pilot] t={Ticks,7} phase={_approach.Phase,-8} "
                 + $"range={report.Range.ToDouble(),10:F2} closing={report.ClosingSpeed.ToDouble(),9:F4} "
                 + $"thr={command.Throttle.ToDouble():F3} prop={ship.Propellant.ToDouble():F6}");
         }
 
-        ship.Step(GravitySources, F(TickSeconds), command);
+        // Real gravity: the host's point field at the frame's origin, the same source the
+        // station integrates under and the same one the client's loop hands its hull. The
+        // parked zero-mass source of the held-frame era is retired; a probe that felt no
+        // gravity was not flying the world the player flies.
+        ship.Step(new[] { home.GravitySource }, F(TickSeconds), command);
     }
 
     /// <summary>
-    /// Holds the stations still in their own frame instead of propagating their orbits.
+    /// Legacy switch: whether the stations are held still in their own frame.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is the probe's honest boundary and it is worth stating plainly, because the
-    /// alternative is a harness that reports success on something it cannot actually do.
+    /// <b>The held frame is retired.</b> It was the probe's honest boundary once, and was
+    /// stated plainly: a station at 6 778 km orbits at 7 668 m/s, the reference torch makes
+    /// 0.039, and no ship hovers there — what keeps it beside a station is that both are
+    /// falling together. The held frame approximated that by freezing the station, which is
+    /// a frame no player flies and a rendezvous no player can perform.
     /// </para>
     /// <para>
-    /// A station at 6 778 km orbits at 7 668 m/s. <b>A ship there cannot hover</b>: the Earth
-    /// pulls at 8.67 m/s² and the reference torch makes 0.039, so the drive is 220 times too
-    /// weak, and no drive in this setting is within two orders of magnitude. What keeps a ship
-    /// beside a station is not thrust but that both are falling together — so a rendezvous is
-    /// flown in the station's own frame, which is the frame the capture envelope is defined
-    /// in and the frame the docking tests fly in.
-    /// </para>
-    /// <para>
-    /// In that frame the station is fixed and the local manifold is flat, to within the tidal
-    /// gradient (3.4 × 10⁻⁶ m/s² per metre of separation) and the Coriolis term at twice the
-    /// orbital rate. Over a two-kilometre approach those are millimetres, and they are not
-    /// modelled. <b>What this probe therefore does not test is orbital manoeuvring</b> —
-    /// phasing, plane changes, or a rendezvous that has to match a station's orbit rather
-    /// than its velocity. Those need the Hill frame and its tidal terms, which is real work
-    /// and is not done.
+    /// The real frame needs no freezing: Earth-centred, both bodies under the same point
+    /// field, falling together for real. The residual terms the held frame refused to model
+    /// are now just present at their true (tiny) size, and what the probe tests is the
+    /// manoeuvre the player performs. The switch remains for an A/B against the old frame;
+    /// nothing but history flies behind it.
     /// </para>
     /// </remarks>
-    internal static bool HoldStations = true;
-
-    /// <summary>An empty gravity field, with the source parked clear of the port.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Why there is no gravity in this probe.</b> The station orbits at 6 778 km, where the
-    /// Earth pulls at 8.67 m/s² and the reference torch makes 0.039. A ship there cannot
-    /// hold station at all — it is not a control problem, it is that the drive is 220 times
-    /// too weak to hover, and no drive in this setting is within two orders of magnitude of
-    /// being able to. What keeps a ship beside a station is not thrust but the fact that both
-    /// of them are falling together.
-    /// </para>
-    /// <para>
-    /// So the approach is flown in the station's own frame, which is the frame the docking
-    /// envelope is defined in and the frame the tests fly. The residual terms that a
-    /// co-rotating frame would carry — the tidal gradient, about 3.4 × 10⁻⁶ m/s² per metre of
-    /// separation, and the Coriolis term at twice the orbital rate — are real and are not
-    /// modelled here. Over a two-kilometre approach they amount to millimetres.
-    /// </para>
-    /// <para>
-    /// The source is parked away from the port rather than removed, because the gravity
-    /// machinery refuses to have a source sitting on the ship and a zero-mass source at the
-    /// origin would throw the moment the ship arrived.
-    /// </para>
-    /// </remarks>
-    private static readonly GravitySource[] GravitySources =
-    {
-        new(new Fix128Vec(Fix128.FromDouble(-1.0e6), Fix128.Zero, Fix128.Zero), Fix128.Zero),
-    };
+    internal static bool HoldStations = false;
 
     /// <summary>
     /// Angular velocity that swings the ship's attitude until its nose points along

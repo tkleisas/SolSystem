@@ -104,7 +104,7 @@ public class ApproachTests
 
         for (int tick = 0; tick < maxTicks; tick++)
         {
-            Command command = approach.Next(ship, port, Fix128Vec.Zero);
+            Command command = approach.Next(ship, port, Fix128Vec.Zero, Fix128Vec.Zero);
             ship.Step(sources, F(TickSeconds), command);
 
             DockingReport report = Docking.Evaluate(ship, port, Fix128Vec.Zero);
@@ -171,7 +171,7 @@ public class ApproachTests
         bool held = false;
         for (int tick = 0; tick < 300_000; tick++)
         {
-            Command command = approach.Next(ship, port, Fix128Vec.Zero);
+            Command command = approach.Next(ship, port, Fix128Vec.Zero, Fix128Vec.Zero);
             if (approach.Phase == Approach.Stage.Hold)
             {
                 held = true;
@@ -256,7 +256,7 @@ public class ApproachTests
 
         for (int tick = 0; tick < 400_000; tick++)
         {
-            Command command = approach.Next(ship, port, Fix128Vec.Zero);
+            Command command = approach.Next(ship, port, Fix128Vec.Zero, Fix128Vec.Zero);
             DockingReport report = Docking.Evaluate(ship, port, Fix128Vec.Zero);
 
             csv.Append(tick).Append(',')

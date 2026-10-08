@@ -12,8 +12,10 @@
 # seconds, and reported a perfectly plausible world.
 #
 # And note the cost: a station is integrated one tick at a time at 120 Hz, so a day is
-# 10 368 000 steps. Ten days is about a minute. The spans below are chosen to be as long as
-# is worth paying for rather than as long as possible.
+# 10 368 000 steps. Ten days is about ten minutes now -- the honest frame's price, because
+# the stations really orbit under the host's field and the corridor really turns with them,
+# where the held frame charged one minute for a world that did not move. The spans below
+# are chosen to be as long as is worth paying for rather than as long as possible.
 
 station Meridian
 station Anchorage

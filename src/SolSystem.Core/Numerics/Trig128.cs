@@ -291,6 +291,9 @@ internal static class Trig128
     /// <summary>Sine of an angle in radians, for conversion at a boundary.</summary>
     internal static Fix128 SinRadians(Fix128 radians) => SinTurn(TurnsFromRadians(radians));
 
+    /// <summary>Cosine of an angle in radians, for conversion at a boundary.</summary>
+    internal static Fix128 CosRadians(Fix128 radians) => CosTurn(TurnsFromRadians(radians));
+
     /// <summary>Converts radians to turns. Pi is not representable, so this is rounded.</summary>
     internal static Fix128 TurnsFromRadians(Fix128 radians) =>
         radians * Fix128.FromDouble(1.0 / (2.0 * Math.PI));
