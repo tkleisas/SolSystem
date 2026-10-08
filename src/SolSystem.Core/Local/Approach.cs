@@ -114,6 +114,16 @@ internal struct Approach
     private static readonly Fix128 CreepEntryRange = Fix128.FromDouble(10.0);
 
     /// <summary>
+    /// The range at which a completed-approach hull, receding still, is handed back to
+    /// the pilot, in metres.
+    /// </summary>
+    /// <remarks>
+    /// One and a half times the mouth. Below it the corridor's own law still owns the
+    /// hull, and a recovery that fires on the first metre of drift would fight the run's
+    /// own push-out; above it the recede is real and the pilot is the only instrument
+    /// that owns a fact both frames agree on: the hull is moving away and must come back.
+    /// </remarks>
+    /// <summary>
     /// How far off the corridor's line the pilot may hand a ship over, in metres.
     /// </summary>
     /// <remarks>
@@ -138,6 +148,20 @@ internal struct Approach
     /// would be a slope the ship has to catch up with rather than give way to.
     /// </remarks>
     private static readonly Fix128 RendezvousHandoverRange = Fix128.FromDouble(450.0);
+
+    /// <summary>
+    /// The range at which a completed-approach hull, receding still, is handed back to
+    /// the pilot. One and a half times the mouth.
+    /// </summary>
+    /// <remarks>
+    /// Declared after the hand-over range because the two constants read each other and
+    /// static initializers run in declaration order: the first version of this line sat
+    /// above its dependency and read it as zero, which made the resume threshold exactly
+    /// nothing — the re-arm fired the tick after every hand-over, and the two halves of
+    /// the law spent an approach flipping ownership back and forth as fast as they could.
+    /// </remarks>
+    private static readonly Fix128 RendezvousResumeRange =
+        RendezvousHandoverRange * Fix128.FromDouble(1.5);
 
     /// <summary>
     /// The relative speed the ship must be under to enter the corridor, in m/s.
@@ -183,6 +207,20 @@ internal struct Approach
     /// business and arrive at the slope's pace instead.
     /// </remarks>
     private static readonly Fix128 RendezvousGainD = Fix128.FromDouble(0.02);
+
+    /// <summary>
+    /// The braking-curve tracker's rate gain, per m/s of velocity error, in m/s².
+    /// </summary>
+    /// <remarks>
+    /// About two — a bandwidth of a half-second on the hull's own velocity plan. The curve
+    /// is a plan for velocity, not a law for position, so the tracker's error is the whole
+    /// signal and this gain is the only number between the hull and its plan; the torch
+    /// saturation does the rest. The gain replaced two position-plus-rate gains whose
+    /// channels cancelled each other in the terminal regime — the arithmetic trace shows a
+    /// correction of seven-thousandths of a torch answering a Kepler drift of four, which
+    /// is the definition of a passenger.
+    /// </remarks>
+    private static readonly Fix128 RendezvousTrackingGain = Fix128.FromDouble(2.0);
 
 
     /// <summary>Lateral offset inside which no correction is attempted, in metres.</summary>
@@ -255,14 +293,6 @@ internal struct Approach
 
     /// <summary>The approach profile, built from the corridor the ship was launched down.</summary>
     private Glideslope _profile;
-
-    /// <summary>
-    /// The glideslope the rendezvous pilot flies into the mouth, built once at the launch.
-    /// </summary>
-    /// <remarks>A bool pairs it because the glideslope itself is a struct: there is no
-    /// null for one, only an unset one.</remarks>
-    private Glideslope _pilotProfile;
-    private bool _pilotProfileSet;
 
     /// <summary>
     /// The command for this tick.
@@ -369,12 +399,30 @@ internal struct Approach
 
         Fix128 commanded = _profile.RateAt(range);
 
-        // The latches have it: stop manoeuvring. Everything before this is trying to reach a state;
+        // THE LATCHES HAVE IT: stop manoeuvring. Everything before this is trying to reach a state;
         // this is the state. Left flying, the law keeps correcting and a correction at a few
         // centimetres is a charge through the port and out the other side.
         if (Phase != Stage.Hold && Docking.Evaluate(ship, port, portVelocity).Contact)
         {
             Phase = Stage.Hold;
+        }
+
+        // THE RECOVERY ACT: the corridor's law is a one-sign flyer — the brake releases a
+        // receding hull with no thrust and the creep is a coast — and in the held frame
+        // that was right, because nothing receded. In the real frame the Hill dynamics
+        // walk a hull that missed the contact window back out along the orbital runway
+        // (measured: handed at 48 m, out past 2 500 m within minutes), and every regime
+        // this law owns lets it drift. The pilot is the recovery instrument: a hull past
+        // the mouth's radius that the latches have not taken is handed back to the
+        // rendezvous, whose Hill frame knows exactly what a receding hull is.
+        if (_rendezvousComplete && range > RendezvousResumeRange && Phase != Stage.Hold)
+        {
+            _rendezvousComplete = false;
+            if (DumpPilot)
+            {
+                Console.WriteLine(
+                    $"  [pilot] REARM t+{_profTicks,7} range={range.ToDouble(),8:F1} phase={Phase}");
+            }
         }
 
         Fix128 along;
@@ -699,6 +747,22 @@ internal struct Approach
         Fix128Vec orbitNormal = new(Fix128.Zero, Fix128.Zero, Fix128.One);
         Fix128Vec alongTrack = Fix128Vec.Cross(orbitNormal, radial).Normalized();
 
+        // The delivery plan is THE Braking Curve, and there is no other plan that works
+        // here. Every fixed-figure or fixed-target plan fails in a way the probe wrote
+        // down: a constant rate delivered a hull at twelve metres a second; a
+        // position-error chase hovered at 48 m when its two channels cancelled; a PD
+        // around a mouth-point the gains of which fit in a thousandth of a torch could
+        // not correct a 375-metre Kepler drift because its whole correction budget was
+        // 7 mm/s^2 — a passenger again. The braking curve has none of those traps: the
+        // plan's velocity is what the drive could own at the hull's current distance from
+        // the port, everywhere, so the plan ends at rest at the port instead of ending at
+        // rest at a point 450 m from it, and its demand scales down with the error
+        // instead of vanishing while the drift does not.
+        //
+        // Tracking it is proportional, and the rate gain is deliberately about two — the
+        // tracker's own bandwidth a half-second — because the curve is a plan for the
+        // ship's velocity, not a law for its position: the error between plan and hull
+        // becomes a thrust the ship can answer at whatever speed it has.
         Fix128Vec relativePosition = ship.Position - port.Position;
         Fix128Vec relativeVelocity = ship.Velocity - portVelocity;
         Fix128 range = relativePosition.Length;
@@ -711,49 +775,28 @@ internal struct Approach
         Fix128 vy = Fix128Vec.Dot(relativeVelocity, alongTrack);
         Fix128 vz = Fix128Vec.Dot(relativeVelocity, orbitNormal);
 
-        // The delivery point: the corridor's mouth, 450 m out along the port's axis.
-        Fix128Vec targetPosition = radial * RendezvousHandoverRange;
+        // THE CURVE FLYS WITH A QUARTER OF THE TORCH, not all of it. The first curve here
+        // was exact — v = sqrt(2·a·r) — and exact is the trap: the curve then spends 100%
+        // of the drive decelerating the descent, and a tracker's own lag (a quarter-second
+        // of bandwidth against metres of closure) puts the hull a metre per second off the
+        // curve at every point, which eats the margin that does not exist. Planned at a
+        // quarter of the drive, the curve's own need is 0.0098 m/s² and three quarters of
+        // the torch remain for the tracker, the Coriolis and the drift delta; the descent
+        // is slower — about twelve minutes from two kilometres — and slower is honest.
+        Fix128 brakingSpeed = Fix128.Sqrt(Fix128.FromWhole(2) * accel * range
+            * Fix128.FromDouble(0.25));
+        Fix128Vec targetVelocity = range == Fix128.Zero
+            ? Fix128Vec.Zero
+            : relativePosition * (-brakingSpeed / range);
 
-        // The delivery plan. The pilot does not chase one fixed figure, and it does not
-        // invent a curve of its own: the radial channel flies the corridor's own
-        // glideslope — built once, from the launch range, because that is where the hull
-        // is — whose peak deceleration is bounded by this very drive. Two wrong plans
-        // taught this. The first pointed at the mouth with a constant rate and delivered a
-        // hull at twelve metres a second where the profile asked for four. The second was
-        // the theoretically right √(2·a·d) braking curve — and a tracker with a lag does
-        // not ride it: the plan bred 10 m/s at the start, the hull's velocity trailed the
-        // plan by its own tracking constant, and the mouth was crossed at 4.9 m/s with
-        // 306 m of stopping distance and no runway. But the profile's linear curve is the
-        // curve a tracker CAN ride, because it is built so that its whole descent is
-        // within the drive's power in the first place. The along-track channel carries the
-        // line, not the point: the plan's sideways rate is the descent rate scaled by the
-        // ship's own position ratio, so the hull descends onto the line and the lateral
-        // error dies with the range instead of surviving it.
-        Fix128 startRange = Fix128.Max(range, RendezvousHandoverRange);
-        if (!_pilotProfileSet)
-        {
-            _pilotProfile = ProfileFor(startRange, accel);
-            _pilotProfileSet = true;
-        }
-        Fix128 descentRate = _pilotProfile.RateAt(range);
-        Fix128 lineRatio = px.Abs() > Fix128.FromWhole(1)
-            ? py / px
-            : Fix128.Zero;
-        Fix128Vec targetVelocity = radial * (-descentRate)
-            + alongTrack * (-descentRate * lineRatio);
-
-        // The errors, decomposed onto the frame's axes.
-        Fix128 ex = Fix128Vec.Dot(targetPosition - relativePosition, radial);
-        Fix128 ey = Fix128Vec.Dot(targetPosition - relativePosition, alongTrack);
-        Fix128 ez = Fix128Vec.Dot(targetPosition - relativePosition, orbitNormal);
         Fix128 evx = Fix128Vec.Dot(targetVelocity - relativeVelocity, radial);
         Fix128 evy = Fix128Vec.Dot(targetVelocity - relativeVelocity, alongTrack);
         Fix128 evz = Fix128Vec.Dot(targetVelocity - relativeVelocity, orbitNormal);
 
         // The wanted accelerations, then the dynamics' terms cancelled out of them.
-        Fix128 desiredAx = RendezvousGainP * ex + RendezvousGainD * evx;
-        Fix128 desiredAy = RendezvousGainP * ey + RendezvousGainD * evy;
-        Fix128 desiredAz = RendezvousGainP * ez + RendezvousGainD * evz;
+        Fix128 desiredAx = RendezvousTrackingGain * evx;
+        Fix128 desiredAy = RendezvousTrackingGain * evy;
+        Fix128 desiredAz = RendezvousTrackingGain * evz;
 
         Fix128 ux = desiredAx - (Fix128.FromWhole(3) * meanMotion * meanMotion * px) - (Fix128.FromWhole(2) * meanMotion * vy);
         Fix128 uy = desiredAy + (Fix128.FromWhole(2) * meanMotion * vx);
@@ -766,10 +809,9 @@ internal struct Approach
         if (DumpPilot)
         {
             Console.WriteLine(
-                $"  [pilot] t+{_profTicks,7} p=({px.ToDouble():F1},{py.ToDouble():F1}) "
-                + $"e=({ex.ToDouble():F1},{ey.ToDouble():F1}) "
+                $"  [pilot] t+{_profTicks,7} r={range.ToDouble(),8:F1} "
                 + $"ev=({evx.ToDouble():F3},{evy.ToDouble():F3}) "
-                + $"plan=({targetVelocity.X.ToDouble():F3},{targetVelocity.Y.ToDouble():F3})v{descentRate.ToDouble():F2} "
+                + $"plan=({targetVelocity.X.ToDouble():F3},{targetVelocity.Y.ToDouble():F3})v{brakingSpeed.ToDouble():F2} "
                 + $"relV=({relativeVelocity.X.ToDouble():F3},{relativeVelocity.Y.ToDouble():F3}) "
                 + $"u=({ux.ToDouble():F5},{uy.ToDouble():F5})");
             _profTicks++;
