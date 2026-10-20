@@ -27,6 +27,8 @@ body moon
 days 0.128
 station Meridian
 body moon
+expect "meridian keeps its radius after two orbits" alt:Meridian 6778.1 near 2.0
+expect "meridian keeps its circular speed" spd:Meridian 7668.6 near 2.0
 
 # Ten days: a third of a lunar orbit, and the Earth well round the Sun. The ephemeris is
 # analytic and costs nothing; the stations are integrated, and this is where drift shows.
@@ -35,5 +37,8 @@ station Meridian
 station Anchorage
 body earth
 body moon
+expect "meridian keeps its radius across ten days" alt:Meridian 6778.1 near 20.0
+expect "anchorage keeps its radius across ten days" alt:Anchorage 42164.0 near 50.0
+expect "anchorage keeps its own circular speed" spd:Anchorage 3074.666 near 1.0
 
 hash epoch

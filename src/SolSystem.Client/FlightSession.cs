@@ -1,3 +1,4 @@
+using SolSystem.Core;
 using SolSystem.Core.Numerics;
 using SolSystem.Core.Orbits;
 using SolSystem.Core.Sky;
@@ -315,23 +316,8 @@ internal sealed class FlightSession
     internal double DistanceTo(Fix128Vec heliocentricPoint) =>
         (heliocentricPoint - ObserverPosition).Length.ToDouble();
 
-    /// <summary>The repository root, found by walking up for the art directory.</summary>
-    internal static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, "art", "sky")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException(
-            $"could not find the repository root above {AppContext.BaseDirectory}");
-    }
+    /// <summary>The repository root, from Core's one shared walk.</summary>
+    internal static string RepositoryRoot() => Repository.Root;
 
     /// <summary>
     /// The MOSS-TTS-Nano ONNX bundle's root, or null when the weights are not fetched.

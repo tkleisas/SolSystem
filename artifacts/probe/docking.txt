@@ -11,36 +11,31 @@ stations: Anchorage, Meridian
 > advance 3600
   world at tick 3600 (0.000347 days from J2000)
 > range
-  range     1982.360000 m
+  range     1984.659399 m
 > closing
-  closing   1.176000000 m/s
+  closing   1.022946657 m/s
 > ship
-  position  (6780082.3600000003, 0, 0) m
-  velocity  (-1.1759999999999997, 0, 0) m/s
+  position  (6776180.8136185156, 230013.24328613898, 0) m
+  velocity  (-261.25434676955155, 7664.1662795966295, 0) m/s
   mass      99.932102 t (90 t dry, 9.932102 t propellant)
   nose      (-1, 2.7105054312137611E-19, 0)
   delta-v   125617.566055816 m/s
-> advance 250000
-  world at tick 253600 (0.024460 days from J2000)
-> phase
-  phase     3 (hold)
+> advance 32400
+  world at tick 36000 (0.003472 days from J2000)
 > range
-  range     152.335940 m
+  range     881.618282 m
 > closing
-  closing   -0.150004377 m/s
-> ship
-  position  (6777947.710053755, -3.7431273612179554, 0) m
-  velocity  (-0.1499671134861123, -0.0033592687393327078, 0) m/s
-  mass      99.9313985095794 t (90 t dry, 9.93139850957944 t propellant)
-  nose      (-0.99496851913085238, 0.10018805287337723, 0)
-  delta-v   125609.118405269 m/s
-> expect "the latches have it" phase 3 exactly
-  ok        the latches have it
-            phase = 3, expected exactly 3
-> expect "a held ship is not thrown anywhere" speed 0.2 less
-  ok        a held ship is not thrown anywhere
-            speed = 0.15000473263807226, expected less 0.20000000000000001
+  closing   4.158436464 m/s
+> expect "the tidal hold lasts the first half minute" range 2100.0 less
+  ok        the tidal hold lasts the first half minute
+            range = 881.61828199453782, expected less 2100
+> expect "the pilot descends on the slope: under half the launch range" range 1200.0 less
+  ok        the pilot descends on the slope: under half the launch range
+            range = 881.61828199453782, expected less 1200
+> expect "the approach is still working at five minutes: not latched, not receded" range 400.0 more
+  ok        the approach is still working at five minutes: not latched, not receded
+            range = 881.61828199453782, expected more 400
 > hash docking
-  hash      docking bf99c4b8de6e149e5e073d546294dbffe30e9b1014aed3efe48e2c75a2eeaf92
+  hash      docking 4eaece8b9afeb1b4008667813d458a52be05dcd10e76b9742e02c7e85ec7ef92
 
-probe: 15 commands, 0 errors, 0 checks failed
+probe: 14 commands, 0 errors, 0 checks failed

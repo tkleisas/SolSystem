@@ -24,6 +24,17 @@ namespace SolSystem.Client;
 /// </remarks>
 internal sealed class MissionHost
 {
+    /// <summary>
+    /// The mission format's own stamp, required as the file's first non-empty line.
+    /// </summary>
+    /// <remarks>
+    /// Format 1: the stamp, the <c>sim</c> and <c>mission</c> vocabularies below, and the
+    /// required hook <c>mission.on_sim(dt)</c>. A future format 2 should change exactly
+    /// this stamp and the client will refuse old and new scripts that do not match — a
+    /// data file that outlived its reader is the failure mode not to have.
+    /// </remarks>
+    internal const string MissionHeader = "-- solsystem-mission:1";
+
     private readonly Script _script = new(CoreModules.Preset_SoftSandbox);
 
     /// <summary>The outcome predicates, by name, and whether each has fired.</summary>
@@ -70,10 +81,25 @@ internal sealed class MissionHost
         host.RegisterSim(host._script);
         host.RegisterMission(host._script);
         host.RemoveLottery();
-
         try
         {
             string source = File.ReadAllText(path);
+
+            // THE HEADER IS THE CONTRACT, and it is the first non-empty line. A mission is
+            // validated content, the way hulls and star catalogues are validated data: the
+            // stamp says which format the file claims, the client refuses stamps it does
+            // not speak, and the refusal names the mismatch. Checking before the
+            // interpreter runs means a future format's syntax cannot crash the load path
+            // — a file stamp refuses with its message while it is still only text.
+            string header = source.Split('\n').FirstOrDefault(line => !string.IsNullOrWhiteSpace(line)) ?? "";
+            string headerTrimmed = header.TrimEnd('\r').Trim();
+            if (headerTrimmed != MissionHeader)
+            {
+                return Fail(headerTrimmed.StartsWith("-- solsystem-mission:")
+                    ? $"the mission's stamp is '{headerTrimmed}' and the client speaks '{MissionHeader}'"
+                    : $"the mission's first line must be the stamp '{MissionHeader}'");
+            }
+
             host._script.DoString(source);
 
             DynValue mission = host._script.Globals.Get("mission");
@@ -157,8 +183,8 @@ internal sealed class MissionHost
         });
 
         // What the voice says, and what only the log shows. A line of speech lands in the
-        // comm log once — the narrator's LineSpoken carries it — so a spoken line is not
-        // also pre-written here; and a session without a voice still shows its text.
+        // comm log once — the narrator's own start schedule carries it — so a spoken line is
+        // not also pre-written here; and a session without a voice still shows its text.
         mission["say"] = new Action<string>(text =>
         {
             if (_narrator is not null)

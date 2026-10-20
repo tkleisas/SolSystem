@@ -14,8 +14,13 @@
 
 # Greenwich, 2000 January 1, 12:00 TT -- local noon in midwinter.
 sky 51.4778 -0.0015 /tmp/sky-greenwich-winter.csv
+expect "greenwich midwinter noon: the sun at 15.5 deg, due south" sunalt 15.5 near 1.0
 
-# Half a year later, which is the same place at midnight in midsummer.
+# Half a year later, which is the same place half a solar day's worth of clock past noon:
+# 182.6 days from J2000 noon lands at 14:24 TT on July 2, and the site's own reading of
+# the Sun there is the seam this probe found and cannot yet assert honestly. The site
+# triad's hour angle against the ephemeris's own date is real sky work and is not done;
+# the midwinter assert above stands because J2000's noon IS the solar noon by definition.
 days 182.6
 sky 51.4778 -0.0015 /tmp/sky-greenwich-summer.csv
 

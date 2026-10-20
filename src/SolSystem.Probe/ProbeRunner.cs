@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using SolSystem.Core;
 using SolSystem.Core.Determinism;
 using SolSystem.Core.Local;
 using SolSystem.Core.Sky;
@@ -63,22 +64,8 @@ internal sealed class ProbeRunner
     /// <summary>The transcript, which is the artefact a probe produces.</summary>
     internal string Transcript => _transcript.ToString();
 
-    /// <summary>The repository root, found by walking up for the art directory.</summary>
-    private static string RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            if (Directory.Exists(Path.Combine(directory.FullName, "art", "sky")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("could not find the repository root");
-    }
+    /// <summary>The repository root, from Core's one shared walk.</summary>
+    private static string RepoRoot() => Repository.Root;
 
     /// <summary>Runs a script and returns the transcript.</summary>
     internal static ProbeRunner Run(ProbeScript script)
@@ -334,6 +321,15 @@ internal sealed class ProbeRunner
                 new Star(direction, magnitude, colour, 0.0, name), observer);
             (double altitude, double azimuth) = SkyProjection.AltAz(observer, apparent);
 
+            if (name == "Sun")
+            {
+                // The site's own sun altitude, in degrees (AltAz returns degrees already —
+                // the CSV's rows are the proof). Greenwich at J2000's own noon reads 15.49
+                // at an azimuth of 179.2, which is a planisphere's answer to midwinter
+                // local noon.
+                _lastSiteSunAltitude = altitude;
+            }
+
             rows.Add($"body,{name},{altitude:R},{azimuth:R},{magnitude:R},{colour:R}");
         }
 
@@ -416,8 +412,36 @@ internal sealed class ProbeRunner
             _ => throw new ProbeException($"no body called '{_lastBody}'"),
         };
 
-        return state.Position.Length.ToDouble() / 149_597_870.7;
+        return state.Position.Length.ToDouble() / FlightPlan.KilometresPerAu;
     }
+
+    /// <summary>
+    /// A station's distance from its host, in kilometres: the expect quantity
+    /// <c>alt:&lt;name&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Station-keeping has no ship, so the ship quantities are the wrong instrument for
+    /// its asserts. The <c>alt:</c> and <c>spd:</c> prefixes reach a station by name —
+    /// <c>expect "meridian keeps its radius" alt:Meridian 6778.1 near 20</c> — which is
+    /// also the honest spelling: the quantity mirrors the <c>station &lt;name&gt;</c>
+    /// command's own altitude and speed lines, which are the same two measurements.
+    /// </para>
+    /// </remarks>
+    private double StationAltitudeKm(string name)
+    {
+        Station station = _world.Station(name);
+        return station.Offset.Length.ToDouble() / 1000.0;
+    }
+
+    private double StationSpeed(string name)
+    {
+        Station station = _world.Station(name);
+        return station.Velocity.Length.ToDouble();
+    }
+
+    /// <summary>The Sun's altitude in degrees at the last sky command's site, or null.</summary>
+    private double? _lastSiteSunAltitude;
 
     private void Range(ProbeCommand command)
     {
@@ -510,9 +534,10 @@ internal sealed class ProbeRunner
             ? command.Argument(3, "a relation", "…").ToLowerInvariant()
             : "near";
 
-        // `near` takes its tolerance as the fourth argument, so a relation of `near` with
-        // one is a six-argument expectation; the others take the relation there.
-        double tolerance = relation == "near" ? command.RealOr(3, 1e-6) : 0.0;
+        // `near` takes its tolerance as the fifth argument (the relation's word takes the
+        // fourth), so a relation of `near` with one is a five-part expectation; the other
+        // relations take the value there and its reader treats that slot as the relation.
+        double tolerance = relation == "near" ? command.RealOr(4, 1e-6) : 0.0;
 
         double actual = what.ToLowerInvariant() switch
         {
@@ -528,7 +553,11 @@ internal sealed class ProbeRunner
                 ? (relativeShip.Velocity - relativeHome.Velocity).Length.ToDouble()
                 : throw new ProbeException("no ship launched from a station"),
             "sun" => SunDistanceAu(),
-            _ => throw new ProbeException($"no quantity called '{what}'"),
+            "sunalt" => _lastSiteSunAltitude
+                ?? throw new ProbeException("no sky site yet — expect sunalt after a sky command"),
+            _ => what.StartsWith("alt:") ? StationAltitudeKm(what[4..])
+                : what.StartsWith("spd:") ? StationSpeed(what[4..])
+                : throw new ProbeException($"no quantity called '{what}'"),
         };
 
         bool pass = relation switch

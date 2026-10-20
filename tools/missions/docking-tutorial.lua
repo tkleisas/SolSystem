@@ -1,3 +1,5 @@
+-- solsystem-mission:1
+--
 -- The first mission: put the courier down Meridian's corridor under its own power.
 --
 -- Guidance, not law: the latches decide. This script reads the same numbers the probe

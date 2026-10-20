@@ -4,9 +4,13 @@ stations: Anchorage, Meridian
 
 > station Meridian
   offset    (6778100, 0, 0) m from the host
+  velocity  (0, 7668.579105775837, 0) m/s
+  corridor  (1, 0, 0) (length 1)
   altitude  6778.100 km, speed 7668.579 m/s
 > station Anchorage
   offset    (42164000, 0, 0) m from the host
+  velocity  (0, 3074.6662841276843, 0) m/s
+  corridor  (0, 0, 1) (length 1)
   altitude  42164.000 km, speed 3074.666 m/s
 > body earth
   position  (-26504441.61531106, 144693227.46125251, -38.663464067646046) km
@@ -17,26 +21,47 @@ stations: Anchorage, Meridian
 > days 0.128
   0.128000 days = 1,327,104 ticks, world at tick 1327104 (0.128000 days from J2000)
 > station Meridian
-  offset    (6778100, 0, 0) m from the host
+  offset    (6768125.2942027524, -367586.19666129944, 0) m from the host
+  velocity  (415.87817046452898, 7657.2939638536118, 0) m/s
+  corridor  (0.99852839204708044, -0.0542314509842192, 0) (length 0.9999999999999909)
   altitude  6778.100 km, speed 7668.579 m/s
 > body moon
   position  (-27119854.202737302, 144354568.72847182, 35405.528727404177) km
   distance  0.981832040 AU, speed 29.789921 km/s
+> expect "meridian keeps its radius after two orbits" alt:Meridian 6778.1 near 2.0
+  ok        meridian keeps its radius after two orbits
+            alt:Meridian = 6778.1000000002214, expected near 6778.1000000000004
+> expect "meridian keeps its circular speed" spd:Meridian 7668.6 near 2.0
+  ok        meridian keeps its circular speed
+            spd:Meridian = 7668.579105775585, expected near 7668.6000000000004
 > days 10
   10.000000 days = 103,680,000 ticks, world at tick 105007104 (10.128000 days from J2000)
 > station Meridian
-  offset    (6778100, 0, 0) m from the host
+  offset    (-6191164.0595296677, -2759008.3729305691, 0) m from the host
+  velocity  (3121.4756288548983, -7004.5339170424568, 0) m/s
+  corridor  (-0.91340701667677826, -0.40704744426684825, 0) (length 0.99999999999927258)
   altitude  6778.100 km, speed 7668.579 m/s
 > station Anchorage
-  offset    (42164000, 0, 0) m from the host
+  offset    (23526109.207145598, 34990356.97998713, 0) m from the host
+  velocity  (-2551.5527671662107, 1715.5614926450003, 0) m/s
+  corridor  (0, 0, 1) (length 1)
   altitude  42164.000 km, speed 3074.666 m/s
 > body earth
-  position  (-52009052.180794552, 137620816.47228006, -45.396546363475338) km
+  position  (-52009052.195622869, 137620816.46671385, -45.39654636679321) km
   distance  0.983439552 AU, speed 30.282293 km/s
 > body moon
-  position  (-51635631.239887372, 137523557.68221778, -22790.780574684199) km
+  position  (-51635631.254611954, 137523557.67717242, -22790.780609100548) km
   distance  0.981951238 AU, speed 29.763952 km/s
+> expect "meridian keeps its radius across ten days" alt:Meridian 6778.1 near 20.0
+  ok        meridian keeps its radius across ten days
+            alt:Meridian = 6778.1000002886403, expected near 6778.1000000000004
+> expect "anchorage keeps its radius across ten days" alt:Anchorage 42164.0 near 50.0
+  ok        anchorage keeps its radius across ten days
+            alt:Anchorage = 42164.000000159795, expected near 42164
+> expect "anchorage keeps its own circular speed" spd:Anchorage 3074.666 near 1.0
+  ok        anchorage keeps its own circular speed
+            spd:Anchorage = 3074.6662841160319, expected near 3074.6660000000002
 > hash epoch
-  hash      epoch 6ace3e0cf70b7f7c21887e840b65aa49ba415f5b8336ff46f202d58045315557
+  hash      epoch 52779aa5517e2ee7d883b34c026eb5196c1ac47f1e50bc53cafb0b95f548f48d
 
-probe: 13 commands, 0 errors, 0 checks failed
+probe: 18 commands, 0 errors, 0 checks failed
