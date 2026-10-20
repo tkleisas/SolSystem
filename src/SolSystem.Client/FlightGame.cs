@@ -254,7 +254,15 @@ internal sealed class FlightGame : Game, IControllerTarget
 
 
         _camera.Use(_options.Camera);
-        _camera.StartAt(_options.CameraYaw, _options.CameraPitch, _options.CameraDistance);
+
+        // The twenty-degree opening look is a chase/orbit composition; a cockpit that starts
+        // twenty degrees off the nose is a misaligned reticle. An explicit --camera-yaw still
+        // wins in every mode.
+        double openingYaw = !_options.CameraYawGiven
+            && _camera.Current == Camera.Mode.Cockpit
+                ? 0.0
+                : _options.CameraYaw;
+        _camera.StartAt(openingYaw, _options.CameraPitch, _options.CameraDistance);
         _chartOpen = _options.Chart;
 
         // The player's ship starts on the station's docking corridor, co-orbiting with the station.
@@ -312,11 +320,6 @@ internal sealed class FlightGame : Game, IControllerTarget
             _camera, _hulls);
         _chartScreen = new ChartScreen(GraphicsDevice, _sprites, hud);
         _narrator = Narrator.Start(_options);
-        if (_narrator is not null)
-        {
-            // The comm log prints what the voice says, as the voice starts saying it.
-            _narrator.LineSpoken += line => _commLog.WriteLine(line);
-        }
 
         if (_options.MissionFile.Length > 0)
         {
@@ -403,17 +406,32 @@ internal sealed class FlightGame : Game, IControllerTarget
         _previousMouse = mouse;
 
         // The narrator reads the same state the panel prints; what is new gets said. The
-        // terminal prints what the voice says, and both advance on the seconds the WORLD
-        // advanced this frame — the nav lights' clock, not the wall's — so a scripted run
-        // types deterministically, frame for frame.
+        // terminal prints a line when its audio actually starts, carrying the duration the
+        // voice will spend on it. That schedule is polled here, on the game thread, rather
+        // than fired from the audio callback: the terminal is owned by the loop.
         _narrator?.Update(_flight, _session);
+        if (_narrator is not null)
+        {
+            while (_narrator.TryTakeStartedLine(out string line, out double speakSeconds))
+            {
+                _commLog.WriteLine(line, speakSeconds);
+            }
+        }
 
         // The mission reads the world after whatever advanced it this frame — drives,
         // renders or the pilot's own clock — so its verdicts are about the world the
         // renderers are drawing.
         double advanced = _simulatedSeconds - _lastAdvanced;
         _mission?.Advanced(advanced);
-        _commLog.Update(advanced);
+
+        // THE TERMINAL IS A LIVE CHANNEL, NOT A SIMULATION CLOCK. With a voice it types on the
+        // same real seconds the voice plays on, or a x100 run would leave the text minutes ahead
+        // of the ear. Without a voice it has only mission notes, and those keep the world's
+        // clock so a scripted run still types deterministically.
+        double terminalSeconds = _narrator is not null
+            ? gameTime.ElapsedGameTime.TotalSeconds
+            : advanced;
+        _commLog.Update(terminalSeconds);
         _lastAdvanced = _simulatedSeconds;
 
         // A bounded interactive run, for checking that the loop a player gets actually runs. It
@@ -953,7 +971,7 @@ internal sealed class FlightGame : Game, IControllerTarget
 
         // The Sun after them: it is a source, drawn additively, and anything nearer should paint
         // over its glow rather than be painted over by it.
-        _sun.Draw(_session, cameraForward, cameraUp, view, projection, KilometresPerUnit);
+        _sun.Draw(_session, view, projection, KilometresPerUnit);
 
         // And the player's hull, seen from outside. A chase camera rather than a cockpit, because
         // there is no cockpit interior modelled and a hull you cannot see is a hull you cannot tell

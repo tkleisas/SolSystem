@@ -15,17 +15,16 @@ namespace SolSystem.Client;
 /// verbatim.
 /// </para>
 /// <para>
-/// The typewriter runs at a fixed thirty characters a second — the pace of a real terminal,
-/// and deliberately not slaved to the audio: the message finishes printing well before the
-/// voice finishes saying it, which is what a printed feed does. The cursor blinks between
-/// lines. Both the typing and the blink are driven by the seconds this class is fed, so a
-/// scripted run that feeds synthetic time types deterministically.
+/// <b>The typewriter runs at the line's own spoken pace.</b> The narrator reports each line's
+/// duration when the line starts; the terminal uses it to choose characters per second, so the
+/// text and the voice begin together and finish together. A mission note with no voice behind it
+/// falls back to a fixed terminal speed. The cursor blinks on the same seconds the class is fed.
 /// </para>
 /// </remarks>
 internal sealed class CommLog
 {
-    /// <summary>Characters the terminal writes per second it is fed.</summary>
-    private const double CharactersPerSecond = 30.0;
+    /// <summary>Characters per second for a line with no spoken duration.</summary>
+    private const double DefaultCharactersPerSecond = 30.0;
 
     /// <summary>Columns the terminal wraps at.</summary>
     private const int ColumnsPerLine = 40;
@@ -40,21 +39,48 @@ internal sealed class CommLog
     private static readonly Color Ink = new(120, 225, 150);
     private static readonly Color Cursor = new(90, 235, 130);
 
-    /// <summary>The text the terminal is still writing, as unwrapped pieces.</summary>
-    private readonly Queue<string> _toType = new();
+    /// <summary>The text the terminal is still writing, with the pace of the line it came from.</summary>
+    private readonly Queue<(string Row, double CharactersPerSecond)> _toType = new();
 
     /// <summary>The finished lines and the one being typed, oldest first.</summary>
     private readonly List<string> _rows = [];
     private string _typing = "";
     private double _typeSeconds;
+    private double _charactersPerSecond = DefaultCharactersPerSecond;
     private double _blinkSeconds;
 
     /// <summary>Queues a line for the terminal, wrapped to the terminal's own width.</summary>
-    internal void WriteLine(string line)
+    internal void WriteLine(string line) => WriteLine(line, 0.0);
+
+    /// <summary>
+    /// The typing pace for a line, in characters per second.
+    /// </summary>
+    /// <remarks>
+    /// The line's own length over the time the voice takes, so the text finishes when the voice
+    /// does. The clamps keep a pathological duration from making the terminal crawl or sprint; a
+    /// line with no voice behind it (a mission note) uses the fixed terminal speed.
+    /// </remarks>
+    internal static double RateFor(string line, double speakSeconds) =>
+        speakSeconds > 0.05
+            ? Math.Clamp(line.Length / speakSeconds, 4.0, 90.0)
+            : DefaultCharactersPerSecond;
+
+    /// <summary>
+    /// Queues a line, typed at the pace the voice will speak it.
+    /// </summary>
+    /// <param name="line">The words.</param>
+    /// <param name="speakSeconds">How long the voice takes, or zero for a note with no voice.</param>
+    internal void WriteLine(string line, double speakSeconds)
     {
-        foreach (string row in Wrap(line, ColumnsPerLine))
+        List<string> rows = Wrap(line, ColumnsPerLine);
+
+        // The rate belongs to the whole line, not to a row: a wrapped line has to keep typing at
+        // the same pace across the break, and the break is an artefact of the block's width.
+        double rate = RateFor(line, speakSeconds);
+
+        foreach (string row in rows)
         {
-            _toType.Enqueue(row);
+            _toType.Enqueue((row, rate));
         }
     }
 
@@ -76,7 +102,9 @@ internal sealed class CommLog
                 }
             }
 
-            _typing = _toType.Dequeue();
+            (string row, double rate) = _toType.Dequeue();
+            _typing = row;
+            _charactersPerSecond = rate;
             _typeSeconds = 0.0;
         }
 
@@ -87,7 +115,7 @@ internal sealed class CommLog
     }
 
     private int _typeProgress => Math.Min(_typing.Length,
-        (int)Math.Floor(_typeSeconds * CharactersPerSecond));
+        (int)Math.Floor(_typeSeconds * _charactersPerSecond));
 
     /// <summary>
     /// Draws the terminal: the last visible lines' text, the cursor after the last typed

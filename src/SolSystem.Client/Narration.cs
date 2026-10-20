@@ -26,13 +26,6 @@ internal static class Narration
     internal static readonly string DefaultPromptPath = Path.Combine(
         FlightSession.RepositoryRoot(), "art", "audio", "narration", "prompt.wav");
 
-    /// <summary>
-    /// Buffers of audio seated before the speaker starts, each one generated frame
-    /// (3 840 samples = 0.08 s). Two seconds of lead, so the decode's own pace is never
-    /// what the ear hears.
-    /// </summary>
-    internal const int LeadBuffers = 24;
-
     internal const string Intro =
         "Earth is dying. Two inheritors argue over what she left behind. "
         + "This is not about who is right. It is about who gets to breathe.";

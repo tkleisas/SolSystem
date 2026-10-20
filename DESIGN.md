@@ -733,7 +733,7 @@ answers:
 |---|---|---|
 | **Planets, Sun, Moon** | Keplerian elements with secular rates, computed by `SolSystem.Core`. The Moon is geocentric and composed with the Earth | Built and tested. The Moon is an ellipse about the Earth, which is an approximation: the Sun pulls it twice as hard as the Earth does, so the ellipse is what that perturbation averages to. The periodic part left out is a few tenths of a degree |
 | **Attitude** | A rotation vector, composed as a **quaternion** each tick — `R_new = exp(ω·dt) ∘ R`. Adding `ω·dt` to the vector is only correct to first order and the error is `½\|δ\|\|v\|`, which at the ship's own starting attitude of π is **nine degrees of error from a six-degree command** | Written up in `Attitude.Step`. It survived the docking tests because a ship on final approach barely rotates; it did not survive a player pressing a key |
-| **Bodies** | The same Blender materials the previews use, **baked to textures** by `tools/blender/bake_bodies.py` | One implementation of each material, not two. The Sun's granulation, Mars's polar caps, Ceres's regolith and Earth's cloud deck are procedural shaders that existed only inside their .blend files; the client now loads what Blender computed rather than a flat colour that resembles it. Baked because a fixed-function renderer has no shader, and re-implementing the noise in the client would be a second copy to disagree with |
+| **Bodies** | The same Blender materials the previews use, **baked to textures** by `tools/blender/bake_bodies.py`, plus real NASA imagery for the Earth | One implementation of each material, not two. The Sun's granulation, Mars's polar caps and Ceres's regolith are procedural shaders that existed only inside their .blend files; the client now loads what Blender computed rather than a flat colour that resembles it. Earth is the exception in the other direction: its day map is NASA's Blue Marble and its cloud deck is the NASA cloud composite, carried as the alpha of a white RGBA image, so the preview and the client show the same photograph. A textured body uses the texture's own colour — the fallback tint is for a body with no map, and multiplying it into a photograph turned the Earth blue-black |
 | **Stars** | HYG v4.1, reduced to the naked-eye stars plus everything within 25 pc: 11 558 stars, 188 kB, fixed-point records | Everything visible, with measured colour. Positions are J2000 and quantised to 0.084 arcsec, which is 2 000 times finer than a 4K pixel. Precession to date is *not* applied — see the note below the table |
 | **Milky Way** | The galactic equator as a great circle, with a Gaussian profile in latitude and a falloff in longitude | Physically the right shape and in the right place: it runs through Cygnus and Sagittarius and its brightest part is at the galactic centre. The profile is a fit to what the unaided eye sees, not to a photograph |
 | **Parallax** | Per-star distance, used as the camera moves between orbits | Alpha Centauri shifts about a degree across the system. It costs nothing and it is the single strongest cue that the ship actually moved |
@@ -788,6 +788,31 @@ lofted form with a small number of parameters. That keeps a fleet of forty hulls
 consistent, keeps them re-derivable when the mass budget changes — which it just
 did, per `docs/TRIP-ENERGY.md` §16 — and means the radiator is drawn at the size
 the physics asks for rather than at the size that looks good.
+
+**[DECIDED] A hull wears one tileable detail map, and the material keeps its colour.**
+Geometry is the shape; a plate seam, a rivet line, a replacement panel and a rust
+streak are the surface. Each hull carries a grayscale map from
+`tools/blender/hull_textures.py` — restrained seams and brushed metal for the
+Illuminus, patch panels and chipped paint for the Workers, white plate and grime for
+Meridian — multiplied into every non-emissive material and box-projected at a fixed
+physical size, so a repeat is metres rather than an accident of an unwrap. The map is
+grayscale so one file serves the white hull, the trim and the warning stripe. The
+glTF exporter cannot carry the colour through the MULTIPLY node, so the pipeline
+writes `baseColorFactor` back into the exported GLB; the preview and the client then
+agree about both the surface and the paint.
+
+**[DECIDED] The client opens on the 2000 March equinox, not J2000.** At JD 2451623.80
+the Earth is on the ecliptic's −x axis, so the Sun lies along +x — the direction
+Meridian's offset and corridor already point. The station is between the Earth and the
+Sun, a ship on the corridor is on the sunward side of both, and the opening frame
+looks back at a fully lit Earth with the Sun behind the camera. The chase camera opens
+with a 20° look offset so the Earth is in that frame rather than hidden behind the
+station's mouth; the cockpit still starts along the nose. This is a composition
+decision, not a new origin: the simulation's clock still counts from J2000, and
+`--at` overrides the date. The renderers take a "towards the Sun" vector and negate it
+where the light is set, because MonoGame's BasicEffect expects the direction the light
+*travels*; passing the other one lit the far hemisphere and left every hull a
+silhouette.
 
 ---
 
@@ -1254,6 +1279,12 @@ sandboxing by construction (no `os`, no `io`, a seeded generator instead of `mat
 and an interpreter whose arithmetic does not drift with a system library. Missions run
 thousands of ticks, not per-frame hot paths; the engine's speed is not the binding
 constraint.
+
+**[DECIDED] The mission file carries a format stamp, and validation happens before the
+interpreter does.** The first non-empty line is `-- solsystem-mission:1`; the client
+refuses other stamps with the mismatch named, and a stampless file is refused as such.
+A mission is validated content the way hulls are validated data, and the failure the
+stamp prevents is a data file outliving its reader.
 
 **[DECIDED] The sandbox API is the probe's vocabulary, grown outward**: read state,
 advance, spawn, emit, expect — plus event hooks (`on_tick`, `on_range`, `on_docked`) and

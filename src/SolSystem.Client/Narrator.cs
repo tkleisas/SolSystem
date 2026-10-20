@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Xna.Framework.Audio;
 using SolSystem.Core.Local;
 using SolSystem.Core.Numerics;
@@ -13,8 +14,14 @@ namespace SolSystem.Client;
 /// Synthesis is MOSS-TTS-Nano's ONNX graphs, run in-process — no Python, no service. The
 /// model loads on a worker thread because most of a gigabyte of weights takes seconds to
 /// seat; until it is ready the queue simply holds the lines. Playback is a
-/// <see cref="DynamicSoundEffectInstance"/> fed with the codec's PCM, which decodes faster
-/// than real time, so the voice is always ahead of the ear.
+/// <see cref="DynamicSoundEffectInstance"/> fed with the codec's PCM.
+/// </para>
+/// <para>
+/// <b>A line is synthesized in full before it is submitted.</b> That is what lets the terminal
+/// know how long the voice will take and type at the same pace; streaming the codec straight
+/// into the speaker made the text's timing a guess and started it before the ear heard anything.
+/// The cost is that an uncached line waits for its own synthesis before it is heard, which the
+/// speech cache turns into a file read after the first time.
 /// </para>
 /// <para>
 /// Nothing here simulates anything. The lines come from <see cref="Narration"/>, which
@@ -31,11 +38,24 @@ internal sealed class Narrator : IDisposable
     private readonly string? _promptAudioPath;
     private readonly object _gate = new();
     private readonly Queue<string> _pending = new();
+    private readonly List<SpeechLine> _schedule = new();
+    private readonly Queue<SpeechLine> _started = new();
+    private readonly Stopwatch _playClock = new();
     private Thread? _voiceThread;
     private MossModel? _model;
     private MossSynthesizer? _synthesizer;
     private bool _ready;
     private bool _speaking;
+    private bool _playStarted;
+    private double _audioSeconds;
+
+    /// <summary>One line, and where it begins and ends on the audio timeline.</summary>
+    /// <remarks>
+    /// The start is relative to the first buffer the speaker plays; the duration is the line's own
+    /// PCM. The terminal uses both: it starts typing when the voice starts and types the line over
+    /// the time the voice takes to say it.
+    /// </remarks>
+    private readonly record struct SpeechLine(string Text, double StartAt, double Duration);
 
     private readonly NarrationState _narration = new();
 
@@ -110,10 +130,41 @@ internal sealed class Narrator : IDisposable
     }
 
     /// <summary>
-    /// Fired on the narrator's thread when a line begins being spoken — the moment the
-    /// terminal starts printing it.
+    /// Takes a line whose audio has begun, with the seconds the voice will spend on it.
     /// </summary>
-    internal event Action<string>? LineSpoken;
+    /// <remarks>
+    /// Called on the game thread once a frame. The schedule is on the audio's own clock, started
+    /// when the speaker first plays, so a line becomes "started" when the ear hears it — not when
+    /// the synthesiser began producing it. That is the whole of the terminal's synchronisation:
+    /// start the text then, and type it over the duration carried here.
+    /// </remarks>
+    internal bool TryTakeStartedLine(out string line, out double seconds)
+    {
+        lock (_gate)
+        {
+            if (_playStarted)
+            {
+                double elapsed = _playClock.Elapsed.TotalSeconds;
+                while (_schedule.Count > 0 && _schedule[0].StartAt <= elapsed)
+                {
+                    _started.Enqueue(_schedule[0]);
+                    _schedule.RemoveAt(0);
+                }
+            }
+
+            if (_started.Count > 0)
+            {
+                SpeechLine next = _started.Dequeue();
+                line = next.Text;
+                seconds = next.Duration;
+                return true;
+            }
+        }
+
+        line = string.Empty;
+        seconds = 0.0;
+        return false;
+    }
 
     private void VoiceLoop()
     {
@@ -139,7 +190,6 @@ internal sealed class Narrator : IDisposable
                     continue;
                 }
 
-                LineSpoken?.Invoke(line);
                 Speak(line);
             }
         }
@@ -171,20 +221,49 @@ internal sealed class Narrator : IDisposable
             Seed = Narration.Seed,
         };
 
+        // Synthesize the whole line first: its duration is what the terminal's pace is derived
+        // from, and a duration cannot be reported before the last chunk exists.
+        var chunks = new List<float[]>();
+        int samples = 0;
         _synthesizer!.Synthesize(line, settings, (chunk, samplesPerChannel) =>
         {
-            Submit(chunk, samplesPerChannel);
-
-            // Two seconds of lead before the speaker starts, and the decode keeps running
-            // ahead after it: at this machine's synthesis rate (~1.2x realtime, overlapping
-            // the codec on its own thread) a lead that deep covers any line the narrator
-            // says without the queue ever catching the ear.
-            if (!_speaking && _speaker.PendingBufferCount >= Narration.LeadBuffers)
+            if (samplesPerChannel == 0)
             {
-                _speaking = true;
-                _speaker.Play();
+                return;
             }
+
+            chunks.Add(chunk.ToArray());
+            samples += samplesPerChannel;
         });
+
+        double duration = samples / (double)Narration.SampleRate;
+
+        // Where this line begins on the audio timeline. The first line is at zero; every later one
+        // after the previous line and its breath. The schedule is read by the game once a frame and
+        // converted to "started" against the clock the speaker was started with.
+        double startAt;
+        lock (_gate)
+        {
+            startAt = _audioSeconds;
+            _audioSeconds += duration + 0.35;
+            _schedule.Add(new SpeechLine(line, startAt, duration));
+        }
+
+        foreach (float[] chunk in chunks)
+        {
+            Submit(chunk, chunk.Length / 2);
+        }
+
+        if (!_speaking && chunks.Count > 0)
+        {
+            _speaking = true;
+            _speaker.Play();
+            lock (_gate)
+            {
+                _playStarted = true;
+                _playClock.Restart();
+            }
+        }
 
         // A short breath between lines, so queued lines do not run together.
         SeatSilence((int)(Narration.SampleRate * 0.35));

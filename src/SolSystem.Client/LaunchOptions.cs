@@ -19,8 +19,29 @@ internal sealed class LaunchOptions
 
     internal int Height { get; private set; } = 720;
 
-    /// <summary>Julian date to start at. J2000 by default.</summary>
-    internal double JulianDate { get; private set; } = 2451545.0;
+    /// <summary>
+    /// The Julian date the client opens on, chosen so the opening frame is lit.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the March equinox of 2000, at the hour the Sun crosses the celestial equator. At
+    /// that instant the Earth is almost exactly on the ecliptic's −x axis, so the Sun lies along
+    /// +x from it — the same direction Meridian's own offset and docking corridor already point.
+    /// The station is therefore between the Earth and the Sun: a ship on the corridor is on the
+    /// sunward side of both, looking back at a fully lit Earth with the Sun behind its camera.
+    /// </para>
+    /// <para>
+    /// The date is a composition decision, not a new physical claim. J2000 is the simulation's
+    /// origin and stays the origin; this only chooses which instant the window opens on, and
+    /// <c>--at</c> overrides it for any other one. The equinox was solved from the ephemeris, not
+    /// taken from a calendar: <c>Earth.y = 0</c> at JD 2451623.80, and the Sun's direction is
+    /// 0.0085 degrees off +x there, which is smaller than a pixel at the opening camera.
+    /// </para>
+    /// </remarks>
+    internal const double OpeningJulianDate = 2451623.80;
+
+    /// <summary>Julian date to start at. The 2000 March equinox by default; see the note above.</summary>
+    internal double JulianDate { get; private set; } = OpeningJulianDate;
 
     /// <summary>Which station to start beside.</summary>
     internal string Station { get; private set; } = "Meridian";
@@ -132,8 +153,19 @@ internal sealed class LaunchOptions
     /// </remarks>
     internal string MissionFile { get; private set; } = string.Empty;
 
-    /// <summary>Camera yaw to start at, in degrees. For rendering a look without a mouse.</summary>
-    internal double CameraYaw { get; private set; }
+    /// <summary>
+    /// Camera yaw to start at, in degrees. A twenty-degree look offset by default.
+    /// </summary>
+    /// <remarks>
+    /// The chase camera otherwise points straight down the docking corridor and the station's
+    /// two-kilometre mouth fills the frame, with the Earth only around its edge. Twenty degrees
+    /// puts the lit Earth and the lit station in the same opening frame. The cockpit ignores the
+    /// default (it must look along the nose); an explicit <c>--camera-yaw</c> still applies to it.
+    /// </remarks>
+    internal double CameraYaw { get; private set; } = 20.0;
+
+    /// <summary>Whether <see cref="CameraYaw"/> was named on the command line.</summary>
+    internal bool CameraYawGiven { get; private set; }
 
     /// <summary>Camera pitch to start at, in degrees.</summary>
     internal double CameraPitch { get; private set; } = double.NaN;
@@ -148,7 +180,7 @@ internal sealed class LaunchOptions
           --shot <file>        render one frame to a PNG and exit
           --width <n>          frame width  (default 1280)
           --height <n>         frame height (default 720)
-          --at <jd>            Julian date (default 2451545.0, J2000)
+          --at <jd>            Julian date (default the 2000 March equinox, 2451623.80)
           --station <name>     which station to start beside (default Meridian)
           --standoff <m>       how far off the dock to start (default 400)
           --earthward          look at the Earth (default)
@@ -166,7 +198,7 @@ internal sealed class LaunchOptions
           --narrator-voice <name>  built-in voice preset (default Bella)
           --narrator-prompt <file> clone the narrator's voice from this 16-bit PCM recording
           --hold <keys>        hold these keys down, e.g. --hold D
-          --camera-yaw <deg>   start the camera at this yaw
+          --camera-yaw <deg>   start the camera at this yaw (default 20 chase/orbit, 0 cockpit)
           --camera-pitch <deg> start the camera at this pitch
           --camera-distance <m> start the camera at this distance
           --lineup             draw every asset at true size, side by side
@@ -256,6 +288,7 @@ internal sealed class LaunchOptions
 
                 case "--camera-yaw":
                     options.CameraYaw = Number(args, ref i, -360.0, 360.0);
+                    options.CameraYawGiven = true;
                     break;
 
                 case "--camera-pitch":

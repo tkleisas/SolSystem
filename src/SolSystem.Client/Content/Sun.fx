@@ -1,8 +1,8 @@
 // The Sun: a limb-darkened disc inside a radiating corona.
 //
-// The disc is drawn as a camera-facing quad eight times the Sun's angular radius, and everything
-// happens in the pixel shader in units of that radius. Three things make it read as a star rather
-// than as a white circle:
+// The disc is drawn as a camera-facing quad a fixed multiple of the Sun's angular radius (twelve,
+// set from the C# side), and everything happens in the pixel shader in units of that radius. Three
+// things make it read as a star rather than as a white circle:
 //
 //   1. LIMB DARKENING. The edge of the Sun is about a third as bright as its middle, and the eye
 //      reads that gradient as "this is a sphere" more strongly than it reads the shape.
@@ -20,9 +20,12 @@
 // declaration is not just dead weight — `sampler2D` is DX9-era HLSL that the modern compiler
 // (DXC, via ShadowDuskCLI) rejects outright.
 
-float4x4 WorldViewProjection;
+// The corners arrive already in clip space, as a screen-aligned square: the C# projects the Sun's
+// centre and offsets in NDC, so a disc remains a disc when the Sun is off-axis. A world-space
+// billboard is perpendicular to the line to the Sun, not to the camera, and its perspective
+// projection is a trapezoid — which is why it only looked right when viewed straight on.
 
-// Disc radius and corona scale, in the quad's own units. The quad spans [-1,1].
+// Disc radius and corona scale, in the quad's own units. The quad spans [-1,1] vertically.
 float DiscRadius;
 float CoronaTightness;
 float CoronaWidth;
@@ -30,6 +33,9 @@ float DiscIntensity;
 float CoronaIntensity;
 float FlickerAmount;
 float Time;
+// Width over height of the viewport. The quad is a square in pixels, so its x is in screen units
+// only after this correction; without it the disc is an ellipse on a wide screen.
+float Aspect;
 
 struct VertexInput
 {
@@ -49,20 +55,21 @@ VertexOutput VertexMain(VertexInput input)
 {
     VertexOutput output;
 
-    // The quad is built in the world already facing the camera, so the vertex shader only has to
-    // put it through the matrices. The normal carries the direction the quad faces, which is what
-    // the photosphere is sampled by.
-    output.Position = mul(float4(input.Position.xyz, 1.0), WorldViewProjection);
+    // The quad is built in the world already facing the camera, and its corners are projected
+    // before they get here, so the vertex shader only passes the clip position through. The normal
+    // carries the direction the quad faces, which is what the photosphere is sampled by.
+    output.Position = input.Position;
     output.Local = input.TexCoord * 2.0 - 1.0;
     output.Ndc = input.Normal;
 
     return output;
 }
 
-// Distance from the disc's centre, in disc radii. Inside one is the star.
+// Distance from the disc's centre, in disc radii. Inside one is the star. The x is corrected for
+// the viewport's aspect so that one unit on each axis is the same number of pixels.
 float RadialDistance(float2 local)
 {
-    return length(local) / DiscRadius;
+    return length(float2(local.x * Aspect, local.y)) / DiscRadius;
 }
 
 // A cheap two-octave value noise, for the granulation. The real photosphere is convection cells a
@@ -126,7 +133,8 @@ float4 PixelMain(VertexOutput input) : COLOR0
     // The corona is forced to nothing at the quad's edge, so that however the falloffs are tuned
     // there is never a visible square in the sky. A glow that stops at a straight line is worse than
     // no glow, and it is the first thing the eye finds.
-    float corner = 1.0 - smoothstep(0.72, 1.0, length(input.Local));
+    float corner = 1.0 - smoothstep(0.72, 1.0,
+        length(float2(input.Local.x * Aspect, input.Local.y)));
     corona *= corner;
 
     return float4(disc + corona, 1.0);

@@ -166,6 +166,21 @@ dotnet run -- --shot out.png --throttle 1    # with the engine lit, for the plum
 dotnet run -- --shot out.png --lineup        # every asset at true size, side by side
 ```
 
+**The opening frame is lit by construction.** The default date is the March 2000 equinox,
+JD 2451623.80, not J2000. At that instant Earth is on the ecliptic's −x axis, so the Sun
+lies along +x — the direction Meridian's offset and docking corridor already point. The
+station is therefore between Earth and Sun, a ship on the corridor is on the sunward side
+of both, and the opening chase view looks back at a fully lit Earth with the Sun behind
+its camera. `--at` overrides the date; the simulation's own origin is still J2000. The chase
+camera opens with a 20° look offset so the lit Earth and the station share the frame; `C`
+recentres, and `--camera-yaw` replaces the offset (the cockpit always starts along the nose).
+
+**The reticles are projections, not screen furniture.** A marker and a star use the same
+direction-only projection and the camera's orthonormal screen basis; a pitched camera's deck is
+not that basis, which is why the Sun's diamond used to sit away from the Sun. The Sun's disc is
+the real 0.53° — about six pixels at 720p and a 60° field — and its corona is a screen-space quad,
+so the glow stays circular when the Sun is off-axis instead of projecting as a trapezoid.
+
 A 3D scene is hard to test and easy to believe, and the only honest check on "does the sky look
 right" is to render it and look. Every claim this project makes about the Milky Way being in the
 right place, or the Sun being where the ephemeris says on a given date, is checkable against a frame
@@ -187,6 +202,10 @@ A session's voice is one channel: chosen at startup (`--narrator-voice <name>` f
 presets, `--narrator-prompt <file>` to clone one from a 16-bit PCM recording) and held. The
 numbers in the course lines are generated, not authored — a fixed set of audio could not say what
 the simulation says.
+
+**The terminal and the voice are one performance.** A line is synthesized before it is played, so
+its duration is known; the comm log starts typing when the audio starts and types the line over
+that duration. Mission notes with no voice behind them fall back to the terminal's fixed speed.
 
 ## The controller
 
@@ -216,7 +235,9 @@ frame loop with the ordinary save; `ffmpeg` turns a directory of its frames into
 ## The mission
 
 `--mission <file>` loads a Lua script that watches the flight and speaks to the pilot over the
-narrator's channel (and prints what it logs when there is no voice to say it). It reads the
+narrator's channel (and prints what it logs when there is no voice to say it). The file's first
+non-empty line must be the format stamp `-- solsystem-mission:1`; other stamps are refused with the
+mismatch named, before the interpreter runs. It reads the
 simulation through the probe's vocabulary — `sim.range()`, `sim.lateral()`, `sim.closing()`,
 `sim.docked()`, `sim.in_contact()`, the lever and the tanks — registers outcome verdicts with
 `mission.outcome(name, predicate)`, and talks with `mission.say(text)` / `mission.note(text)`.

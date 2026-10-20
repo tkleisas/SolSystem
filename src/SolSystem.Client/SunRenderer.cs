@@ -1,6 +1,5 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using SolSystem.Core.Numerics;
 
 namespace SolSystem.Client;
 
@@ -36,19 +35,45 @@ internal sealed class SunRenderer : IDisposable
     /// How far the corona reaches, in disc radii.
     /// </summary>
     /// <remarks>
-    /// Eight. The quad is this many times the disc's radius in each direction, and the wide falloff
-    /// is tuned to be nearly gone by the corner — a glow that visibly stops at the edge of a square
-    /// is worse than no glow at all.
+    /// Twelve. The disc itself stays the real 0.53 degrees — at a sixty-degree field of view that is
+    /// six pixels, which is correct and reads as a point — so the thing that has to say "star"
+    /// rather than "pixel" is the glare around it. Eight disc radii was a two-degree halo and
+    /// disappeared against the starfield; twelve carries it out to three degrees without turning the
+    /// Sun into a lamp. The shader fades the glow to nothing at the quad's edge, so the square never
+    /// shows.
     /// </remarks>
-    private const float GlowExtent = 8.0f;
+    private const float GlowExtent = 12.0f;
 
     private readonly GraphicsDevice _device;
     private readonly Effect _effect;
     private readonly VertexBuffer _quad;
     private readonly IndexBuffer _indices;
-    private readonly VertexPositionNormalTexture[] _vertices = new VertexPositionNormalTexture[4];
+    private readonly SunVertex[] _vertices = new SunVertex[4];
 
     private double _seconds;
+
+    /// <summary>
+    /// One corner of the Sun's quad, already in clip space.
+    /// </summary>
+    /// <remarks>
+    /// The position is a <see cref="Vector4"/> rather than the usual <see cref="Vector3"/> because the
+    /// CPU does the world/view/projection multiply: the effect compiler exposed the matrix uniform as
+    /// a scalar, so the shader never received it and the corona was never drawn. Four projected
+    /// corners are also less work than a uniform that does not arrive.
+    /// </remarks>
+    private struct SunVertex : IVertexType
+    {
+        internal Vector4 Position;
+        internal Vector3 Normal;
+        internal Vector2 TexCoord;
+
+        internal static readonly VertexDeclaration Declaration = new(
+            new VertexElement(0, VertexElementFormat.Vector4, VertexElementUsage.Position, 0),
+            new VertexElement(16, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0),
+            new VertexElement(28, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0));
+
+        VertexDeclaration IVertexType.VertexDeclaration => Declaration;
+    }
 
     internal SunRenderer(GraphicsDevice device)
     {
@@ -56,8 +81,7 @@ internal sealed class SunRenderer : IDisposable
 
         _effect = EffectLoader.Load(device, "Sun");
 
-        _quad = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, 4,
-            BufferUsage.WriteOnly);
+        _quad = new VertexBuffer(device, SunVertex.Declaration, 4, BufferUsage.WriteOnly);
 
         _indices = new IndexBuffer(device, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
         _indices.SetData(new short[] { 0, 1, 2, 0, 2, 3 });
@@ -67,19 +91,13 @@ internal sealed class SunRenderer : IDisposable
     internal void Update(double seconds) => _seconds += seconds;
 
     /// <summary>
-    /// Draws the Sun, if it is in front of the camera.
+    /// Draws the Sun as a screen-space disc and corona.
     /// </summary>
     /// <param name="session">Where the observer is.</param>
-    /// <param name="cameraForward">The direction the CAMERA is looking — not the session's
-    /// spawn aim, which is a direction fixed at launch. Facing and the billboard basis were
-    /// built from the spawn aim, so the Sun was culled for (and aligned to) a camera that
-    /// had not existed since the first frame.</param>
-    /// <param name="cameraUp">The camera's up.</param>
     /// <param name="view">The view matrix, with the observer at the origin.</param>
     /// <param name="projection">The projection matrix.</param>
     /// <param name="scale">Render units per kilometre.</param>
-    internal void Draw(FlightSession session, Fix128Vec cameraForward, Fix128Vec cameraUp,
-        Matrix view, Matrix projection, float scale)
+    internal void Draw(FlightSession session, Matrix view, Matrix projection, float scale)
     {
         // The effect is a constructor requirement — EffectLoader.Load throws when the shader
         // is missing rather than handing back a null — so there is no "not ready" case here,
@@ -99,59 +117,73 @@ internal sealed class SunRenderer : IDisposable
         }
 
         Vector3 toSun = centre / distance;
-        Vector3 forward = Unit(cameraForward);
 
-        // Behind the camera, or far enough off the axis that the corona cannot reach the frame.
-        float facing = Vector3.Dot(toSun, forward);
         float angularRadius = MathF.Asin(Math.Clamp(696_000f / (distance / scale), 0f, 1f));
         float reach = GlowExtent * angularRadius;
 
-        if (facing < -0.2f || facing < MathF.Cos(MathF.Min(MathF.PI, reach + 1.0f)))
+        // THE QUAD IS BUILT IN SCREEN SPACE, NOT ON A WORLD-SPACE BILLBOARD.
+        //
+        // A world-space quad has to face the camera to look like a disc. Facing it along the line
+        // to the Sun is not the same thing: off-axis, that plane is tilted relative to the view and
+        // projects as a trapezoid, which is why the disc and its corona only looked right when the
+        // Sun was centred. Project the centre, offset in NDC by the angular radius, and the shape is
+        // circular wherever it falls. The shader corrects its radial coordinate by the viewport
+        // aspect so the disc is a circle in pixels, not in NDC units.
+        Matrix viewProjection = view * projection;
+        Vector4 centreClip = Vector4.Transform(new Vector4(centre, 1f), viewProjection);
+        if (centreClip.W <= 1.0e-4f)
         {
             return;
         }
 
-        // The quad is placed at the Sun's centre and sized so that its own radius is GlowExtent disc
-        // radii as seen from the observer. It faces the camera, so its axes are the camera's.
-        Vector3 right = Vector3.Normalize(
-            Unit(Fix128Vec.Cross(cameraForward, cameraUp)));
+        Vector2 centreNdc = new(centreClip.X / centreClip.W, centreClip.Y / centreClip.W);
 
-        Vector3 up = Vector3.Cross(toSun, right);
-        if (up.LengthSquared() < 1e-8f)
+        // The projection's M22 is 1 / tan(vertical field of view / 2), so this is the quad's
+        // half-height in NDC: the same angular size the Sun had on the sphere, at any off-axis
+        // angle.
+        float tanHalfFovY = 1.0f / projection.M22;
+        float halfY = MathF.Tan(reach) / tanHalfFovY;
+        float aspect = _device.Viewport.AspectRatio;
+        float halfX = halfY * aspect;
+
+        Vector2[] corners =
+        [
+            new(-halfX, -halfY),
+            new(halfX, -halfY),
+            new(halfX, halfY),
+            new(-halfX, halfY),
+        ];
+        Vector2[] texCoords =
+        [
+            new(0f, 1f), new(1f, 1f), new(1f, 0f), new(0f, 0f),
+        ];
+
+        for (int i = 0; i < corners.Length; i++)
         {
-            // Looking straight down the Sun's direction with the camera's right parallel to it; any
-            // up will do, and a NaN here would blank the frame.
-            up = Vector3.Up;
+            _vertices[i] = new SunVertex
+            {
+                Position = new Vector4(
+                    centreNdc.X + corners[i].X, centreNdc.Y + corners[i].Y, 0f, 1f),
+                Normal = -toSun,
+                TexCoord = texCoords[i],
+            };
         }
-
-        up = Vector3.Normalize(up);
-        right = Vector3.Normalize(Vector3.Cross(up, toSun));
-
-        float half = MathF.Tan(reach) * distance;
-
-        _vertices[0] = new VertexPositionNormalTexture(
-            centre - (right * half) - (up * half), -toSun, new Vector2(0f, 1f));
-        _vertices[1] = new VertexPositionNormalTexture(
-            centre + (right * half) - (up * half), -toSun, new Vector2(1f, 1f));
-        _vertices[2] = new VertexPositionNormalTexture(
-            centre + (right * half) + (up * half), -toSun, new Vector2(1f, 0f));
-        _vertices[3] = new VertexPositionNormalTexture(
-            centre - (right * half) + (up * half), -toSun, new Vector2(0f, 0f));
 
         _quad.SetData(_vertices);
 
-        _effect.Parameters["WorldViewProjection"]?.SetValue(view * projection);
         _effect.Parameters["DiscRadius"]?.SetValue(1.0f / GlowExtent);
+        _effect.Parameters["Aspect"]?.SetValue(aspect);
         // Tuned by looking, and the numbers are these rather than something rounder because the
         // range between "invisible" and "a white square" turned out to be narrow. The tight falloff
         // hugs the limb and gives the flash; the wide one carries the glow out to the quad's edge,
         // where the corner mask takes it to nothing.
-        _effect.Parameters["CoronaTightness"]?.SetValue(13.0f);
-        _effect.Parameters["CoronaWidth"]?.SetValue(0.9f);
+        _effect.Parameters["CoronaTightness"]?.SetValue(11.0f);
+        _effect.Parameters["CoronaWidth"]?.SetValue(1.0f);
         _effect.Parameters["DiscIntensity"]?.SetValue(1.6f);
-        _effect.Parameters["CoronaIntensity"]?.SetValue(1.5f);
+        _effect.Parameters["CoronaIntensity"]?.SetValue(14.0f);
         _effect.Parameters["FlickerAmount"]?.SetValue(0.05f);
         _effect.Parameters["Time"]?.SetValue((float)_seconds);
+
 
         // Additive, and no depth: the Sun is a source, so it adds to whatever is behind it and is
         // occluded by nothing. A planet passing in front of it does so in the draw order, which is
@@ -170,9 +202,6 @@ internal sealed class SunRenderer : IDisposable
 
         _device.BlendState = BlendState.Opaque;
     }
-
-    private static Vector3 Unit(Fix128Vec v) => new(
-        (float)v.X.ToDouble(), (float)v.Y.ToDouble(), (float)v.Z.ToDouble());
 
     public void Dispose()
     {

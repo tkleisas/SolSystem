@@ -350,7 +350,27 @@ internal sealed class Camera
         // which for the near pass is the same frame the hull's axes are expressed in.
         Vector3 forward = Vector3.Normalize(target - eye);
 
-        return (view, ToFix(forward), ToFix(up));
+        // THE UP HANDED OUT IS ORTHOGONAL TO THE FORWARD, WHICH THE DECK IS NOT WHEN PITCHED.
+        //
+        // CreateLookAt orthonormalises its up internally, so the view matrix has always been
+        // right; the star and reticle projections divide the raw vector by the forward component
+        // and use the up directly. With the chase camera pitched down by the lift, the deck has a
+        // component along the view and the manual projection compressed the sky vertically: the
+        // Sun was drawn through the view matrix at the top of the frame while its diamond sat near
+        // the centre, and the stars and the Milky Way disagreed by the same angle. The screen
+        // basis below is the one the view matrix actually uses.
+        Vector3 screenRight = Vector3.Cross(forward, up);
+        if (screenRight.LengthSquared() < 1e-8f)
+        {
+            // Looking straight along the deck; any perpendicular answers, and a NaN would blank
+            // the sky.
+            screenRight = Vector3.Cross(forward, Vector3.UnitY);
+        }
+
+        screenRight = Vector3.Normalize(screenRight);
+        Vector3 screenUp = Vector3.Normalize(Vector3.Cross(screenRight, forward));
+
+        return (view, ToFix(forward), ToFix(screenUp));
     }
 
     /// <summary>Turns a direction by a yaw about an axis and a pitch about another.</summary>
