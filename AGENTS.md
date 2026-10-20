@@ -49,7 +49,10 @@ Each run writes three things and prints the numbers it was built from:
 | `art/previews/<category>/<name>_<view>.png` | Six views, plus a contact sheet |
 
 `docs/ECONOMY.md` is the resource model behind the market, the food/waste loop and the credit
-standard; `docs/TRIP-ENERGY.md` is the physics it prices.
+standard; `docs/TRIP-ENERGY.md` is the physics it prices. The model's first simulation is
+`src/SolSystem.Economy` (headless, four sites, solar/reactor power, trade routes, disruptions);
+run it with `dotnet run -c Release --project src/SolSystem.Economy -- --scenario all`, and read
+`artifacts/economy/report.md`.
 
 `tools/blender/pipeline.py` has the shared primitives, materials, lighting rigs and
 renderer. `tools/blender/NOTES-blender5-api.md` records the Blender 5 API traps that

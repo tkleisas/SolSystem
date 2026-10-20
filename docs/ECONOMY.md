@@ -520,6 +520,43 @@ android-hours; the AI's energy is a recipe input.
 - The tests add the **recycler goods**, the **claims**, the **labour/AI** and the **farm** to
   Appendix C's list.
 
+## 12. The simulation
+
+The model's first run is `src/SolSystem.Economy`, a headless console with four sites
+(Meridian, the Waystation, Mars and Earth as the source), the daily energy balance, the
+spirulina/hydroponic farm, the 99.5 % recycler, the trade routes and the disruptions. It
+runs 365 days in well under a second and writes `artifacts/economy/report.md`.
+
+```sh
+dotnet run -c Release --project src/SolSystem.Economy -- --scenario all
+```
+
+The sites are deliberately thin: Meridian has 0.3 km² of farm (18 t/day against 60 t/day of
+demand), 2 000 MWh of battery and 1 000 MWh/day of reactor; the Waystation and Mars import
+almost everything; Earth is the source. The trade routes are the Earth–Meridian, Earth–
+Waystation, Earth–Mars, Meridian–Waystation and Meridian–Mars links, each with a capacity and
+a cost.
+
+The scenarios are the baseline and the disruptions: a solar flare (solar × 0.2 for 5 days,
+5 t of parts), debris (× 0.8, 3 t), a meteor storm (× 0.6 for 10 days, 8 t), a crop failure
+(farm × 0.5 for 30 days), a recycler failure (closure 0.895 for 30 days), a blockade (no
+trade for 60 days), an AI outage (× 0.5 for 20 days), a market shock (prices × 1.5 for
+30 days) and all of them combined.
+
+**The result is viable but thin.** The food sits at the 30-day trade target, but Meridian's
+water falls to **5.1 days**, its parts stock reaches **0 t**, and the energy margin is only
+positive because of the reactor. The flare is the power disruption (5 808 MWh unserved,
+7 blackout site-days); the blockade is the food disruption (51 hunger site-days: the 18 t/day
+farm cannot feed 60 t/day); the recycler failure takes water to 2.1 days and the AI outage to
+1.0 day, because the AI is the process control for both the recycler and the farm. The crop
+failure costs no hunger because the reserve and the Earth route absorb it — the imported food
+is the buffer, which is the resilience argument for the farm restated.
+
+The conclusion: the model is **viable as a game** and **not viable as a self-sufficient
+station**. Meridian is a port with a farm, not a closed loop. The next iteration should either
+enlarge the farm (0.84 km², 361 MW, ~72× the import cost) or price the Earth route into the
+contract board and make the station's water and parts the real strategic problem.
+
 ## Appendix A — the numbers and their sources
 
 | Quantity | Value | Source / note |

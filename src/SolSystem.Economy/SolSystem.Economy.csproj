@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SolSystem.Economy</RootNamespace>
+    <AssemblyName>SolSystem.Economy</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SolSystem.Economy.Tests" />
+  </ItemGroup>
+
+</Project>

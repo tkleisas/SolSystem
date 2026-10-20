@@ -13,8 +13,9 @@ trigonometry, the Keplerian propagator — is built, tested and measured, and th
 flyable MonoGame client on top of it: one ship, the real sky, two stations — Meridian and a
 co-orbital Workers waystation — a first cargo contract, a moving two-station market with a
 cargo hold and a fuel bill, two drives with a cost table, competing faction claims, a
-resilience farm and a tradeable recycler loop, a strategic clock that rotates the stations
-exactly, and a probe harness that replays a docking approach byte-exactly. What there
+resilience farm and a tradeable recycler loop, a headless economy simulation with its
+disruptions, a strategic clock that rotates the stations exactly, and a probe harness that
+replays a docking approach byte-exactly. What there
 is not yet is the full game: no strategic AI, no second orbit, no reputation. The roadmap is
 `DESIGN.md` §10.
 
@@ -107,7 +108,7 @@ restore never needs to write outside the repository.
 | `src/SolSystem.Probe` | The headless probe harness: runs a text script against a live world and writes a diffable transcript. |
 | `src/SolSystem.Spike` | The Phase 0 numerics experiment. Not shipped; it is the evidence. |
 | `tests/SolSystem.Core.Tests` | Checked against independent references, not hand-computed values. |
-| `docs/` | The spike report, the transit and energy analysis, the economy model, and the setting. |
+| `docs/` | The spike report, the transit and energy analysis, the economy model and its simulation, and the setting. |
 | `tools/` | Probe scripts, the sky and body packers, and the Blender model pipeline. |
 
 ## Why the tests look the way they do
