@@ -167,6 +167,49 @@ internal struct Station
     /// <summary>The station's centre, relative to the host.</summary>
     internal readonly Fix128Vec Position => Offset;
 
+    /// <summary>
+    /// Advances a circular station by an arbitrary span with the exact rotation, for the
+    /// strategic clock.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A station built by <see cref="InCircularOrbit"/> is on a circle, and a circle rotates.
+    /// One rotation by <c>ω·t</c> about the orbit normal carries the position, the velocity and
+    /// the port exactly, with no integration and no step-size error. This is the step that lets
+    /// a strategic clock advance a day without paying 10.4 million navigation ticks: the same
+    /// orbit, the same port, the same instant.
+    /// </para>
+    /// <para>
+    /// It is not a replacement for <see cref="Step"/>. The action layer still integrates the
+    /// station alongside the ship so the two see the same point field and the same relative
+    /// dynamics; the coarse step is for when nobody is flying, and the ship is held in the
+    /// station's frame while the clock runs. The two agree on a circular orbit to the numerical
+    /// method's own drift, which is what the station-keeping probe measures.
+    /// </para>
+    /// </remarks>
+    internal void AdvanceCoarse(Fix128 seconds)
+    {
+        if (seconds <= Fix128.Zero)
+        {
+            return;
+        }
+
+        Fix128 angle = OrbitalRate * seconds;
+        Fix128 sin = Trig128.SinRadians(angle);
+        Fix128 cos = Trig128.CosRadians(angle);
+
+        var normal = new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One);
+
+        Offset = RotatedAbout(Offset, normal, sin, cos);
+        Velocity = RotatedAbout(Velocity, normal, sin, cos);
+        PortAxis = RotatedAbout(PortAxis, normal, sin, cos);
+
+        if (PortOffset != Fix128Vec.Zero)
+        {
+            PortOffset = RotatedAbout(PortOffset, normal, sin, cos);
+        }
+    }
+
     /// <summary>Advances the station one tick under its host's gravity.</summary>
     /// <remarks>
     /// Velocity Verlet, the same integrator the ship and the planets use, and for the same

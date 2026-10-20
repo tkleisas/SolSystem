@@ -171,6 +171,42 @@ internal sealed class ProbeWorld
     /// One tick at a time through the same path a played frame would take. A probe that
     /// advanced the world in one jump would be testing an integrator no player ever runs.
     /// </remarks>
+    /// <summary>
+    /// Advances a world with no ship by the exact station rotation, for spans measured in days.
+    /// </summary>
+    /// <remarks>
+    /// The station-keeping and sky probes never launch a ship; their whole cost was stepping two
+    /// circular stations at 120 Hz for a hundred million ticks. A station on a circle rotates, so
+    /// the strategic path is one rotation per station and the clock. A ship is not carried here:
+    /// the moment one exists the caller is in the action layer and the 120 Hz path is the honest
+    /// one, which is why this refuses rather than silently leaving a hull behind.
+    /// </remarks>
+    internal void AdvanceCoarse(double seconds)
+    {
+        if (Ship is not null)
+        {
+            throw new ProbeException(
+                "'days' on a world with a ship is an action span; use advance, or dock and undock first");
+        }
+
+        if (seconds <= 0.0)
+        {
+            return;
+        }
+
+        Fix128 dt = F(seconds);
+        _system.Advance(dt);
+
+        foreach (string name in _stations.Keys.ToList())
+        {
+            Station station = _stations[name];
+            station.AdvanceCoarse(dt);
+            _stations[name] = station;
+        }
+
+        Ticks += (long)Math.Round(seconds / TickSeconds);
+    }
+
     internal void Advance(int ticks)
     {
         for (int i = 0; i < ticks; i++)

@@ -937,9 +937,12 @@ narrator does not need because its numbers arrive as words already.
 
 ## 7. Time
 
-**[DECIDED] One clock, one tick rate, variable compression.** The simulation ticks
-at a fixed rate; compression changes how many ticks advance per real second. There
-is no separate "strategy time" and "action time."
+**[DECIDED] One clock; the action ticks at 120 Hz, the strategic rates rotate.** The
+session's Julian date is the only clock. Below ×100 the ship and stations step at 120 Hz.
+At ×100 and ×1000 the stations are propagated by their exact circular rotation, the ship
+is held in the home station's frame, and the clock advances exactly. There is no separate
+"strategy time"; there are two integrators for one world, and the state they meet at is
+the same state. The action rates are where the ship flies.
 
 **[DECIDED] Entering the cockpit drops compression to 1:1 and the world keeps
 running in lockstep.** Not paused. A five-minute fight costs the world five
@@ -1149,8 +1152,9 @@ rescues it.**
 - [x] **A probe that reproduces a docking approach byte-exactly, twice** — the `hash`
       command takes SHA-256 over the world's *raw fixed-point words* rather than its printed
       decimals, so a one-bit drift shows up. `docs/` records the per-tick cost, and the
-      consequence: a station is 2.7 µs a tick, so a simulated day is 27 s of CPU, and the
-      strategic layer needs a coarser step than the 120 Hz navigation tick
+      consequence: a station is 2.7 µs a tick, so a simulated day is 27 s of CPU at the
+      action rate. The strategic rates now rotate a circular station exactly instead of
+      ticking it, which is the coarser step this line used to ask for.
 
 ### Phase 1 — the economy behind it (weeks 5–10)
 

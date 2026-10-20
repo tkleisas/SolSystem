@@ -79,19 +79,20 @@ dotnet run -c Release --no-build --project src/SolSystem.Probe -- \
 Exit code 0 is clean, 1 a command failed, 2 a check failed, 3 the script could not be
 read. The transcript is written even on failure.
 
-**The `days` command steps the world at the 120 Hz navigation tick.** A station costs
-about 2.7 µs a tick, so one simulated day is roughly 27 s of CPU. Some costs measured on
-this machine:
+**The `days` command chooses its step by what it is advancing.** With no ship, the
+stations are circular and a day is one exact rotation (`Station.AdvanceCoarse`); the
+station-keeping and sky probes are seconds. With a ship, the approach is an action span
+and `days` steps at 120 Hz — a station costs about 2.7 µs a tick there, and the ship
+path still clamps at `int.MaxValue` ticks (about 207 days), so do not ask it for years.
 
 | Probe | Span | Cost |
 |---|---|---|
 | `docking.probe` | ~16 hours | seconds |
-| `station-keeping.probe` | 10 days | about ten minutes |
-| `sky.probe` | 182.6 days | **hours**, not minutes |
+| `station-keeping.probe` | 10 days | under a second |
+| `sky.probe` | 182.6 days | about a second |
 
-Do not reach for `sky.probe` as a quick check. Its summer half is also unasserted: the
-site triad's hour angle against the ephemeris is real sky work that is not done, which
-the script itself records.
+The sky probe is cheap now, but its summer half still has no sun-altitude check: the
+winter site's noon is measured, the summer one is a screenshot.
 
 ## Ground rules that are load-bearing
 

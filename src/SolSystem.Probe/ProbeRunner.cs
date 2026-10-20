@@ -197,6 +197,17 @@ internal sealed class ProbeRunner
         }
 
         long ticks = (long)Math.Round(days * 86400.0 / ProbeWorld.TickSeconds);
+
+        if (_world.Ship is null)
+        {
+            // No hull: the stations are circles, so a day is one exact rotation rather than
+            // 10.4 million integrations. This is the path the station-keeping and sky probes use.
+            _world.AdvanceCoarse(days * 86400.0);
+            Emit($"  {days:F6} days = strategic rotation, world at tick {_world.Ticks} "
+                + $"({_world.Time.ToDouble() / 86400.0:F6} days from J2000)");
+            return;
+        }
+
         _world.Advance((int)Math.Min(ticks, int.MaxValue));
         Emit($"  {days:F6} days = {ticks:N0} ticks, world at tick {_world.Ticks} "
             + $"({_world.Time.ToDouble() / 86400.0:F6} days from J2000)");

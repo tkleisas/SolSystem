@@ -126,13 +126,17 @@ clock running at one look exactly the same** until you have watched one of them 
 first version multiplied the rate by sixty for as long as the key was held, which has two faults: no
 way to ask for twice, and no way to know what you got.
 
-### Two things the controls do not do
+**The top two rungs are the strategic clock.** At ×100 and ×1000 the stations are rotated by their
+exact circular orbit, the ship is held in the home station's frame, and the clock advances exactly;
+the panel says `STRATEGIC`. The engine is shut and the helm is disengaged: this is the waiting
+clock, not a way to fly for free. Below them the ship flies at 120 Hz. The station-keeping and sky
+probes use the same rotation for their `days` spans, which is why a ten-day probe no longer takes
+ten minutes.
+
+### One thing the controls do not do
 
 - **No gentle turn.** The keys are on or off, so every rotation is at the six-degree limit. A finer
   helm is a thing a docking pilot would want and it is not there yet.
-- **Time compression saturates.** The ship steps at a fixed 120 Hz and at most 240 ticks a frame, so
-  above two seconds of simulated time per frame the clock advances faster than the ship flies. At
-  ×100 that needs 50 fps; below it, the sky runs ahead of the hull.
 
 ## Why the camera matters more than it looks
 

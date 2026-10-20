@@ -252,4 +252,57 @@ public class StationTests
 
         Assert.InRange(radial, 0.999999, 1.000001);
     }
+
+    [Fact]
+    public void ACoarseAdvanceKeepsTheCircularRadiusAndSpeed()
+    {
+        Station station = Station.Meridian();
+        Fix128 radius = station.Offset.Length;
+        Fix128 speed = station.Velocity.Length;
+
+        // One day: many revolutions, no integration, no drift.
+        station.AdvanceCoarse(F(86_400.0));
+
+        double radiusError = Math.Abs(station.Offset.Length.ToDouble() - radius.ToDouble());
+        double speedError = Math.Abs(station.Velocity.Length.ToDouble() - speed.ToDouble());
+
+        Assert.InRange(radiusError, 0.0, 0.10);
+        Assert.InRange(speedError, 0.0, 0.001);
+    }
+
+    [Fact]
+    public void TheCoarseStepAndTheNavigationTicksAgreeOnACircularOrbit()
+    {
+        Station coarse = Station.Meridian();
+        Station fine = coarse;
+
+        coarse.AdvanceCoarse(F(3_600.0));
+
+        int ticks = (int)Math.Round(3_600.0 / TickSeconds);
+        for (int i = 0; i < ticks; i++)
+        {
+            fine.Step(F(TickSeconds));
+        }
+
+        // The analytic circle and the symplectic integration are the same orbit; the residual is
+        // the integrator's own round-off, not a difference in the model.
+        double gap = (coarse.Offset - fine.Offset).Length.ToDouble();
+        _o.WriteLine($"coarse versus {ticks:N0} ticks after one hour: {gap:F3} m apart");
+
+        Assert.InRange(gap, 0.0, 100.0);
+    }
+
+    [Fact]
+    public void ALongCoarseAdvanceStillHasAnOutwardPort()
+    {
+        Station station = Station.Meridian();
+
+        station.AdvanceCoarse(F(365.0 * 86_400.0));
+
+        double radial = Fix128Vec.Dot(station.PortAxis, station.Offset.Normalized()).ToDouble();
+        double radiusError = Math.Abs(station.Offset.Length.ToDouble() - 6_778_100.0);
+
+        Assert.InRange(radial, 0.999999, 1.000001);
+        Assert.InRange(radiusError, 0.0, 0.10);
+    }
 }

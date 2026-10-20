@@ -277,6 +277,44 @@ internal sealed class FlightSession
     }
 
     /// <summary>
+    /// Advances the clock and both stations analytically, for the strategic rates.
+    /// </summary>
+    /// <remarks>
+    /// The clock and the stations stay exact; the observer's local offset turns with the home
+    /// station's orbit, so a ship held in that frame stays in the corridor, and the target keeps
+    /// its 6.8 km companion orbit. The ship itself is the caller's: the client carries it through
+    /// the same rotation and then re-anchors the observer from it. No ship ticks are spent here,
+    /// which is the whole point — a day is one rotation, not 10.4 million integration steps.
+    /// </remarks>
+    internal void AdvanceCoarse(double seconds)
+    {
+        if (seconds <= 0.0)
+        {
+            return;
+        }
+
+        JulianDate += seconds / 86400.0;
+
+        Fix128 dt = Fix128.FromDouble(seconds);
+        Fix128 angle = _station.OrbitalRate * dt;
+        Fix128 sin = Trig128.SinRadians(angle);
+        Fix128 cos = Trig128.CosRadians(angle);
+
+        _localOffset = RotateZ(_localOffset, sin, cos);
+        _localVelocity = RotateZ(_localVelocity, sin, cos);
+
+        _station.AdvanceCoarse(dt);
+        _target.AdvanceCoarse(dt);
+
+        Recompose(System.Heliocentric(Ephemeris.Body.Earth));
+    }
+
+    private static Fix128Vec RotateZ(Fix128Vec v, Fix128 sin, Fix128 cos) => new(
+        (v.X * cos) - (v.Y * sin),
+        (v.X * sin) + (v.Y * cos),
+        v.Z);
+
+    /// <summary>
     /// Advances the clock and the station by exactly N ticks, uncapped.
     /// </summary>
     /// <remarks>

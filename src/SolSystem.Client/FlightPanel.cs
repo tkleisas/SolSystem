@@ -125,6 +125,12 @@ internal sealed class FlightPanel
             at, dim);
         at.Y += FlightUi.Line * 1.6f;
 
+        if (timeRate >= 100.0)
+        {
+            _sprites.DrawString(_font, "STRATEGIC  \u00b7  SHIP HELD AT THE HOME STATION", at, warn);
+            at.Y += FlightUi.Line;
+        }
+
         _sprites.DrawString(_font, $"SPEED      {speed,10:F1} m/s", at, ink);
         at.Y += FlightUi.Line;
         _sprites.DrawString(_font, $"RANGE      {range,10:F0} m", at, ink);

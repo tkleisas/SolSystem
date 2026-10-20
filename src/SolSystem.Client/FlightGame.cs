@@ -182,6 +182,12 @@ internal sealed class FlightGame : Game, IControllerTarget
 
     private int _timeRateIndex = 1;
 
+    /// <summary>
+    /// At and above this rate the ship is held in the home station's frame and the stations
+    /// advance analytically; below it the ship flies on the 120 Hz tick.
+    /// </summary>
+    private const double StrategicTimeRate = 100.0;
+
     internal FlightGame(LaunchOptions options)
     {
         _options = options;
@@ -934,10 +940,20 @@ internal sealed class FlightGame : Game, IControllerTarget
     {
         double seconds = gameTime.ElapsedGameTime.TotalSeconds * _timeRate;
         _simulatedSeconds += seconds;
-        _session.Advance(seconds);
-        _sun.Update(seconds);
 
-        SimulateTicks(keys, seconds);
+        if (_timeRate >= StrategicTimeRate)
+        {
+            // Nobody is flying at a hundred times real time. The stations rotate exactly, the
+            // ship is carried in the home station's frame, and the clock stays with both.
+            SimulateStrategic(seconds);
+        }
+        else
+        {
+            _session.Advance(seconds);
+            _sun.Update(seconds);
+
+            SimulateTicks(keys, seconds);
+        }
 
         // The camera is inside the ship, so the ship drives the observer and not the reverse.
         Reanchor();
@@ -947,6 +963,49 @@ internal sealed class FlightGame : Game, IControllerTarget
             Exit();
         }
     }
+
+    /// <summary>
+    /// Advances the strategic clock: exact station rotation, ship held in the home frame.
+    /// </summary>
+    /// <remarks>
+    /// The ship's local position and velocity are rotated by the home station's orbital angle,
+    /// and its attitude is carried through the same rotation. The engine is shut and the helm
+    /// disengages: this is the waiting clock, not a way to fly for free. The contract deadline,
+    /// the target and both stations advance exactly; the action rates are where the ship flies.
+    /// </remarks>
+    private void SimulateStrategic(double seconds)
+    {
+        Station home = _session.Station;
+        Ship ship = _flight.Ship;
+
+        Fix128Vec localPosition = ship.Position - home.Offset;
+        Fix128Vec localVelocity = ship.Velocity - home.Velocity;
+
+        Fix128 angle = home.OrbitalRate * Fix128.FromDouble(seconds);
+        Fix128 sin = Trig128.SinRadians(angle);
+        Fix128 cos = Trig128.CosRadians(angle);
+
+        _session.AdvanceCoarse(seconds);
+        _sun.Update(seconds);
+
+        Station nextHome = _session.Station;
+
+        _flight.Ship = new Ship(
+            nextHome.Offset + RotateZ(localPosition, sin, cos),
+            nextHome.Velocity + RotateZ(localVelocity, sin, cos),
+            ship.DryMass,
+            ship.Propellant,
+            ship.Engine,
+            ship.Attitude.RotatedAboutZ(angle));
+
+        _flight.SetThrottle(0.0);
+        _helm = default;
+    }
+
+    private static Fix128Vec RotateZ(Fix128Vec v, Fix128 sin, Fix128 cos) => new(
+        (v.X * cos) - (v.Y * sin),
+        (v.X * sin) + (v.Y * cos),
+        v.Z);
 
     private bool JustPressed(KeyboardState keys, Keys key) =>
         keys.IsKeyDown(key) && !_previousKeys.IsKeyDown(key);

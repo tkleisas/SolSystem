@@ -118,6 +118,44 @@ internal struct Attitude
         RotationVector = ToRotationVector(w, v);
     }
 
+    /// <summary>
+    /// Returns this attitude carried through a rotation about +z.
+    /// </summary>
+    /// <remarks>
+    /// The strategic clock rotates the home station's frame by its orbital angle; a ship held in
+    /// that frame has to turn with it or its nose points at a different local direction after the
+    /// jump. The rotation composes on the left, like every world-frame rotation here, and the
+    /// angular velocity turns with it.
+    /// </remarks>
+    internal readonly Attitude RotatedAboutZ(Fix128 angle)
+    {
+        if (angle == Fix128.Zero)
+        {
+            return this;
+        }
+
+        (Fix128 deltaW, Fix128Vec deltaV) = ToQuaternion(
+            new Fix128Vec(Fix128.Zero, Fix128.Zero, angle));
+        (Fix128 rotationW, Fix128Vec rotationV) = ToQuaternion(RotationVector);
+
+        Fix128 w = (deltaW * rotationW) - Fix128Vec.Dot(deltaV, rotationV);
+        Fix128Vec v = (rotationV * deltaW) + (deltaV * rotationW)
+            + Fix128Vec.Cross(deltaV, rotationV);
+
+        return new Attitude(ToRotationVector(w, v), RotateZ(AngularVelocity, angle));
+    }
+
+    private static Fix128Vec RotateZ(Fix128Vec v, Fix128 angle)
+    {
+        Fix128 sin = Trig128.SinRadians(angle);
+        Fix128 cos = Trig128.CosRadians(angle);
+
+        return new Fix128Vec(
+            (v.X * cos) - (v.Y * sin),
+            (v.X * sin) + (v.Y * cos),
+            v.Z);
+    }
+
     /// <summary>A unit quaternion for a rotation vector: <c>(cos θ/2, n·sin θ/2)</c>.</summary>
     private static (Fix128 W, Fix128Vec V) ToQuaternion(Fix128Vec rotationVector)
     {
