@@ -120,6 +120,9 @@ internal sealed class LaunchOptions
     /// <summary>Open the chart at startup, and optionally select a body.</summary>
     internal bool Chart { get; private set; }
 
+    /// <summary>Open the local strategic map at startup.</summary>
+    internal bool Local { get; private set; }
+
     /// <summary>Start at the home station's port instead of four hundred metres down the corridor.</summary>
     internal bool StartDocked { get; private set; }
 
@@ -199,6 +202,7 @@ internal sealed class LaunchOptions
           --camera <mode>      chase, orbit, cockpit or port (default chase)
           --throttle <0-1>     start with the engine lit, for rendering the plume
           --chart              open the solar-system chart
+          --local              open the local strategic map
           --docked             start docked at the home port
           --market             start docked with the home market open
           --destination <name> select a body on the chart, e.g. Mars
@@ -264,6 +268,10 @@ internal sealed class LaunchOptions
 
                 case "--chart":
                     options.Chart = true;
+                    break;
+
+                case "--local":
+                    options.Local = true;
                     break;
 
                 case "--docked":

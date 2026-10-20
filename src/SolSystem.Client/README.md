@@ -24,6 +24,8 @@ was then added underneath it and nobody ran `dotnet run` with no arguments again
 | `R` / `F` | Pitch up / down. |
 | `Q` / `E` | Roll left / right. |
 | `Up` / `Down` | Time compression: one rung per press up or down a ladder of ×0.1, ×1, ×10, ×100, ×1000. |
+| `L` | Open or close the local strategic map. |
+| `M` | Open or close the solar-system chart. |
 | `Esc` | Quit. |
 
 **The engine fires along the nose.** `W` does not push the ship in the direction it is drifting; it
@@ -144,6 +146,17 @@ clock, not a way to fly for free. Below them the ship flies at 120 Hz. The stati
 probes use the same rotation for their `days` spans, which is why a ten-day probe no longer takes
 ten minutes.
 
+### The local map
+
+`L` opens the local strategic map: the Hill frame of Meridian, +x along the orbit, +y radially
+outward, the Earth 6 778 km below. The home is a square at the origin, the waystation a diamond
+6.8 km ahead, the ship a triangle, and the line between ship and target is the range and the
+closing. The contract, the clock, the credits, the cargo and the mass are on the left; the grid is
+one kilometre and the scale bar says so.
+
+The map **runs**: the clock, the stations and the contract keep moving while it is open, and the
+ship's own controls stay live. `M` is the solar-system chart, `T` the market, `--local` starts here.
+
 ### One thing the controls do not do
 
 - **No gentle turn.** The keys are on or off, so every rotation is at the six-degree limit. A finer
@@ -185,6 +198,8 @@ dotnet run -- --frames 90 --shot out.png     # run the interactive loop, then sa
 dotnet run -- --shot out.png --camera port   # chase, orbit, cockpit or port
 dotnet run -- --shot out.png --throttle 1    # with the engine lit, for the plume
 dotnet run -- --shot out.png --lineup        # every asset at true size, side by side
+dotnet run -- --shot out.png --local         # the local strategic map
+dotnet run -- --shot out.png --market        # docked, with the market open
 ```
 
 **The opening frame is lit by construction.** The default date is the March 2000 equinox,

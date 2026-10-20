@@ -80,6 +80,7 @@ internal sealed class FlightGame : Game, IControllerTarget
     private CargoHold _cargo = null!;
     private Market? _market;
     private MarketScreen _marketScreen = null!;
+    private LocalScreen _localScreen = null!;
     private bool _marketOpen;
     private int _marketSelected;
     private double _hullDryMass;
@@ -93,6 +94,7 @@ internal sealed class FlightGame : Game, IControllerTarget
     private CorridorGates _gates = null!;
     private Autohelm _helm;
     private bool _chartOpen;
+    private bool _localOpen;
     private MouseState _previousMouse;
 
     /// <summary>The attitude the run started with, so a held key can be measured against it.</summary>
@@ -363,6 +365,8 @@ internal sealed class FlightGame : Game, IControllerTarget
             _camera, _hulls, _contract, _ledger, _cargo);
         _chartScreen = new ChartScreen(GraphicsDevice, _sprites, hud);
         _marketScreen = new MarketScreen(GraphicsDevice, _sprites, pixel, hud);
+        _localScreen = new LocalScreen(GraphicsDevice, _sprites, pixel, hud);
+        _localOpen = _options.Local;
 
         if (_options.OpenMarket)
         {
@@ -407,6 +411,20 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (JustPressed(keys, Keys.M))
         {
             _chartOpen = !_chartOpen;
+            if (_chartOpen)
+            {
+                _localOpen = false;
+            }
+        }
+
+        if (JustPressed(keys, Keys.L))
+        {
+            _localOpen = !_localOpen;
+            if (_localOpen)
+            {
+                _chartOpen = false;
+                _marketOpen = false;
+            }
         }
 
         if (JustPressed(keys, Keys.T))
@@ -554,6 +572,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         }
 
         _chartOpen = false;
+        _localOpen = false;
         _market = Market.For(station.Name);
         _marketSelected = 0;
         _marketOpen = true;
@@ -1211,6 +1230,13 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (_chartOpen)
         {
             _chartScreen.Draw(_session, _flight, _helm);
+            FinishFrame(target, gameTime);
+            return;
+        }
+
+        if (_localOpen)
+        {
+            _localScreen.Draw(_session, _flight, _ledger, _cargo, _contract, _timeRate);
             FinishFrame(target, gameTime);
             return;
         }

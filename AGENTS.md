@@ -119,6 +119,9 @@ winter site's noon is measured, the summer one is a screenshot.
   not the screen up when the camera is pitched; `Camera.Build` returns the orthogonalised
   up, and `NavOverlay`/`SkyRenderer` must use it. The Sun is a screen-space quad for the
   same reason — a world-space billboard projects as a trapezoid off-axis.
+* **The local map is a view, not a pause.** `L` opens the Hill frame of the home station:
+  +x along the orbit, +y radially outward, the Earth below. The map keeps running and the ship's
+  controls stay live; `M` is the solar chart and `T` the market. Do not make it a menu.
 * **The hold is part of the ship's mass.** A tonne bought at the market is a tonne of dry mass:
   `FlightGame.SyncShipMass` sets `Mass = hull + hold + propellant` after every trade, refuel and
   delivery. The contract cargo is loaded at the start and removed only by `Contract.SettleDelivery`;
