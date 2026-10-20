@@ -298,7 +298,13 @@ internal sealed class BodyRenderer : IDisposable
             -(float)(session.ObserverPosition.Y.ToDouble() * scale),
             -(float)(session.ObserverPosition.Z.ToDouble() * scale)));
 
-        _effect.DirectionalLight0.Direction = toSun;
+        // THE LIGHT'S DIRECTION IS WHERE IT IS GOING, NOT WHERE IT COMES FROM. MonoGame's
+        // BasicEffect shader computes `dot(-lightDirection, normal)`, so it wants the direction
+        // the light travels. Passing the direction towards the Sun lights the far hemisphere and
+        // leaves the near one black — which is why the Earth read as a dark disc with a bright
+        // rim on the wrong side. The parameter above is named for what it is, towards the Sun;
+        // the negation belongs here, at the one place the convention changes.
+        _effect.DirectionalLight0.Direction = -toSun;
         _effect.DirectionalLight0.DiffuseColor = Vector3.One;
 
         // Furthest first, so a nearer body paints over a further one.
@@ -325,13 +331,15 @@ internal sealed class BodyRenderer : IDisposable
             double angularRadius = Math.Asin(Math.Clamp(
                 body.RadiusKilometres / Math.Max(distance, body.RadiusKilometres), 0.0, 1.0));
 
-            // Half a degree of slack, so a body just off the edge still draws its limb.
-            double fieldSlack = Math.Cos(Math.Min(Math.PI * 0.5, (60.0 * Math.PI / 180.0 * 0.5) + angularRadius));
-            if (facing < fieldSlack && facing < 0.999)
+            // The cull itself is in BodyCulling, where the frustum rule is stated and tested. The
+            // short version: the visible cone is the wider half-angle plus the body's angular
+            // radius, not half the vertical field of view clamped at ninety degrees.
+            if (!BodyCulling.IsVisible(
+                facing, angularRadius, _device.Viewport.AspectRatio, 60.0))
             {
                 if (Verbose)
                 {
-                    Console.WriteLine($"  {body.Name,-8} culled: facing {facing:F4} < {fieldSlack:F4}");
+                    Console.WriteLine($"  {body.Name,-8} culled: facing {facing:F4}");
                 }
 
                 continue;
@@ -370,7 +378,15 @@ internal sealed class BodyRenderer : IDisposable
             {
                 _effect.EmissiveColor = Vector3.Zero;
                 _effect.AmbientLightColor = new Vector3(0.06f);
-                _effect.DiffuseColor = body.Colour.ToVector3();
+
+                // A TEXTURED BODY IS ALREADY THE COLOUR IT SHOULD BE. The baked map carries the
+                // surface: the Earth's ocean and land, Mars's dust and dark albedo features, the
+                // Moon's maria. Multiplying that by the decorative fallback colour darkened every
+                // textured world — the Earth was blue-tinted into a night side that never saw day —
+                // so the tint is used only where there is no map to disagree with.
+                _effect.DiffuseColor = texture is not null
+                    ? Vector3.One
+                    : body.Colour.ToVector3();
             }
 
             foreach (EffectPass pass in _effect.CurrentTechnique.Passes)

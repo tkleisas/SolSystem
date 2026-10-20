@@ -15,8 +15,13 @@ small panels: the courier is not in a hurry.
 
 ```sh
 B=/home/tkleisas/blender/blender-5.2.2-linux-x64/blender
+python3 tools/blender/hull_textures.py            # the tileable detail maps
 $B --background --python tools/blender/ships/illuminus_courier.py
 $B --background --python tools/blender/ships/workers_freighter.py
+$B --background --python tools/blender/stations/meridian.py
+$B --background --python tools/blender/stations/illuminus_disk.py
+$B --background --python tools/blender/stations/workers_modules_spine.py
+$B --background --python tools/blender/stations/workers_modules_radial.py
 $B --background --python tools/blender/bodies/build_bodies.py
 ```
 
@@ -54,16 +59,45 @@ down at 50 degrees, which shows the same surfaces without the ambiguity.
 * **Layout as data.** Every z position on the workers' freighter comes from one stack
   of named ranges, because a module that floats two metres clear of the hull is
   invisible in a three-quarter view and obvious in an elevation.
-* **No emissive geometry in an export.** Engine exhaust belongs in the client as an
+* **No exhaust plume in an export.** Engine exhaust belongs in the client as an
   effect. A cone of emissive material has no mass and no silhouette, and as a solid
-  glowing object it reads as a separate lit thing rather than as thrust.
+  glowing object it reads as a separate lit thing rather than as thrust. Windows,
+  radiators, dock floods and navigation lamps are emissive by design; the plume is not.
 * **Materials are authored in linear RGB.** Blender colour-manages on output; picking
   values by eye in display space is how a model arrives in the engine washed out.
+
+## Surface detail
+
+A hull is a shape and a surface, and the scripts only ever said the shape. Every ship
+and station now also carries a *tileable grayscale detail map* from
+`hull_textures.py`: plate seams with a bevel highlight, rivets, brushed streaks, paint
+chips and rust on the Workers hulls, and a restrained seam line on the Illuminus ones.
+`pipeline.apply_detail_texture` multiplies it into every non-emissive material;
+`pipeline.uv_cube` box-projects the UVs at a fixed world scale (six metres a tile on
+the courier, eighteen on Meridian), so a repeat is a physical size rather than an
+accident of the unwrap.
+
+The map is grayscale so one file serves the white hull, the dark trim and the warning
+stripe, and each material keeps its own colour. Blender's glTF exporter cannot carry
+that colour through the MULTIPLY node — it writes the texture and drops the factor — so
+`pipeline._restore_base_colors` patches `baseColorFactor` back into the GLB after
+export. Remove that step and every hull comes out grey.
+
+Emissive strength is authored in Blender and exported as
+`KHR_materials_emissive_strength` (glTF's own factor is clamped to 1). The client reads
+it, so a window authored at 2.2 and a beacon at 8 are those strengths in the engine.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `pipeline.py` | Primitives, lathe, materials, lighting rigs, the six-view renderer, glTF export |
+| `pipeline.py` | Primitives, lathe, materials, detail maps, UV projection, lighting rigs, the six-view renderer, glTF export |
+| `hull_textures.py` | The three tileable grayscale hull maps: Illuminus, Workers, Meridian |
 | `ships/illuminus_courier.py` | 55 m courier, Starship ancestry, sleek by way of a low cruise acceleration |
 | `ships/workers_freighter.py` | 143 m freighter, Soviet and Chinese heavy engineering, wings because radiators need sky |
+| `stations/meridian.py` | 2 km Earth wheel; harbour, dock floods and a lit mouth |
+| `stations/illuminus_disk.py` | Illuminus residence disk |
+| `stations/workers_modules_spine.py` | Workers waystation, spine layout |
+| `stations/workers_modules_radial.py` | Workers waystation, radial layout |
+| `bodies/build_bodies.py` | The Sun and planets; the Earth uses NASA Blue Marble and cloud maps |
+| `bake_bodies.py` | Bakes the remaining procedural body materials to client textures |

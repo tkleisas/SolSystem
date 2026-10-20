@@ -439,108 +439,38 @@ def build_venus_mapped(col):
 
 def build_earth(col):
     """
-    The real Earth, because a procedural one is not recognisable and has to be.
+    The real Earth, from NASA's Blue Marble.
 
-    Everything else in this file is generated from noise and that is the right answer
-    for Venus, which has no visible surface, and for Ceres, whose only feature is
-    craters. Earth is the exception for a specific reason: a player knows what Earth
-    looks like, and a noise field produces a blue ball with green splodges that reads
-    as *a* planet rather than as *this* one. The continents are the map.
+    The first version reconstructed the surface from Natural Earth's 1:50m land
+    polygons and a latitude ramp: recognisable continents, but a pastel map rather
+    than a photograph. At four hundred kilometres the Earth fills the view, so the
+    difference between "a blue ball with green shapes" and the actual coastline,
+    deserts, ice and ocean colour is the difference between a diagram and a world.
 
-    So the continents come from Natural Earth's 1:50m land polygons, rasterised to an
-    equirectangular map with three channels packed into it:
+    The day map is NASA's Blue Marble Next Generation (December 2004, topography and
+    bathymetry), public domain. It is equirectangular with the prime meridian at the
+    centre, which is the convention the client's sphere UVs use. The clouds are the
+    NASA cloud composite, carried as the alpha channel of a white image so the shell
+    composites real weather rather than noise — see build_earth_clouds.
 
-      R  land mask, for the coastline
-      G  a coastline-distance outline, for coastal tint
-      B  cosine of latitude, for the biome bands
-
-    Twenty kilobytes of coastline data and one texture fetch, and the result is a
-    planet a player can navigate by. That is worth more than the purity of generating
-    it, which is why the exception is made here and nowhere else.
-
-    The clouds are a separate shell, as they are in fact.
+    Sources:
+      https://visibleearth.nasa.gov/images/73909/december-blue-marble-next-generation
+      https://visibleearth.nasa.gov/images/57747/clouds-over-the-pacific
     """
     mat = base_material("EarthSurface")
     tree, add = nodes(mat)
 
-    tex = add('ShaderNodeTexCoord')
-    uv = add('ShaderNodeUVMap')
-
     image = add('ShaderNodeTexImage')
-    image.image = bpy.data.images.load(os.path.join(textures_dir(), "earth_map.png"))
+    image.image = bpy.data.images.load(
+        os.path.join(textures_dir(), "earth_albedo.jpg"))
     image.interpolation = 'Cubic'
     image.extension = 'EXTEND'
-
-    # A data map, not a photograph. Left as sRGB, Blender decodes every channel with
-    # the display transform before the shader sees it, and a channel meaning "half way
-    # to the equator" arrives as 0.21 rather than 0.5 -- which put the biome selector
-    # below its ice stop everywhere and produced a grey planet. Nothing about a mask,
-    # a distance field or a latitude wants a gamma curve applied to it.
-    image.image.colorspace_settings.name = 'Non-Color'
-
-    # Split the packed channels.
-    split = add('ShaderNodeSeparateColor')
-
-    # Ocean: deep water, in the mask's own zero.
-    ocean = add('ShaderNodeRGB')
-    ocean.outputs[0].default_value = (0.012, 0.045, 0.13, 1.0)
-
-    # Land, chosen by warmth: ice at the poles, temperate in the middle, and a band of
-    # bare ground through the tropics. Enough stops to make the Sahara read as desert
-    # and Siberia as taiga without pretending to be a biome map.
-    #
-    # A fresh colour ramp has exactly two elements, so the rest are added first and
-    # then positioned -- indexing element 2 before creating it is an IndexError, and
-    # `elements.new(position)` is not a supported overload.
-    # Linear rather than B-spline: a spline through five stops undershoots between the
-    # ice and the taiga and washes the mid latitudes toward grey, which is half of why
-    # the first version had no colour anywhere.
-    biome = add('ShaderNodeValToRGB')
-    biome.color_ramp.interpolation = 'LINEAR'
-    biome.color_ramp.elements.new(0.5)
-    biome.color_ramp.elements.new(0.5)
-    biome.color_ramp.elements.new(0.5)
-
-    stops = (
-        (0.10, (0.72, 0.76, 0.80, 1.0)),   # ice
-        (0.36, (0.10, 0.19, 0.09, 1.0)),   # taiga
-        (0.62, (0.16, 0.28, 0.10, 1.0)),   # temperate
-        (0.82, (0.44, 0.34, 0.14, 1.0)),   # desert
-        (0.95, (0.20, 0.30, 0.09, 1.0)),   # tropical
-    )
-    for element, (position, color) in zip(biome.color_ramp.elements, stops):
-        element.position = position
-        element.color = color
-
-    # The mask arrives as a hard 0/255 step, which at this map resolution draws a
-    # visibly stair-stepped coast. Narrowing it through a ramp gives the blend a
-    # couple of pixels to work with instead.
-    coast_fade = add('ShaderNodeValToRGB')
-    coast_fade.color_ramp.interpolation = 'LINEAR'
-    coast_fade.color_ramp.elements[0].position = 0.42
-    coast_fade.color_ramp.elements[1].position = 0.58
-
-    land_sea = add('ShaderNodeMixRGB')
-    land_sea.blend_type = 'MIX'
 
     bsdf = add('ShaderNodeBsdfPrincipled')
     bsdf.inputs['Roughness'].default_value = 0.62
 
     output = add('ShaderNodeOutputMaterial')
-
-    link_into(tree, uv, 'UV', image, 'Vector')
-    link_into(tree, image, 'Color', split, 'Color')
-
-    # Biome colour from latitude.
-    link_into(tree, split, 'Blue', biome, 'Fac')
-
-    # Then the mask picks between the biome and the ocean.
-    link_into(tree, biome, 'Color', land_sea, 'Color2')
-    link_into(tree, ocean, 0, land_sea, 'Color1')
-    link_into(tree, split, 'Red', coast_fade, 'Fac')
-    link_into(tree, coast_fade, 'Color', land_sea, 'Fac')
-
-    link_into(tree, land_sea, 'Color', bsdf, 'Base Color')
+    link_into(tree, image, 'Color', bsdf, 'Base Color')
     link_into(tree, bsdf, 'BSDF', output, 'Surface')
 
     earth = sphere("Earth", radius=1.0, segments=192, rings=96)
@@ -548,104 +478,45 @@ def build_earth(col):
     link(earth, col)
 
     build_earth_clouds(col)
-
     return earth
 
 
 def build_earth_clouds(col):
     """
-    A thin, broken cloud shell at 1.006 radii.
+    The real cloud deck, at 1.006 radii.
 
-    The first version was a solid white sphere, and the reason is worth recording: a
-    Principled BSDF with a white base colour is an *opaque white surface*, not a
-    translucent one. There was no alpha anywhere in the material, so every part of the
-    shell the ramp called "cloud" rendered as paint, and the map the rest of this
-    section exists to show was hidden under it.
-
-    What makes a cloud read as thin is not its colour but its coverage and its alpha,
-    so the shell now carries a real alpha channel: the noise drives both the colour and
-    the transparency, and the maximum opacity is 0.55. Over an ocean that dark, that is
-    the difference between a blue planet with weather and a grey ball.
+    The cloud composite is a grayscale brightness map; the client and this preview
+    both want it as coverage, so it is stored as a white RGBA image whose alpha is
+    the cloud fraction. That keeps one file authoritative for both renderers: the
+    preview samples the colour and alpha, and the client composites the alpha with
+    non-premultiplied blending. A procedural shell was the first answer, and it gave
+    the planet weather, but not *this* weather.
     """
     mat = base_material("EarthClouds")
     tree, add = nodes(mat)
 
-    tex = add('ShaderNodeTexCoord')
-
-    # Two octaves: broad systems, and finer structure inside them.
-    broad = add('ShaderNodeTexNoise')
-    broad.inputs['Scale'].default_value = 2.6
-    broad.inputs['Detail'].default_value = 6.0
-    broad.inputs['Roughness'].default_value = 0.55
-    broad.inputs['Distortion'].default_value = 0.6
-
-    fine = add('ShaderNodeTexNoise')
-    fine.inputs['Scale'].default_value = 7.5
-    fine.inputs['Detail'].default_value = 8.0
-    fine.inputs['Roughness'].default_value = 0.6
-
-    def remap(name, weight):
-        node = add('ShaderNodeMath')
-        node.operation = 'MULTIPLY_ADD'
-        node.inputs[1].default_value = weight
-        node.inputs[2].default_value = 0.0
-        node.name = name
-        return node
-
-    broad_w = remap("BroadWeight", 0.55)
-    fine_w = remap("FineWeight", 0.45)
-    total = add('ShaderNodeMath')
-    total.operation = 'ADD'
-    to_unit = add('ShaderNodeMath')
-    to_unit.operation = 'MULTIPLY_ADD'
-    to_unit.inputs[1].default_value = 0.5
-    to_unit.inputs[2].default_value = 0.5
-
-    # Coverage: everything below 0.62 is clear sky, and above it the cloud thickens.
-    cover = add('ShaderNodeValToRGB')
-    cover.color_ramp.interpolation = 'EASE'
-    cover.color_ramp.elements[0].position = 0.68
-    cover.color_ramp.elements[0].color = (0.0, 0.0, 0.0, 1.0)
-    cover.color_ramp.elements[1].position = 0.94
-    cover.color_ramp.elements[1].color = (1.0, 1.0, 1.0, 1.0)
-
-    # The same value drives opacity, scaled hard. A 0.55 ceiling still read as overcast
-    # from a distance: the ocean is dark enough that a half-opaque white layer on top of
-    # it is grey, and grey is not what a planet full of water looks like from orbit.
-    opacity = add('ShaderNodeMath')
-    opacity.operation = 'MULTIPLY'
-    opacity.inputs[1].default_value = 0.30
+    image = add('ShaderNodeTexImage')
+    image.image = bpy.data.images.load(
+        os.path.join(textures_dir(), "earth_clouds.png"))
+    image.interpolation = 'Cubic'
+    image.extension = 'EXTEND'
 
     bsdf = add('ShaderNodeBsdfPrincipled')
     bsdf.inputs['Roughness'].default_value = 0.9
-    bsdf.inputs['Alpha'].default_value = 0.5
+    bsdf.inputs['Alpha'].default_value = 1.0
     if 'Specular IOR Level' in bsdf.inputs:
         bsdf.inputs['Specular IOR Level'].default_value = 0.04
 
     output = add('ShaderNodeOutputMaterial')
-
-    link_into(tree, tex, 'Object', broad, 'Vector')
-    link_into(tree, tex, 'Object', fine, 'Vector')
-    link_into(tree, broad, 'Fac', broad_w, 0)
-    link_into(tree, fine, 'Fac', fine_w, 0)
-    link_into(tree, broad_w, 'Value', total, 0)
-    link_into(tree, fine_w, 'Value', total, 1)
-    link_into(tree, total, 'Value', to_unit, 0)
-    link_into(tree, to_unit, 'Value', cover, 'Fac')
-    link_into(tree, cover, 'Color', bsdf, 'Base Color')
-    link_into(tree, to_unit, 'Value', opacity, 0)
-    link_into(tree, opacity, 'Value', bsdf, 'Alpha')
+    link_into(tree, image, 'Color', bsdf, 'Base Color')
+    link_into(tree, image, 'Alpha', bsdf, 'Alpha')
     link_into(tree, bsdf, 'BSDF', output, 'Surface')
-
     mat.blend_method = 'BLEND'
 
     clouds = sphere("EarthClouds", radius=1.006, segments=128, rings=64)
     clouds.data.materials.append(mat)
     link(clouds, col)
     return clouds
-
-
-# --------------------------------------------------------------------------- mars
 
 
 def build_mars(col):

@@ -99,6 +99,19 @@ internal sealed class Hull : IDisposable
         /// </remarks>
         internal Vector3 EmissiveFactor { get; init; } = Vector3.Zero;
 
+        /// <summary>
+        /// The multiplier on the emissive factor, from <c>KHR_materials_emissive_strength</c>.
+        /// </summary>
+        /// <remarks>
+        /// glTF 2.0 clamps <c>emissiveFactor</c> to 0..1, which is not enough range for a window
+        /// that has to read from four hundred metres or a radiator at 1 500 K. The extension
+        /// carries the real strength, and Blender's exporter writes it for exactly those
+        /// materials — Meridian's windows are 2.2 and its beacons 8 — so ignoring it drew the
+        /// station's lights at one eighth of their authored brightness. Default 1 is the
+        /// extension's own default and what a file without it means.
+        /// </remarks>
+        internal float EmissiveStrength { get; init; } = 1.0f;
+
         internal Texture2D? EmissiveTexture { get; init; }
 
         /// <summary>OPAQUE, MASK or BLEND, as written.</summary>
@@ -505,11 +518,23 @@ internal sealed class Hull : IDisposable
 
         var emissive = Vector3.Zero;
         Texture2D? emissiveTexture = null;
+        float emissiveStrength = 1.0f;
 
         if (material.TryGetProperty("emissiveFactor", out JsonElement em))
         {
             float[] v = Gltf.ReadNumbers(em, 3);
             emissive = new Vector3(v[0], v[1], v[2]);
+        }
+
+        // The strength is an extension because glTF's factor is clamped to 0..1. A file without
+        // it means 1, which is the extension's default; a malformed block keeps that default
+        // rather than failing the whole hull.
+        if (material.TryGetProperty("extensions", out JsonElement extensions)
+            && extensions.TryGetProperty("KHR_materials_emissive_strength", out JsonElement glow)
+            && glow.TryGetProperty("emissiveStrength", out JsonElement strength)
+            && strength.ValueKind == JsonValueKind.Number)
+        {
+            emissiveStrength = MathF.Max(0.0f, (float)strength.GetDouble());
         }
 
         if (material.TryGetProperty("emissiveTexture", out JsonElement et))
@@ -536,6 +561,7 @@ internal sealed class Hull : IDisposable
             Metallic = metallic,
             Roughness = roughness,
             EmissiveFactor = emissive,
+            EmissiveStrength = emissiveStrength,
             EmissiveTexture = emissiveTexture,
             AlphaMode = alphaMode,
             AlphaCutoff = alphaCutoff,

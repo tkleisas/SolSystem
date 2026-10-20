@@ -90,3 +90,37 @@ grep -rn "CompositorNodeGlare" /path/to/blender/5.2/scripts/startup/bl_ui/
 
 Failing that, enumerate the sockets rather than guessing at attributes:
 `[s.name for s in node.inputs]`.
+
+## The glTF exporter drops a multiplied base colour
+
+A Principled **Base Color** fed by `Image Texture → MixRGB (MULTIPLY) → Base Color` is
+exported as the texture alone: **`baseColorFactor` is not written**. The exporter
+recognises an image linked to the socket, not the colour beside it, so a hull whose
+preview is white steel and dark trim exports as white steel and white trim. The
+workaround here is deliberate and lives in one place: the Blender preview keeps the
+multiply, and `pipeline._restore_base_colors` writes the factor back into the exported
+GLB. A direct `Image Texture → Base Color` does export, and that is the version that
+loses all colour.
+
+Relatedly, glTF clamps `emissiveFactor` to 0..1. Emissive strengths above one are
+written as the `KHR_materials_emissive_strength` extension, so a reader that ignores
+the extension draws a beacon at 1/8 of its authored brightness.
+
+## `uv.cube_project` in background mode
+
+The operator needs a mesh in **Edit** mode with an active object and a selected mesh,
+and an existing UV layer; it does not create one itself. The shape that works here:
+
+```python
+bpy.context.view_layer.objects.active = obj
+obj.select_set(True)
+bpy.ops.object.mode_set(mode='EDIT')
+bpy.ops.mesh.select_all(action='SELECT')
+if not obj.data.uv_layers:
+    obj.data.uv_layers.new(name="UVMap")
+bpy.ops.uv.cube_project(cube_size=6.0, correct_aspect=True, scale_to_bounds=False)
+bpy.ops.object.mode_set(mode='OBJECT')
+```
+
+`cube_size` is in metres and is the physical size of one texture repeat, which is what
+makes a tiled plate map keep its scale from a 55 m courier to a 2 km station.

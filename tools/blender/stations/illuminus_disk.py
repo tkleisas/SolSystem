@@ -58,9 +58,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
-    apply_transform, asset_paths, box, collection, cylinder, export_blend,
-    export_glb, join, lathe, link, material, render_views, reset, ring_of,
-    shade_smooth_by_angle, sphere, torus,
+    apply_detail_texture, apply_transform, asset_paths, box, collection, cylinder,
+    export_blend, export_glb, join, lathe, link, material, render_views, reset,
+    ring_of, shade_smooth_by_angle, sphere, textures_dir, torus, uv_cube,
 )
 
 NAME = "illuminus_disk"
@@ -346,6 +346,11 @@ def main():
     col = collection("IlluminusDisk")
     build_materials()
 
+    # The Illuminus finish, at residence scale: the same restrained seam map as
+    # the courier, tiled large enough that the disk's plate reads at its size.
+    apply_detail_texture(
+        MATERIALS, os.path.join(textures_dir(), "hulls", "illuminus_detail.png"))
+
     disk = build_disk(col)
     spire = build_spire(col)
     vanes = build_radiators(col)
@@ -361,6 +366,8 @@ def main():
     # measure it frames by.
     for obj in (body, panels):
         apply_transform(obj, location=True, rotation=True, scale=True)
+
+    uv_cube([body, panels], 14.0)
 
     blend, glb, preview = asset_paths("stations", NAME)
 

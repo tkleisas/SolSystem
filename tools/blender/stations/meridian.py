@@ -59,9 +59,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
-    apply_transform, asset_paths, box, collection, cylinder, export_blend,
-    export_glb, join, lathe, link, material, render_views, reset, ring_of,
-    shade_smooth_by_angle, sphere, torus,
+    apply_detail_texture, apply_transform, asset_paths, box, collection, cylinder,
+    export_blend, export_glb, join, lathe, link, material, render_views, reset,
+    ring_of, shade_smooth_by_angle, sphere, textures_dir, torus, uv_cube,
 )
 
 NAME = "meridian"
@@ -128,6 +128,13 @@ def build_materials():
     MATERIALS["window"] = material(
         "MeridianWindow", WINDOW, metallic=0.0, roughness=0.2,
         emission=(1.0, 0.88, 0.62), emission_strength=2.2)
+    # The working lights: dock floods and the lit edge of the harbour mouth. Cool
+    # because they are task lighting, not city light — the warm windows are for the
+    # people, the floods are for the pilot. Strong enough to read from kilometres
+    # out, which is what makes the mouth a target rather than a hole.
+    MATERIALS["flood"] = material(
+        "MeridianFlood", (0.88, 0.93, 1.0), metallic=0.0, roughness=0.25,
+        emission=(0.85, 0.93, 1.0), emission_strength=5.0)
     MATERIALS["beacon"] = material(
         "MeridianBeacon", BEACON, metallic=0.0, roughness=0.4,
         emission=(1.0, 0.1, 0.05), emission_strength=8.0)
@@ -275,6 +282,26 @@ def build_nose(col):
     lamp(col, parts, "StrobeVentral", "strobe", (-(CORE_RADIUS + 2.0), 0.0, -45.0),
          radius=0.6)
 
+    # A lit body, not just a lit mouth. The nose drum is what an approaching pilot
+    # sees first, and two rings of warm cabin windows plus one continuous light
+    # band give it scale the moment the port comes into view. They are small on
+    # purpose: a window is not a flood, and a hull covered in lamps reads as a
+    # Christmas tree rather than as a place where people live.
+    for ring, z in enumerate((-32.0, -54.0)):
+        for i in range(16):
+            angle = (i * math.tau / 16.0) + (ring * math.pi / 16.0)
+            window = box(f"MeridianNoseWindow{ring}_{i}", (1.2, 3.4, 1.8),
+                         location=(math.cos(angle) * (CORE_RADIUS + 0.7),
+                                   math.sin(angle) * (CORE_RADIUS + 0.7), z),
+                         rotation=(0, 0, angle))
+            parts.append(assign(window, "window"))
+            link(window, col)
+
+    band = torus("MeridianNoseLightBand", major=CORE_RADIUS + 0.5, minor=0.9,
+                 location=(0, 0, -43.0), major_segments=96, minor_segments=8)
+    parts.append(assign(band, "window"))
+    link(band, col)
+
     return parts
 
 
@@ -346,6 +373,32 @@ def build_harbour(col):
              (math.cos(angle) * (HUB_RADIUS + 9.0),
               math.sin(angle) * (HUB_RADIUS + 9.0), HUB_FACE),
              radius=2.0)
+
+    # THE MOUTH HAS TO READ AS A MOUTH. A hole in space has no silhouette, so the
+    # station carries its own: a continuous lit threshold just inside the lip, a
+    # ring of dock floods around the outside of it, and a second ring of floods
+    # inside the bay. The threshold is the one that reads from kilometres out —
+    # a single unbroken circle is unmistakably artificial, where sixteen points
+    # on a dark ring are sixteen points on nothing.
+    threshold = torus("MeridianMouthThreshold", major=HUB_RADIUS - 14.0, minor=2.6,
+                      location=(0, 0, HUB_FACE + 1.0),
+                      major_segments=160, minor_segments=10)
+    parts.append(assign(threshold, "flood"))
+    link(threshold, col)
+
+    for i in range(16):
+        angle = (i * math.tau / 16.0) + (math.pi / 16.0)
+        lamp(col, parts, f"MeridianDockFlood{i}", "flood",
+             (math.cos(angle) * (HUB_RADIUS + 1.0),
+              math.sin(angle) * (HUB_RADIUS + 1.0), HUB_FACE + 4.0),
+             radius=3.6)
+
+    for i in range(16):
+        angle = (i * math.tau / 16.0) + (math.pi / 16.0)
+        lamp(col, parts, f"MeridianBayFlood{i}", "flood",
+             (math.cos(angle) * (HUB_RADIUS - 36.0),
+              math.sin(angle) * (HUB_RADIUS - 36.0), HUB_FACE - 26.0),
+             radius=3.0)
 
     # The berths. Twelve cradles round the wall, each with a power trunk and a
     # pair of guide rails, spaced so a freighter fits between any two.
@@ -734,6 +787,13 @@ def main():
     col = collection("Meridian")
     build_materials()
 
+    # The station's surface is painted plate, not a flat Principled colour. One
+    # tileable grime-and-seam map is multiplied into every non-emissive material,
+    # and the exporter restores each material's own colour beside it — see
+    # pipeline.apply_detail_texture and pipeline._restore_base_colors.
+    apply_detail_texture(
+        MATERIALS, os.path.join(textures_dir(), "hulls", "meridian_detail.png"))
+
     port = build_port(col)
     nose = build_nose(col)
     harbour = build_harbour(col)
@@ -757,6 +817,10 @@ def main():
     for obj in (body, habitat):
         apply_transform(obj, location=True, rotation=True, scale=True)
         shade_smooth_by_angle(obj, math.radians(35))
+
+    # One repeat of the detail map every 18 metres: a station four hundred metres
+    # away should read its plate as plate, not as a texture grid.
+    uv_cube([body, habitat], 18.0)
 
     blend, glb, preview = asset_paths("stations", NAME)
 

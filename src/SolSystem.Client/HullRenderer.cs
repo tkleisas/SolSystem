@@ -110,7 +110,14 @@ internal sealed class HullRenderer : IDisposable
     {
         _effect.View = view;
         _effect.Projection = projection;
-        _effect.DirectionalLight0.Direction = Vector3.Normalize(sunDirection);
+
+        // THE LIGHT'S DIRECTION IS WHERE IT IS GOING, NOT WHERE IT COMES FROM. MonoGame's
+        // BasicEffect shader computes `dot(-lightDirection, normal)`, so it wants the direction
+        // the light travels. The caller passes the direction from the hull towards the Sun; the
+        // negation is the convention change, and it belongs here once rather than at every call
+        // site. With the sign the wrong way round every hull was lit on its far side and read as
+        // a silhouette from the camera, which is a lighting bug that looks like a modelling bug.
+        _effect.DirectionalLight0.Direction = -Vector3.Normalize(sunDirection);
         _effect.DirectionalLight0.DiffuseColor = Vector3.One;
 
         // Blue, because what the Earth reflects is a blue planet's light, and scaled by how big it
@@ -118,7 +125,10 @@ internal sealed class HullRenderer : IDisposable
         if (earthshine > 0.001f && earthDirection.LengthSquared() > 1e-6f)
         {
             _effect.DirectionalLight1.Enabled = true;
-            _effect.DirectionalLight1.Direction = Vector3.Normalize(earthDirection);
+
+            // Earthshine travels from the planet to the hull, so its direction is the negation of
+            // the caller's "towards the Earth" for the same reason as the Sun above.
+            _effect.DirectionalLight1.Direction = -Vector3.Normalize(earthDirection);
             _effect.DirectionalLight1.DiffuseColor = new Vector3(0.42f, 0.52f, 0.72f) * earthshine;
         }
         else
@@ -166,7 +176,7 @@ internal sealed class HullRenderer : IDisposable
 
                 _effect.AmbientLightColor = new Vector3(0.03f);
                 _effect.DiffuseColor = new Vector3(baseColour.X, baseColour.Y, baseColour.Z);
-                _effect.EmissiveColor = material.EmissiveFactor * flash;
+                _effect.EmissiveColor = material.EmissiveFactor * material.EmissiveStrength * flash;
 
                 if (flash > 0.5f)
                 {
@@ -180,7 +190,7 @@ internal sealed class HullRenderer : IDisposable
                 // read as *running* rather than as a model of a hull.
                 _effect.AmbientLightColor = Vector3.Zero;
                 _effect.DiffuseColor = Vector3.Zero;
-                _effect.EmissiveColor = material.EmissiveFactor;
+                _effect.EmissiveColor = material.EmissiveFactor * material.EmissiveStrength;
             }
             else
             {

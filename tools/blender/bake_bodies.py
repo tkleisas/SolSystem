@@ -4,17 +4,19 @@ Bakes the procedural body materials to equirectangular textures.
     blender --background --python tools/blender/bake_bodies.py
 
 The Blender previews and the game client have to agree about what a body looks like, and the way to
-guarantee that is to have one implementation of the material, not two. Three of the bodies — the
-Sun's photosphere, Ceres' cratered surface, and Earth's cloud deck — are procedural shaders that
-exist only inside their .blend files, so the client had nothing to load and drew flat colours.
+guarantee that is to have one implementation of the material, not two. Two of the bodies — the Sun's
+photosphere and Ceres' cratered surface — are procedural shaders that exist only inside their .blend
+files, so the client had nothing to load and drew flat colours.
 
 This bakes exactly those materials, with Blender's own shader, to textures the client can load. The
 pattern is evaluated once here instead of every frame there, and neither pipeline has its own copy
 of the noise.
 
-**What is not baked, and why.** Mars, the Moon, Mercury and Earth's surface are already *mapped* —
-their materials sample an image, so the image is the material and there is nothing to bake. Baking
-them would re-encode a texture as a slightly worse texture.
+**What is not baked, and why.** Mars, the Moon, Mercury, Earth's surface and Earth's cloud deck are
+already *mapped* — their materials sample an image, so the image is the material and there is
+nothing to bake. Baking them would re-encode a texture as a slightly worse texture. The cloud deck
+is the newest of those: it is a real NASA composite carried as the alpha of a white RGBA image, and
+the client composites that alpha directly.
 
 **The UV convention is the client's**, not Blender's default, and it has to be exact or every map is
 flipped or rotated half a turn:
@@ -57,9 +59,6 @@ BAKES = [
     ("mercury", "mercury_surface.png", "diffuse", 2048, 1024),
     ("venus", "venus_surface.png", "diffuse", 2048, 1024),
     ("ceres", "ceres_surface.png", "diffuse", 2048, 1024),
-
-    # Earth's cloud deck is a coverage mask, not a colour: what matters is where the clouds are.
-    ("earth", "earth_clouds.png", "coverage", 2048, 1024),
 ]
 
 # The material to bake, and the object it belongs to.
@@ -70,7 +69,6 @@ TARGETS = {
     "mercury": ("Mercury", "MercurySurface"),
     "venus": ("Venus", "VenusClouds"),
     "ceres": ("Ceres", "CeresRegolith"),
-    "earth": ("EarthClouds", "EarthClouds"),
 }
 
 

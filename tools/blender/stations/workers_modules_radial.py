@@ -40,9 +40,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
-    apply_transform, asset_paths, box, collection, cylinder, export_blend,
-    export_glb, join, lathe, link, material, render_views, reset, ring_of,
-    shade_smooth_by_angle, sphere, torus,
+    apply_detail_texture, apply_transform, asset_paths, box, collection, cylinder,
+    export_blend, export_glb, join, lathe, link, material, render_views, reset,
+    ring_of, shade_smooth_by_angle, sphere, textures_dir, torus, uv_cube,
 )
 
 NAME = "workers_modules_radial"
@@ -73,7 +73,8 @@ def build_materials():
     MATERIALS["warning"] = material(
         "WorkersWarning", (0.55, 0.32, 0.03), metallic=0.3, roughness=0.6)
     MATERIALS["window"] = material(
-        "WorkersWindow", (0.02, 0.025, 0.035), metallic=0.4, roughness=0.15)
+        "WorkersWindow", (0.40, 0.31, 0.19), metallic=0.0, roughness=0.18,
+        emission=(1.0, 0.78, 0.50), emission_strength=1.4)
 
     MATERIALS["nav_red"] = material(
         "WorkersNavRed", (0.55, 0.02, 0.02), metallic=0.0, roughness=0.35,
@@ -336,6 +337,9 @@ def main():
     col = collection("WorkersModulesRadial")
     build_materials()
 
+    apply_detail_texture(
+        MATERIALS, os.path.join(textures_dir(), "hulls", "workers_detail.png"))
+
     station = build_station(col)
     wings = build_wings(col)
     ferry = build_ferry(col)
@@ -348,6 +352,8 @@ def main():
     # all identity -- the client frames assets from transformed AABB corners.
     for obj in (hull, panels, ship):
         apply_transform(obj, location=True, rotation=True, scale=True)
+
+    uv_cube([hull, panels, ship], 8.0)
 
     blend, glb, preview = asset_paths("stations", NAME)
 

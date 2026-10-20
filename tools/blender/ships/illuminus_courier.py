@@ -51,9 +51,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bpy  # noqa: E402
 from mathutils import Matrix, Vector  # noqa: E402
 from pipeline import (  # noqa: E402
-    apply_transform, asset_paths, bevel, box, cylinder, export_blend, export_glb,
-    join, lathe, link, material, collection, render_views, reset,
-    ring_of, shade_smooth_by_angle, sphere, torus,
+    apply_detail_texture, apply_transform, asset_paths, bevel, box, cylinder,
+    export_blend, export_glb, join, lathe, link, material, collection,
+    render_views, reset, ring_of, shade_smooth_by_angle, sphere, textures_dir,
+    torus, uv_cube,
 )
 
 NAME = "illuminus_courier"
@@ -122,6 +123,13 @@ def build_materials():
         "IlluminusHullWorn", (0.62, 0.635, 0.67), metallic=0.6, roughness=0.40)
     MATERIALS["dark"] = material(
         "IlluminusTrim", (0.02, 0.021, 0.024), metallic=0.85, roughness=0.22)
+    # The crew are aboard, and a viewport at four hundred metres is the only thing
+    # on the hull that shows it. Warm, steady, and weak enough to stay a window
+    # rather than a lamp: the navigation lights are the things that are meant to be
+    # found in the dark.
+    MATERIALS["window"] = material(
+        "IlluminusWindow", (0.52, 0.42, 0.28), metallic=0.0, roughness=0.18,
+        emission=(1.0, 0.82, 0.55), emission_strength=1.6)
     MATERIALS["radiator"] = material(
         "IlluminusRadiator", (0.20, 0.21, 0.23), metallic=0.25, roughness=0.55)
     # A radiator at 1 500 K glows dull red, and the emission is deliberately weak. A
@@ -359,7 +367,7 @@ def build_windows(col):
         y = (HULL_RADIUS + 0.01) * math.sin(angle)
         w = box(f"Viewport{i}", (0.9, 0.06, 0.42), location=(x, y, 40.0),
                 rotation=(0, 0, angle + math.pi / 2))
-        assign(w, "dark")
+        assign(w, "window")
         link(w, col)
         windows.append(w)
     return windows
@@ -605,6 +613,13 @@ def main():
     col = collection("IlluminusCourier")
     build_materials()
 
+    # The Cathedral finish is smooth, so its detail map is restrained: faint weld
+    # seams, a rivet line, brushed metal and a few handling scratches. The map is
+    # multiplied into every non-emissive material and the colour is restored on
+    # export, so the polished steel stays polished and the dark trim stays dark.
+    apply_detail_texture(
+        MATERIALS, os.path.join(textures_dir(), "hulls", "illuminus_detail.png"))
+
     hull = build_hull(col)
     rings = build_rings(col)
     keel = build_keel(col)
@@ -637,6 +652,10 @@ def main():
     # nose is.
     for obj in (hull_parts, drive, panels):
         apply_transform(obj, location=True, rotation=True, scale=True)
+
+    # A six-metre tile: a 55 m hull carries about nine repeats of the plate, so the
+    # seams read at the range a chase camera actually sits at.
+    uv_cube([hull_parts, drive, panels], 6.0)
 
     blend, glb, preview = asset_paths("ships", NAME)
 

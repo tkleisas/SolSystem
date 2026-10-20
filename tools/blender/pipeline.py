@@ -13,8 +13,10 @@ Run headless:
     blender --background --python tools/blender/ships/illuminus_courier.py
 """
 
+import json
 import math
 import os
+import struct
 import sys
 
 import bpy
@@ -27,6 +29,9 @@ from mathutils import Vector, Matrix
 def reset():
     """An empty scene. Always called first, so a run never inherits anything."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    MATERIAL_COLORS.clear()
+    MATERIAL_EMISSIVE.clear()
+    TEXTURED_MATERIALS.clear()
     scene = bpy.context.scene
     scene.unit_settings.system = 'METRIC'
     scene.unit_settings.scale_length = 1.0
@@ -51,6 +56,15 @@ def link(obj, col):
 
 
 # --------------------------------------------------------------------------- materials
+
+# The colours and emissive materials the current build has created. The exporter
+# needs both: the colour is restored as `baseColorFactor` after a detail texture
+# has been multiplied in, and an emissive material is one the detail map must not
+# touch — a seam across a lamp is a seam across the thing that is supposed to be
+# the brightest object on the hull.
+MATERIAL_COLORS = {}
+MATERIAL_EMISSIVE = set()
+TEXTURED_MATERIALS = set()
 
 
 def material(name, base_color, metallic=0.0, roughness=0.5, emission=None,
@@ -85,7 +99,97 @@ def material(name, base_color, metallic=0.0, roughness=0.5, emission=None,
     if alpha < 1.0:
         mat.blend_method = 'BLEND'
 
+    MATERIAL_COLORS[name] = tuple(float(c) for c in base_color)
+    if emission is not None and emission_strength > 0.0:
+        MATERIAL_EMISSIVE.add(name)
+
     return mat
+
+
+def apply_detail_texture(materials, image_path):
+    """
+    Multiplies one tileable detail map into every non-emissive material.
+
+    The map is grayscale and the material's own colour is restored beside it, so a
+    white hull and a dark trim take the same seams and stay the colours they were
+    authored. The multiply is what the preview renders; the exporter cannot carry
+    the colour through a Mix node, so `export_glb` writes the factor back into the
+    glTF after export. That is the one seam in this design, and it is patched in
+    one place rather than in every asset script.
+    """
+    if not os.path.exists(image_path):
+        print(f"  note: no detail map at {image_path}; hulls stay flat")
+        return
+
+    image = bpy.data.images.load(image_path)
+    image.colorspace_settings.name = 'sRGB'
+
+    for mat in materials.values():
+        if mat.name in MATERIAL_EMISSIVE or mat.name in TEXTURED_MATERIALS:
+            continue
+
+        # A radiator is a flat engineered panel, not a plate of hull. The Workers
+        # detail map's replacement-panel patches read as a checkerboard when tiled
+        # across a 78 m blanket, and a radiator's own panel segmentation is already
+        # modelled. Leave it to its material colour.
+        if "Radiator" in mat.name:
+            continue
+
+        tree = mat.node_tree
+        bsdf = tree.nodes.get("Principled BSDF")
+        if bsdf is None or "Base Color" not in bsdf.inputs:
+            continue
+
+        texture = tree.nodes.new('ShaderNodeTexImage')
+        texture.image = image
+        texture.interpolation = 'Linear'
+        texture.extension = 'REPEAT'
+        texture.location = (-700, 260)
+
+        rgb = tree.nodes.new('ShaderNodeRGB')
+        colour = MATERIAL_COLORS.get(mat.name, (0.8, 0.8, 0.8))
+        rgb.outputs[0].default_value = (*colour, 1.0)
+        rgb.location = (-700, 60)
+
+        mix = tree.nodes.new('ShaderNodeMixRGB')
+        mix.blend_type = 'MULTIPLY'
+        mix.inputs[0].default_value = 1.0
+        mix.location = (-420, 160)
+
+        base = bsdf.inputs["Base Color"]
+        for link in list(base.links):
+            tree.links.remove(link)
+
+        tree.links.new(texture.outputs["Color"], mix.inputs[1])
+        tree.links.new(rgb.outputs[0], mix.inputs[2])
+        tree.links.new(mix.outputs[0], base)
+        TEXTURED_MATERIALS.add(mat.name)
+
+
+def uv_cube(objects, metres):
+    """
+    Box-project the UVs of the given meshes at a fixed world scale.
+
+    The detail map is tileable, so what matters is not an atlas but a consistent
+    physical size for one tile: `metres` is how much hull one repeat covers. A
+    four-metre tile puts a seam every four metres whatever the object's size,
+    which is the property a tiled plate map needs and an unwrap does not have.
+    """
+    for obj in objects:
+        if obj is None or obj.type != 'MESH':
+            continue
+
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        if not obj.data.uv_layers:
+            obj.data.uv_layers.new(name="UVMap")
+        bpy.ops.uv.cube_project(cube_size=float(metres), correct_aspect=True,
+                                scale_to_bounds=False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj.select_set(False)
 
 
 # --------------------------------------------------------------------------- primitives
@@ -297,7 +401,77 @@ def export_glb(path, name):
         export_apply=True,
         export_yup=True,
     )
+    _restore_base_colors(path)
     print(f"  glb     -> {path}")
+
+
+def _restore_base_colors(path):
+    """
+    Puts the material colour back into the glTF after a detail map was multiplied in.
+
+    Blender's glTF exporter recognises an image texture linked to Base Color, but not
+    a MULTIPLY node between that texture and the colour: it writes the texture and
+    drops the factor. The preview needs the multiply, and the client needs the
+    factor, so the exporter's JSON is corrected here. A file exported without detail
+    maps has an empty `TEXTURED_MATERIALS` and is left untouched.
+    """
+    if not TEXTURED_MATERIALS or not os.path.exists(path):
+        return
+
+    with open(path, 'rb') as handle:
+        data = handle.read()
+
+    if len(data) < 12:
+        return
+
+    magic, version, _ = struct.unpack_from('<III', data, 0)
+    if magic != 0x46546C67 or version != 2:
+        return
+
+    chunks = []
+    at = 12
+    while at + 8 <= len(data):
+        length, kind = struct.unpack_from('<II', data, at)
+        body = data[at + 8:at + 8 + length]
+        chunks.append((kind, body))
+        at += 8 + length
+
+    patched = 0
+    output = []
+
+    for kind, body in chunks:
+        if kind == 0x4E4F534A:
+            root = json.loads(body.decode('utf-8').rstrip('\x00 '))
+            for entry in root.get('materials', []):
+                material_name = entry.get('name')
+                if material_name not in TEXTURED_MATERIALS:
+                    continue
+
+                pbr = entry.get('pbrMetallicRoughness')
+                if not pbr or 'baseColorTexture' not in pbr:
+                    continue
+
+                colour = MATERIAL_COLORS.get(material_name)
+                if colour is None:
+                    continue
+
+                pbr['baseColorFactor'] = [colour[0], colour[1], colour[2], 1.0]
+                patched += 1
+
+            body = json.dumps(root, separators=(',', ':')).encode('utf-8')
+            body += b' ' * ((4 - (len(body) % 4)) % 4)
+
+        output.append((kind, body))
+
+    total = 12 + sum(8 + len(body) for _, body in output)
+    with open(path, 'wb') as handle:
+        handle.write(struct.pack('<III', 0x46546C67, 2, total))
+        for kind, body in output:
+            handle.write(struct.pack('<II', len(body), kind))
+            handle.write(body)
+
+    if patched:
+        print(f"  colour  -> {patched} textured material(s) kept their base colour")
 
 
 def export_blend(path):

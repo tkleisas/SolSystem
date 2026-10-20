@@ -45,9 +45,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bpy  # noqa: E402
 from pipeline import (  # noqa: E402
-    apply_transform, asset_paths, box, collection, cylinder, export_blend, export_glb,
-    join, lathe, link, material, render_views, reset, ring_of,
-    shade_smooth_by_angle, sphere, torus,
+    apply_detail_texture, apply_transform, asset_paths, box, collection, cylinder,
+    export_blend, export_glb, join, lathe, link, material, render_views, reset,
+    ring_of, shade_smooth_by_angle, sphere, textures_dir, torus, uv_cube,
 )
 
 NAME = "workers_freighter"
@@ -126,8 +126,12 @@ def build_materials():
         "WorkersPlumbing", (0.26, 0.265, 0.28), metallic=0.9, roughness=0.45)
     MATERIALS["warning"] = material(
         "WorkersWarning", (0.55, 0.32, 0.03), metallic=0.3, roughness=0.6)
+    # A working ship has people on it. The windows are warm and weak, because a
+    # crewed hull's window is not a lamp — but at two hundred metres it is the one
+    # thing that says the ship is inhabited rather than a cargo container.
     MATERIALS["window"] = material(
-        "WorkersWindow", (0.02, 0.025, 0.035), metallic=0.4, roughness=0.15)
+        "WorkersWindow", (0.40, 0.31, 0.19), metallic=0.0, roughness=0.18,
+        emission=(1.0, 0.78, 0.50), emission_strength=1.4)
 
     # ---------------------------------------------------------------- navigation lights
     #
@@ -594,6 +598,13 @@ def main():
     col = collection("WorkersFreighter")
     build_materials()
 
+    # A maintained ship is not a uniform one: the detail map carries the patch
+    # panels, chipped paint, rust streaks and plate seams that the design asks for,
+    # and the material colours are restored on export so the warning stripes and
+    # the newer panels keep their own paint.
+    apply_detail_texture(
+        MATERIALS, os.path.join(textures_dir(), "hulls", "workers_detail.png"))
+
     engine = build_engine(col)
     truss = build_truss(col, "MainTruss", TRUSS_BOTTOM, TRUSS_TOP, TRUSS_HALF)
     handrails = build_handrails(col)
@@ -621,6 +632,10 @@ def main():
     # nothing is lost by baking them.
     for obj in (hull_parts, drive, panels):
         apply_transform(obj, location=True, rotation=True, scale=True)
+
+    # An eight-metre tile on a 143 m hull: the plate seams are broad enough to read
+    # at the range a freighter is inspected from, which is further than a courier.
+    uv_cube([hull_parts, drive, panels], 8.0)
 
     blend, glb, preview = asset_paths("ships", NAME)
 
