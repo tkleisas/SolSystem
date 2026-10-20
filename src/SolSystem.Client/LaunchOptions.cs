@@ -120,6 +120,12 @@ internal sealed class LaunchOptions
     /// <summary>Open the chart at startup, and optionally select a body.</summary>
     internal bool Chart { get; private set; }
 
+    /// <summary>Start at the home station's port instead of four hundred metres down the corridor.</summary>
+    internal bool StartDocked { get; private set; }
+
+    /// <summary>Open the home market on the first frame. Implies <see cref="StartDocked"/>.</summary>
+    internal bool OpenMarket { get; private set; }
+
     /// <summary>Which body to select on the chart, by name.</summary>
     internal string Destination { get; private set; } = string.Empty;
 
@@ -193,6 +199,8 @@ internal sealed class LaunchOptions
           --camera <mode>      chase, orbit, cockpit or port (default chase)
           --throttle <0-1>     start with the engine lit, for rendering the plume
           --chart              open the solar-system chart
+          --docked             start docked at the home port
+          --market             start docked with the home market open
           --destination <name> select a body on the chart, e.g. Mars
           --mute               run without the narrator
           --narrator-voice <name>  built-in voice preset (default Bella)
@@ -256,6 +264,15 @@ internal sealed class LaunchOptions
 
                 case "--chart":
                     options.Chart = true;
+                    break;
+
+                case "--docked":
+                    options.StartDocked = true;
+                    break;
+
+                case "--market":
+                    options.StartDocked = true;
+                    options.OpenMarket = true;
                     break;
 
                 case "--destination":

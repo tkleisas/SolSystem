@@ -47,6 +47,17 @@ and the ship clamps it, so:
 Half a minute of turning, during which the engine is useless because it points the wrong way. That
 is the single most important number on this list: **slowing down means turning round first.**
 
+### At a docked port
+
+| Key | What it does exactly |
+|---|---|
+| `T` | Open or close the market. It only opens when the docking law says the ship is at the port. |
+| `1` / `2` | Select the good. |
+| `B` / `S` | Buy or sell one tonne. |
+| `F` | Load ten tonnes of fuel, limited by the tank. |
+
+The market has the keyboard while it is open; the engine is shut, but the clock still runs.
+
 **Full throttle is four milligee** — 0.0393 m/s², because the drive is limited by what the radiator
 can reject rather than by what the engine could produce:
 
@@ -208,8 +219,24 @@ panel, the nav marker, the corridor gates, the approach and the mission now meas
 
 The contract pays 12,000 credits for medical supplies delivered within two hours. The deadline
 is the session clock, the credits are on the panel, and the docking law at the target is the
-same one the probe flies at the home. There is no market yet; this is the first loop, not the
-economy.
+same one the probe flies at the home.
+
+## The first economy
+
+The pilot starts with **3,000 credits**. The contract's five tonnes of medical supplies are in
+the hold from the first frame, and the hold is part of the ship's mass: five tonnes of cargo is
+five tonnes less acceleration for the whole run. Delivery pays 12,000 credits and charges the
+fuel burned at the home port's price — 250 credits a tonne — and the settlement line says both.
+
+The market opens at a **docked** port with `T`; the start is four hundred metres down the
+corridor, so the first thing a trader does is dock. Meridian sells machine parts at 2,000 and
+buys water at 100; the waystation sells water at 300 and buys machine parts at 3,200. Carry
+parts out and water back and the run pays before the contract does. The hold is 20 t, every
+purchase and sale moves the ship's mass, and `F` loads ten tonnes of fuel at the local price
+(limited by the tank).
+
+`--docked` starts at the port and `--market` starts there with the market open, which is how the
+market preview is rendered.
 
 ## The narrator
 

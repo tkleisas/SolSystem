@@ -13,18 +13,22 @@ namespace SolSystem.Client;
 internal sealed class Contract
 {
     internal Contract(string name, string cargo, string destination, double deadlineJulianDate,
-        double payout)
+        double payout, double cargoTonnes = 5.0)
     {
         Name = name;
         Cargo = cargo;
         Destination = destination;
         DeadlineJulianDate = deadlineJulianDate;
         Payout = payout;
+        CargoTonnes = cargoTonnes;
     }
 
     internal string Name { get; }
 
     internal string Cargo { get; }
+
+    /// <summary>Tonnes of <see cref="Cargo"/> loaded at the start and handed over on delivery.</summary>
+    internal double CargoTonnes { get; }
 
     internal string Destination { get; }
 
@@ -76,6 +80,47 @@ internal sealed class Contract
         }
 
         Failed = true;
+        return true;
+    }
+
+    private bool _settled;
+
+    /// <summary>
+    /// Settles a completed delivery: hands over the cargo, banks the payout and charges the fuel.
+    /// </summary>
+    /// <remarks>
+    /// The fuel is charged at the price the pilot filled up at, which is the home station's; the
+    /// contract itself does not know prices, so the caller passes the rate. Returns false if the
+    /// contract is not completed or has already been settled, and changes nothing in that case.
+    /// </remarks>
+    internal bool SettleDelivery(Ledger ledger, CargoHold hold, double fuelUsedTonnes,
+        double fuelPricePerTonne)
+    {
+        if (!Completed || _settled)
+        {
+            return false;
+        }
+
+        _settled = true;
+        hold.TryRemove(Cargo, CargoTonnes);
+
+        double fuelCost = Math.Max(0.0, fuelUsedTonnes) * fuelPricePerTonne;
+        ledger.Credit(Payout, $"{Name} delivered");
+        ledger.TrySpend(fuelCost, $"fuel used {fuelUsedTonnes:F2} t");
+        return true;
+    }
+
+    /// <summary>Settles an expired contract: charges the fuel it burned and leaves the cargo aboard.</summary>
+    internal bool SettleFailure(Ledger ledger, double fuelUsedTonnes, double fuelPricePerTonne)
+    {
+        if (!Failed || _settled)
+        {
+            return false;
+        }
+
+        _settled = true;
+        double fuelCost = Math.Max(0.0, fuelUsedTonnes) * fuelPricePerTonne;
+        ledger.TrySpend(fuelCost, $"fuel used {fuelUsedTonnes:F2} t");
         return true;
     }
 

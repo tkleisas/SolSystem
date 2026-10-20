@@ -119,6 +119,11 @@ winter site's noon is measured, the summer one is a screenshot.
   not the screen up when the camera is pitched; `Camera.Build` returns the orthogonalised
   up, and `NavOverlay`/`SkyRenderer` must use it. The Sun is a screen-space quad for the
   same reason — a world-space billboard projects as a trapezoid off-axis.
+* **The hold is part of the ship's mass.** A tonne bought at the market is a tonne of dry mass:
+  `FlightGame.SyncShipMass` sets `Mass = hull + hold + propellant` after every trade, refuel and
+  delivery. The contract cargo is loaded at the start and removed only by `Contract.SettleDelivery`;
+  a failed run leaves it aboard. The market opens only when the docking law says the ship is at
+  the port, and the ship's controls are suppressed while it is open.
 * **The second site is co-orbital, not another world.** The target is a
   `Station.CoOrbital` of Meridian, a milliradian ahead — 6.8 km, 7.7 m/s of relative drift.
   The home station stays the observer anchor and the ship's start; the target owns the

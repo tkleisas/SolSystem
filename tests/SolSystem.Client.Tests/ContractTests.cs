@@ -53,4 +53,35 @@ public class ContractTests
         Assert.False(contract.TryComplete(Deadline - 0.001));
         Assert.Equal(12_000.0, contract.Credits, 3);
     }
+
+    [Fact]
+    public void SettlingADeliveryPaysThePayoutAndRemovesTheCargo()
+    {
+        Contract contract = Make();
+        var ledger = new Ledger(3_000.0);
+        var hold = new CargoHold();
+        Assert.True(hold.TryAdd(contract.Cargo, contract.CargoTonnes));
+        Assert.True(contract.TryComplete(Deadline - 0.001));
+
+        Assert.True(contract.SettleDelivery(ledger, hold, 2.0, 250.0));
+
+        Assert.Equal(3_000.0 + 12_000.0 - (2.0 * 250.0), ledger.Credits, 3);
+        Assert.Equal(0.0, hold.TonnesOf(contract.Cargo), 9);
+        Assert.False(contract.SettleDelivery(ledger, hold, 2.0, 250.0));
+    }
+
+    [Fact]
+    public void SettlingAFailureChargesFuelAndLeavesTheCargo()
+    {
+        Contract contract = Make();
+        var ledger = new Ledger(3_000.0);
+        var hold = new CargoHold();
+        Assert.True(hold.TryAdd(contract.Cargo, contract.CargoTonnes));
+        Assert.True(contract.CheckDeadline(Deadline + 0.001));
+
+        Assert.True(contract.SettleFailure(ledger, 2.0, 250.0));
+
+        Assert.Equal(3_000.0 - (2.0 * 250.0), ledger.Credits, 3);
+        Assert.Equal(contract.CargoTonnes, hold.TonnesOf(contract.Cargo), 9);
+    }
 }

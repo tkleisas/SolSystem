@@ -1165,10 +1165,12 @@ rescues it.**
 - [ ] The two drives, and the cost table that makes them different
 
 The first slice is in the client: a co-orbital Workers waystation a milliradian ahead of
-Meridian, and a two-hour cargo contract that pays 12,000 credits on docking. It has the
-target plumbing — the home station is the anchor, the target owns the approach and the nav —
-but not the market, the ledger's sources and sinks, the strategic view, or a real transfer
-to a second orbit.
+Meridian, a two-hour cargo contract that pays 12,000 credits on docking, and a first economy
+behind it. The pilot starts with 3,000 credits; the contract's five tonnes are part of the
+ship's mass; delivery pays the contract and charges the fuel burned at 250 credits a tonne.
+Meridian and the waystation trade machine parts and water at opposite prices, the hold is 20 t,
+and every trade moves the ship's mass. What is still open is the market that moves, the
+ledger's other sources and sinks, the strategic view, and a real transfer to a second orbit.
 
 ### Phase 2 — one moon system (weeks 11–20)
 

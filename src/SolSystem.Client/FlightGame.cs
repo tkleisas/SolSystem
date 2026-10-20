@@ -76,6 +76,14 @@ internal sealed class FlightGame : Game, IControllerTarget
     private ChartScreen _chartScreen = null!;
     private Narrator? _narrator;
     private Contract _contract = null!;
+    private Ledger _ledger = null!;
+    private CargoHold _cargo = null!;
+    private Market? _market;
+    private MarketScreen _marketScreen = null!;
+    private bool _marketOpen;
+    private int _marketSelected;
+    private double _hullDryMass;
+    private double _fuelAtStart;
     private readonly CommLog _commLog = new();
     private Texture2D _sharedPixel = null!;
     private SpriteFont _sharedFont = null!;
@@ -289,9 +297,13 @@ internal sealed class FlightGame : Game, IControllerTarget
         // were there: two and a half BILLION metres per second squared, and by the time anyone looked
         // at the display the ship was ten thousand kilometres a second and most of a million
         // kilometres away, which is what the range readout was showing.
+        Fix128Vec startPosition = _options.StartDocked
+            ? _session.Station.Port.Position
+            : _session.Station.Port.Position
+                + (_session.Station.Port.Axis * Fix128.FromDouble(_options.Standoff));
+
         _flight = new Flight(Hulls.Courier(
-            _session.Station.Port.Position
-                + (_session.Station.Port.Axis * Fix128.FromDouble(_options.Standoff)),
+            startPosition,
             _session.Station.Velocity,
             FacingAlong(-_session.Station.Port.Axis)));
 
@@ -305,6 +317,16 @@ internal sealed class FlightGame : Game, IControllerTarget
             _session.Target.Name,
             _session.JulianDate + (2.0 * 3600.0 / 86400.0),
             12_000.0);
+
+        // The contract cargo is loaded at the start. The hull's dry mass is read before it goes
+        // aboard, so the hold is part of the ship's mass from the first frame; a tonne of medical
+        // supplies costs exactly as much acceleration as a tonne of anything else.
+        _hullDryMass = _flight.Ship.DryMass.ToDouble();
+        _ledger = new Ledger();
+        _cargo = new CargoHold();
+        _cargo.TryAdd(_contract.Cargo, _contract.CargoTonnes);
+        SyncShipMass();
+        _fuelAtStart = _flight.Ship.Propellant.ToDouble();
 
         if (_options.Hold.Length > 0)
         {
@@ -338,8 +360,14 @@ internal sealed class FlightGame : Game, IControllerTarget
         // screen owns the chart's own drawing state. A destination on the command line is selected
         // here, after the chart exists to hold it.
         _panel = new FlightPanel(GraphicsDevice, _sprites, pixel, hud, _session, _flight,
-            _camera, _hulls, _contract);
+            _camera, _hulls, _contract, _ledger, _cargo);
         _chartScreen = new ChartScreen(GraphicsDevice, _sprites, hud);
+        _marketScreen = new MarketScreen(GraphicsDevice, _sprites, pixel, hud);
+
+        if (_options.OpenMarket)
+        {
+            ToggleMarket();
+        }
         _narrator = Narrator.Start(_options);
 
         if (_options.MissionFile.Length > 0)
@@ -354,7 +382,8 @@ internal sealed class FlightGame : Game, IControllerTarget
         _sharedFont = hud;
 
         Notice($"Contract: carry {_contract.Cargo} to {_contract.Destination}; due in "
-            + $"{_contract.Status(_session.JulianDate)}. {_contract.Payout:N0} credits on delivery.");
+            + $"{_contract.Status(_session.JulianDate)}. {_contract.Payout:N0} credits on delivery. "
+            + $"{_contract.CargoTonnes:F0} t is aboard; the tank holds {_fuelAtStart:F0} t.");
 
         if (_options.ControllerPort > 0)
         {
@@ -380,6 +409,11 @@ internal sealed class FlightGame : Game, IControllerTarget
             _chartOpen = !_chartOpen;
         }
 
+        if (JustPressed(keys, Keys.T))
+        {
+            ToggleMarket();
+        }
+
         // The time compression, read here rather than inside the interactive path, so that a
         // headless run can be told to hold Up and the ladder can be checked. It could not be,
         // before, and an untestable control is an unverified one. With the chart open the keys
@@ -387,6 +421,8 @@ internal sealed class FlightGame : Game, IControllerTarget
         // both the clock and the course cursor was two controls on one keypress.
         if (_chartOpen)
         {
+            _marketOpen = false;
+
             // ENTER with a destination selected hands the controls over. The chart owns the
             // course list and the cursor; it hands back the decision, and the flight side
             // carries it out.
@@ -401,7 +437,14 @@ internal sealed class FlightGame : Game, IControllerTarget
             ReadTimeCompression(keys);
         }
 
-        if (_controller is not null)
+        if (_marketOpen)
+        {
+            // The market has the keyboard. The ship is docked, the engine is shut, and the clock
+            // still runs: a trade is a decision, not a pause.
+            ReadMarket(keys);
+            Simulate(gameTime, default);
+        }
+        else if (_controller is not null)
         {
             UpdateDriven(keys, mouse);
         }
@@ -472,6 +515,123 @@ internal sealed class FlightGame : Game, IControllerTarget
     }
 
     /// <summary>
+    /// Keeps the ship's mass equal to the hull, the hold and the tank.
+    /// </summary>
+    private void SyncShipMass()
+    {
+        _flight.Ship.Mass =
+            Fix128.FromDouble(_hullDryMass + _cargo.MassTonnes) + _flight.Ship.Propellant;
+    }
+
+    private (Station Station, DockingReport Report) DockedStation()
+    {
+        DockingReport home = Docking.Evaluate(
+            _flight.Ship, _session.Station.Port, _session.Station.Velocity);
+
+        if (home.Docked)
+        {
+            return (_session.Station, home);
+        }
+
+        return (_session.Target, Docking.Evaluate(
+            _flight.Ship, _session.Target.Port, _session.Target.Velocity));
+    }
+
+    /// <summary>Opens or closes the market at whichever port the ship is docked to.</summary>
+    private void ToggleMarket()
+    {
+        if (_marketOpen)
+        {
+            _marketOpen = false;
+            return;
+        }
+
+        (Station station, DockingReport report) = DockedStation();
+        if (!report.Docked)
+        {
+            Notice("The market opens at a docked port.");
+            return;
+        }
+
+        _chartOpen = false;
+        _market = Market.For(station.Name);
+        _marketSelected = 0;
+        _marketOpen = true;
+
+        // A trade is made at rest. Shutting the engine keeps the ship from drifting off the port
+        // while the pilot is reading a price list.
+        _flight.SetThrottle(0.0);
+        _helm = default;
+    }
+
+    /// <summary>Reads the market's keys: select, buy, sell, refuel.</summary>
+    private void ReadMarket(KeyboardState keys)
+    {
+        if (_market is null)
+        {
+            _marketOpen = false;
+            return;
+        }
+
+        if (JustPressed(keys, Keys.Escape))
+        {
+            _marketOpen = false;
+            return;
+        }
+
+        if (JustPressed(keys, Keys.D1))
+        {
+            _marketSelected = 0;
+        }
+
+        if (JustPressed(keys, Keys.D2))
+        {
+            _marketSelected = Math.Min(1, _market.Goods.Count - 1);
+        }
+
+        if (JustPressed(keys, Keys.B))
+        {
+            MarketGood good = _market.Goods[_marketSelected];
+            if (_market.TryBuy(_marketSelected, _cargo, _ledger, ref _flight.Ship))
+            {
+                SyncShipMass();
+                Notice($"Bought 1 t {good.Name.ToLowerInvariant()} for {good.BuyPrice:N0} credits.");
+            }
+            else
+            {
+                Notice("The market refused: not enough credits or hold space.");
+            }
+        }
+
+        if (JustPressed(keys, Keys.S))
+        {
+            MarketGood good = _market.Goods[_marketSelected];
+            if (_market.TrySell(_marketSelected, _cargo, _ledger, ref _flight.Ship))
+            {
+                SyncShipMass();
+                Notice($"Sold 1 t {good.Name.ToLowerInvariant()} for {good.SellPrice:N0} credits.");
+            }
+            else
+            {
+                Notice("There is none of that in the hold.");
+            }
+        }
+
+        if (JustPressed(keys, Keys.F))
+        {
+            if (_market.TryRefuel(_fuelAtStart, _ledger, ref _flight.Ship))
+            {
+                SyncShipMass();
+                Notice($"Fuel loaded: {_flight.Ship.Propellant:F1} t in the tank.");
+            }
+            else
+            {
+                Notice("The tank is full or the credits are short.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Completes or expires the contract. The docking check is the same law the mission sees.
     /// </summary>
     private void UpdateContract()
@@ -483,7 +643,13 @@ internal sealed class FlightGame : Game, IControllerTarget
 
         if (_contract.CheckDeadline(_session.JulianDate))
         {
-            Notice($"{_contract.Name} expired: {_contract.Destination} was not reached in time.");
+            double fuelUsed = FuelUsed();
+            double fuelPrice = Market.For(_session.Station.Name).FuelPrice;
+            _contract.SettleFailure(_ledger, fuelUsed, fuelPrice);
+
+            Notice($"{_contract.Name} expired: {_contract.Destination} was not reached in time. "
+                + $"Fuel cost {(fuelUsed * fuelPrice):N0}; balance {_ledger.Credits:N0}; "
+                + "the cargo is still aboard.");
             return;
         }
 
@@ -492,10 +658,18 @@ internal sealed class FlightGame : Game, IControllerTarget
 
         if (report.Docked && _contract.TryComplete(_session.JulianDate))
         {
+            double fuelUsed = FuelUsed();
+            double fuelPrice = Market.For(_session.Station.Name).FuelPrice;
+            _contract.SettleDelivery(_ledger, _cargo, fuelUsed, fuelPrice);
+            SyncShipMass();
+
             Notice($"Docked at {_contract.Destination}. {_contract.Cargo} delivered. "
-                + $"{_contract.Payout:N0} credits banked.");
+                + $"{_contract.Payout:N0} credits; {fuelUsed:F2} t of fuel "
+                + $"({fuelUsed * fuelPrice:N0}); balance {_ledger.Credits:N0}.");
         }
     }
+
+    private double FuelUsed() => Math.Max(0.0, _fuelAtStart - _flight.Ship.Propellant.ToDouble());
 
     /// <summary>
     /// Says something through the voice if there is one, and in the terminal if there is not.
@@ -1179,6 +1353,11 @@ internal sealed class FlightGame : Game, IControllerTarget
                 GraphicsDevice.Viewport.Width - 420,
                 GraphicsDevice.Viewport.Height - (6 * 21 + 16),
                 420, 6 * 21 + 16));
+        }
+
+        if (_marketOpen && _market is not null)
+        {
+            _marketScreen.Draw(_market, _cargo, _ledger, _flight, _marketSelected);
         }
 
         FinishFrame(target, gameTime);

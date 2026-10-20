@@ -38,6 +38,8 @@ internal sealed class FlightPanel
     private readonly Camera _camera;
     private readonly HullRenderer _hulls;
     private readonly Contract _contract;
+    private readonly Ledger _ledger;
+    private readonly CargoHold _cargo;
 
     internal FlightPanel(
         GraphicsDevice device,
@@ -48,7 +50,9 @@ internal sealed class FlightPanel
         Flight flight,
         Camera camera,
         HullRenderer hulls,
-        Contract contract)
+        Contract contract,
+        Ledger ledger,
+        CargoHold cargo)
     {
         _device = device;
         _sprites = sprites;
@@ -59,6 +63,8 @@ internal sealed class FlightPanel
         _camera = camera;
         _hulls = hulls;
         _contract = contract;
+        _ledger = ledger;
+        _cargo = cargo;
     }
 
     /// <summary>Draws the frame furniture and the flight panel.</summary>
@@ -165,7 +171,12 @@ internal sealed class FlightPanel
         _sprites.DrawString(_font, $"DUE        {_contract.Status(_session.JulianDate),10}", at,
             dueInk);
         at.Y += FlightUi.Line;
-        _sprites.DrawString(_font, $"CREDITS    {_contract.Credits,10:N0}", at, ink);
+        _sprites.DrawString(_font, $"CREDITS    {_ledger.Credits,10:N0}", at, ink);
+        at.Y += FlightUi.Line;
+        _sprites.DrawString(_font,
+            $"CARGO      {_cargo.MassTonnes,5:F1} / {CargoHold.CapacityTonnes:F0} t", at, dim);
+        at.Y += FlightUi.Line;
+        _sprites.DrawString(_font, $"MASS       {_flight.Ship.Mass.ToDouble(),10:F1} t", at, ink);
         at.Y += FlightUi.Line * 1.6f;
 
         // Delta-v first among the propellant figures, and deliberately: it is the one that decides
