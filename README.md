@@ -38,6 +38,7 @@ cloud hives — are in **`docs/SETTING.md`**.
 
 The propellant and energy budgets behind that — what a trip costs in delta-v, fuel mass,
 and the energy to *make* the fuel — are worked through in `docs/TRIP-ENERGY.md`. The
+resource model behind the market, the food and the waste loop is `docs/ECONOMY.md`. The
 headline: antimatter beats deuterium 500× on energy density and loses by 10¹⁸ on production
 cost, so antimatter is a strategic fuel rather than a general one, and the collector fields
 that make it are the size of a country.
@@ -105,7 +106,7 @@ restore never needs to write outside the repository.
 | `src/SolSystem.Probe` | The headless probe harness: runs a text script against a live world and writes a diffable transcript. |
 | `src/SolSystem.Spike` | The Phase 0 numerics experiment. Not shipped; it is the evidence. |
 | `tests/SolSystem.Core.Tests` | Checked against independent references, not hand-computed values. |
-| `docs/` | The spike report, the transit and energy analysis, and the setting. |
+| `docs/` | The spike report, the transit and energy analysis, the economy model, and the setting. |
 | `tools/` | Probe scripts, the sky and body packers, and the Blender model pipeline. |
 
 ## Why the tests look the way they do
