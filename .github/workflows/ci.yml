@@ -28,6 +28,6 @@ jobs:
       # so no Wine and no Windows SDK anywhere.
       - run: dotnet build -c Release
 
-      # 243 fixed-point, orbit, sky and docking tests. --no-build: the build
-      # above already did the work.
+      # The fixed-point, orbit, sky, docking and client-instrument tests. --no-build:
+      # the build above already did the work.
       - run: dotnet test -c Release --no-build

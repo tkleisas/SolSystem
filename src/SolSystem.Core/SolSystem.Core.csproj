@@ -10,6 +10,7 @@
     <InternalsVisibleTo Include="SolSystem.Spike" />
     <InternalsVisibleTo Include="SolSystem.Probe" />
     <InternalsVisibleTo Include="SolSystem.Client" />
+    <InternalsVisibleTo Include="SolSystem.Client.Tests" />
   </ItemGroup>
 
 </Project>

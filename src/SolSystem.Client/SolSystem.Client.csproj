@@ -33,6 +33,13 @@
     <ProjectReference Include="../SolSystem.Speech/SolSystem.Speech.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The client's instruments are pure enough to test without a graphics device: the camera
+         basis, the body cull, and the terminal's typed pace. The test project is the only reason
+         this is visible outside the assembly. -->
+    <InternalsVisibleTo Include="SolSystem.Client.Tests" />
+  </ItemGroup>
+
   <!--
     The effect compiles ahead of the content build with ShadowDuskCLI — HLSL through DXC
     and SPIRV-Cross straight to GLSL, every native binary shipped for every desktop
