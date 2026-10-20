@@ -123,6 +123,9 @@ internal sealed class LaunchOptions
     /// <summary>Open the local strategic map at startup.</summary>
     internal bool Local { get; private set; }
 
+    /// <summary>Which drive the courier is built around.</summary>
+    internal Drive Drive { get; private set; } = Drive.Illuminus;
+
     /// <summary>Start at the home station's port instead of four hundred metres down the corridor.</summary>
     internal bool StartDocked { get; private set; }
 
@@ -203,6 +206,7 @@ internal sealed class LaunchOptions
           --throttle <0-1>     start with the engine lit, for rendering the plume
           --chart              open the solar-system chart
           --local              open the local strategic map
+          --drive <name>       workers (efficient) or illuminus (fast), default illuminus
           --docked             start docked at the home port
           --market             start docked with the home market open
           --destination <name> select a body on the chart, e.g. Mars
@@ -272,6 +276,17 @@ internal sealed class LaunchOptions
 
                 case "--local":
                     options.Local = true;
+                    break;
+
+                case "--drive":
+                    string drive = Require(args, ref i).ToLowerInvariant();
+                    options.Drive = drive switch
+                    {
+                        "workers" => Drive.Workers,
+                        "illuminus" or "illum" => Drive.Illuminus,
+                        _ => throw new ArgumentException(
+                            $"--drive wants 'workers' or 'illuminus', got '{drive}'"),
+                    };
                     break;
 
                 case "--docked":

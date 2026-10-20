@@ -34,9 +34,11 @@ internal static class Hulls
     internal const double DryMassTonnes = 100.0;
     internal const double FreshPropellantTonnes = 40.0;
 
-    internal static Ship Courier(Fix128Vec position, Fix128Vec velocity, Attitude attitude)
+    internal static Ship Courier(Fix128Vec position, Fix128Vec velocity, Attitude attitude,
+        Engine? engine = null)
     {
-        var engine = Engine.Crewed(
+        // The default is the reference crewed torch; the client passes the chosen drive.
+        var drive = engine ?? Engine.Crewed(
             Fix128.FromDouble(5.5),
             Engine.CrewedSpecificImpulse);
 
@@ -45,7 +47,7 @@ internal static class Hulls
             velocity,
             Fix128.FromDouble(DryMassTonnes),
             Fix128.FromDouble(FreshPropellantTonnes),
-            engine,
+            drive,
             attitude);
     }
 }

@@ -39,10 +39,11 @@ public class EconomyTests
         Ship ship = Courier();
         Market market = Market.For("Meridian");
         double mass = ship.Mass.ToDouble();
+        double price = market.BuyPrice(0);
 
         Assert.True(market.TryBuy(0, hold, ledger, ref ship));
 
-        Assert.Equal(1_000.0, ledger.Credits, 3);
+        Assert.Equal(3_000.0 - price, ledger.Credits, 3);
         Assert.Equal(1.0, hold.TonnesOf("Machine parts"), 9);
         Assert.Equal(mass + 1.0, ship.Mass.ToDouble(), 6);
     }
@@ -53,15 +54,63 @@ public class EconomyTests
         var ledger = new Ledger(3_000.0);
         var hold = new CargoHold();
         Ship ship = Courier();
+        Market home = Market.For("Meridian");
+        Market target = Market.For("Waystation");
 
-        Assert.True(Market.For("Meridian").TryBuy(0, hold, ledger, ref ship));
+        double buy = home.BuyPrice(0);
+        double sell = target.SellPrice(0);
+        Assert.True(sell > buy, $"sell {sell:F0} should beat buy {buy:F0}");
+
+        Assert.True(home.TryBuy(0, hold, ledger, ref ship));
         double afterBuy = ledger.Credits;
 
-        Assert.True(Market.For("Waystation").TrySell(0, hold, ledger, ref ship));
+        Assert.True(target.TrySell(0, hold, ledger, ref ship));
 
-        // 2 000 out, 3 200 in: the run pays 1 200 before fuel.
-        Assert.Equal(afterBuy + 3_200.0, ledger.Credits, 3);
+        Assert.Equal(afterBuy + sell, ledger.Credits, 3);
         Assert.Equal(0.0, hold.MassTonnes, 9);
+    }
+
+    [Fact]
+    public void ThePriceDriftsAndIsAFunctionOfTheSessionAge()
+    {
+        Market market = Market.For("Meridian");
+        double atStart = market.BuyPrice(0);
+
+        market.Update(0.5);
+        double halfDay = market.BuyPrice(0);
+
+        Assert.NotEqual(atStart, halfDay);
+
+        // The same age gives the same price: no wall clock, no random walk.
+        market.Update(0.5);
+        Assert.Equal(halfDay, market.BuyPrice(0), 9);
+    }
+
+    [Fact]
+    public void BuyingRaisesThePriceAndSellingLowersIt()
+    {
+        Market buyMarket = Market.For("Meridian");
+        var buyLedger = new Ledger(100_000.0);
+        var buyHold = new CargoHold();
+        Ship buyShip = Courier();
+
+        double beforeBuy = buyMarket.BuyPrice(0);
+        Assert.True(buyMarket.TryBuy(0, buyHold, buyLedger, ref buyShip));
+        Assert.True(buyMarket.BuyPrice(0) > beforeBuy);
+
+        Market sellMarket = Market.For("Waystation");
+        var sellLedger = new Ledger(100_000.0);
+        var sellHold = new CargoHold();
+        Ship sellShip = Courier();
+        Assert.True(sellHold.TryAdd("Machine parts", 5.0));
+
+        double beforeSell = sellMarket.SellPrice(0);
+        Assert.True(sellMarket.TrySell(0, sellHold, sellLedger, ref sellShip));
+        Assert.True(sellMarket.SellPrice(0) < beforeSell);
+
+        // And the pressure lets go as the clock passes.
+        sellMarket.Update(5.0);
+        Assert.True(sellMarket.SellPrice(0) > (beforeSell - (beforeSell * 0.02)));
     }
 
     [Fact]
@@ -87,11 +136,12 @@ public class EconomyTests
         ship.Mass -= Fix128.FromDouble(10.0);
 
         Market market = Market.For("Meridian");
+        double fuelPrice = market.FuelPrice;
         Assert.True(market.TryRefuel(full, ledger, ref ship));
 
         Assert.Equal(full, ship.Propellant.ToDouble(), 6);
         Assert.Equal(mass, ship.Mass.ToDouble(), 6);
-        Assert.Equal(10_000.0 - (10.0 * 250.0), ledger.Credits, 3);
+        Assert.Equal(10_000.0 - (10.0 * fuelPrice), ledger.Credits, 3);
 
         // The tank is full; a second purchase has nothing to load.
         Assert.False(market.TryRefuel(full, ledger, ref ship));

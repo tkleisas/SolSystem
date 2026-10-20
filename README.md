@@ -11,10 +11,11 @@ not about ideology, though both sides will tell you it is. It is about who gets 
 **Status: the walking skeleton walks.** The simulation core — the numeric types, the
 trigonometry, the Keplerian propagator — is built, tested and measured, and there is a
 flyable MonoGame client on top of it: one ship, the real sky, two stations — Meridian and a
-co-orbital Workers waystation — a first cargo contract, a two-station market with a cargo hold
-and a fuel bill, a strategic clock that rotates the stations exactly, and a probe harness that
-replays a docking approach byte-exactly. What there is not yet is the full game: no strategic
-AI, no second orbit, no reputation. The roadmap is `DESIGN.md` §10.
+co-orbital Workers waystation — a first cargo contract, a moving two-station market with a
+cargo hold and a fuel bill, two drives with a cost table, a strategic clock that rotates the
+stations exactly, and a probe harness that replays a docking approach byte-exactly. What there
+is not yet is the full game: no strategic AI, no second orbit, no reputation. The roadmap is
+`DESIGN.md` §10.
 
 ## The design
 

@@ -73,7 +73,8 @@ internal sealed class MarketScreen
 
             string marker = isSelected ? ">" : " ";
             string name = $"{marker} {good.Name.ToUpperInvariant(),-18}";
-            string line = $"{name}{good.BuyPrice,8:N0}{good.SellPrice,9:N0}{hold.TonnesOf(good.Name),9:F1} t";
+            string line = $"{name}{market.BuyPrice(i),8:N0}{market.SellPrice(i),9:N0}"
+                + $"{hold.TonnesOf(good.Name),9:F1} t";
             _sprites.DrawString(_font, line, at, isSelected ? Ink : Dim);
             at.Y += FlightUi.Line;
         }

@@ -40,6 +40,7 @@ internal sealed class FlightPanel
     private readonly Contract _contract;
     private readonly Ledger _ledger;
     private readonly CargoHold _cargo;
+    private readonly Drive _drive;
 
     internal FlightPanel(
         GraphicsDevice device,
@@ -52,7 +53,8 @@ internal sealed class FlightPanel
         HullRenderer hulls,
         Contract contract,
         Ledger ledger,
-        CargoHold cargo)
+        CargoHold cargo,
+        Drive drive)
     {
         _device = device;
         _sprites = sprites;
@@ -65,6 +67,7 @@ internal sealed class FlightPanel
         _contract = contract;
         _ledger = ledger;
         _cargo = cargo;
+        _drive = drive;
     }
 
     /// <summary>Draws the frame furniture and the flight panel.</summary>
@@ -136,6 +139,15 @@ internal sealed class FlightPanel
             _sprites.DrawString(_font, "STRATEGIC  \u00b7  SHIP HELD AT THE HOME STATION", at, warn);
             at.Y += FlightUi.Line;
         }
+
+        _sprites.DrawString(_font, $"DRIVE      {Drives.Name(_drive),10}", at, ink);
+        at.Y += FlightUi.Line;
+        _sprites.DrawString(_font,
+            $"EXHAUST    {Drives.ExhaustKilometresPerSecond(_drive),7:F0} km/s", at, dim);
+        at.Y += FlightUi.Line;
+        _sprites.DrawString(_font,
+            $"THRUST     {Drives.ThrustKilonewtons(_drive),7:F1} kN", at, dim);
+        at.Y += FlightUi.Line * 1.2f;
 
         _sprites.DrawString(_font, $"SPEED      {speed,10:F1} m/s", at, ink);
         at.Y += FlightUi.Line;

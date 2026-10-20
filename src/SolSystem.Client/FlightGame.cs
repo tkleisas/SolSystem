@@ -79,12 +79,15 @@ internal sealed class FlightGame : Game, IControllerTarget
     private Ledger _ledger = null!;
     private CargoHold _cargo = null!;
     private Market? _market;
+    private Market _homeMarket = null!;
+    private Market _targetMarket = null!;
     private MarketScreen _marketScreen = null!;
     private LocalScreen _localScreen = null!;
     private bool _marketOpen;
     private int _marketSelected;
     private double _hullDryMass;
     private double _fuelAtStart;
+    private double _marketStart;
     private readonly CommLog _commLog = new();
     private Texture2D _sharedPixel = null!;
     private SpriteFont _sharedFont = null!;
@@ -307,7 +310,8 @@ internal sealed class FlightGame : Game, IControllerTarget
         _flight = new Flight(Hulls.Courier(
             startPosition,
             _session.Station.Velocity,
-            FacingAlong(-_session.Station.Port.Axis)));
+            FacingAlong(-_session.Station.Port.Axis),
+            Drives.Engine(_options.Drive)));
 
         _flight.SetThrottle(_options.Throttle);
 
@@ -329,6 +333,10 @@ internal sealed class FlightGame : Game, IControllerTarget
         _cargo.TryAdd(_contract.Cargo, _contract.CargoTonnes);
         SyncShipMass();
         _fuelAtStart = _flight.Ship.Propellant.ToDouble();
+
+        _marketStart = _session.JulianDate;
+        _homeMarket = Market.For(_session.Station.Name);
+        _targetMarket = Market.For(_session.Target.Name);
 
         if (_options.Hold.Length > 0)
         {
@@ -362,7 +370,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         // screen owns the chart's own drawing state. A destination on the command line is selected
         // here, after the chart exists to hold it.
         _panel = new FlightPanel(GraphicsDevice, _sprites, pixel, hud, _session, _flight,
-            _camera, _hulls, _contract, _ledger, _cargo);
+            _camera, _hulls, _contract, _ledger, _cargo, _options.Drive);
         _chartScreen = new ChartScreen(GraphicsDevice, _sprites, hud);
         _marketScreen = new MarketScreen(GraphicsDevice, _sprites, pixel, hud);
         _localScreen = new LocalScreen(GraphicsDevice, _sprites, pixel, hud);
@@ -508,6 +516,12 @@ internal sealed class FlightGame : Game, IControllerTarget
         // renderers are drawing.
         double advanced = _simulatedSeconds - _lastAdvanced;
         _mission?.Advanced(advanced);
+
+        // The markets are functions of the session's age, so they move while the clock does and
+        // stand still when it does not.
+        _homeMarket.Update(_session.JulianDate - _marketStart);
+        _targetMarket.Update(_session.JulianDate - _marketStart);
+
         UpdateContract();
 
         // THE TERMINAL IS A LIVE CHANNEL, NOT A SIMULATION CLOCK. With a voice it types on the
@@ -573,7 +587,7 @@ internal sealed class FlightGame : Game, IControllerTarget
 
         _chartOpen = false;
         _localOpen = false;
-        _market = Market.For(station.Name);
+        _market = station.Name == _session.Target.Name ? _targetMarket : _homeMarket;
         _marketSelected = 0;
         _marketOpen = true;
 
@@ -611,10 +625,11 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (JustPressed(keys, Keys.B))
         {
             MarketGood good = _market.Goods[_marketSelected];
+            double price = _market.BuyPrice(_marketSelected);
             if (_market.TryBuy(_marketSelected, _cargo, _ledger, ref _flight.Ship))
             {
                 SyncShipMass();
-                Notice($"Bought 1 t {good.Name.ToLowerInvariant()} for {good.BuyPrice:N0} credits.");
+                Notice($"Bought 1 t {good.Name.ToLowerInvariant()} for {price:N0} credits.");
             }
             else
             {
@@ -625,10 +640,11 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (JustPressed(keys, Keys.S))
         {
             MarketGood good = _market.Goods[_marketSelected];
+            double price = _market.SellPrice(_marketSelected);
             if (_market.TrySell(_marketSelected, _cargo, _ledger, ref _flight.Ship))
             {
                 SyncShipMass();
-                Notice($"Sold 1 t {good.Name.ToLowerInvariant()} for {good.SellPrice:N0} credits.");
+                Notice($"Sold 1 t {good.Name.ToLowerInvariant()} for {price:N0} credits.");
             }
             else
             {
@@ -663,7 +679,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (_contract.CheckDeadline(_session.JulianDate))
         {
             double fuelUsed = FuelUsed();
-            double fuelPrice = Market.For(_session.Station.Name).FuelPrice;
+            double fuelPrice = _homeMarket.FuelPrice;
             _contract.SettleFailure(_ledger, fuelUsed, fuelPrice);
 
             Notice($"{_contract.Name} expired: {_contract.Destination} was not reached in time. "
@@ -678,7 +694,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (report.Docked && _contract.TryComplete(_session.JulianDate))
         {
             double fuelUsed = FuelUsed();
-            double fuelPrice = Market.For(_session.Station.Name).FuelPrice;
+            double fuelPrice = _homeMarket.FuelPrice;
             _contract.SettleDelivery(_ledger, _cargo, fuelUsed, fuelPrice);
             SyncShipMass();
 

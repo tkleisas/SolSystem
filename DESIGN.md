@@ -1167,7 +1167,9 @@ rescues it.**
 The first slice is in the client: a co-orbital Workers waystation a milliradian ahead of
 Meridian, a two-hour cargo contract that pays 12,000 credits on docking, a first economy
 behind it, and a local strategic map (`L`) of the home, target and ship in the Hill frame
-while the clock runs. The pilot starts with 3,000 credits; the contract's five tonnes are part of the
+while the clock runs. The market's prices drift on a three-day cycle and every trade moves
+them; the two drives are in as a cost table — the Workers 1,200 km/s at 5.5 kN, the Illuminus
+600 km/s at 9.0 kN — and `--drive` chooses one. The pilot starts with 3,000 credits; the contract's five tonnes are part of the
 ship's mass; delivery pays the contract and charges the fuel burned at 250 credits a tonne.
 Meridian and the waystation trade machine parts and water at opposite prices, the hold is 20 t,
 and every trade moves the ship's mass. What is still open is the market that moves, the

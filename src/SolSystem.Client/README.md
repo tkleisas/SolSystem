@@ -200,6 +200,7 @@ dotnet run -- --shot out.png --throttle 1    # with the engine lit, for the plum
 dotnet run -- --shot out.png --lineup        # every asset at true size, side by side
 dotnet run -- --shot out.png --local         # the local strategic map
 dotnet run -- --shot out.png --market        # docked, with the market open
+dotnet run -- --shot out.png --drive workers # the efficient drive
 ```
 
 **The opening frame is lit by construction.** The default date is the March 2000 equinox,
@@ -244,14 +245,36 @@ five tonnes less acceleration for the whole run. Delivery pays 12,000 credits an
 fuel burned at the home port's price — 250 credits a tonne — and the settlement line says both.
 
 The market opens at a **docked** port with `T`; the start is four hundred metres down the
-corridor, so the first thing a trader does is dock. Meridian sells machine parts at 2,000 and
-buys water at 100; the waystation sells water at 300 and buys machine parts at 3,200. Carry
-parts out and water back and the run pays before the contract does. The hold is 20 t, every
-purchase and sale moves the ship's mass, and `F` loads ten tonnes of fuel at the local price
-(limited by the tank).
+corridor, so the first thing a trader does is dock. Meridian sells machine parts at about 2,000
+and buys water at about 100; the waystation does the reverse. Carry parts out and water back and
+the run pays before the contract does. The hold is 20 t, every purchase and sale moves the ship's
+mass, and `F` loads ten tonnes of fuel at the local price (limited by the tank).
+
+**The prices move.** Every good has a base mid, a station phase and a slow three-day drift; every
+tonne bought raises the price and every tonne sold lowers it, and that pressure decays over about
+three quarters of a day. Dumping twenty tonnes at once moves the price against you; selling a tonne
+at a time gets a better average. The drift and the pressure are functions of the session clock and
+the trades, not of wall time or a random number generator, so two runs that make the same
+decisions see the same prices.
 
 `--docked` starts at the port and `--market` starts there with the market open, which is how the
 market preview is rendered.
+
+## The two drives
+
+`--drive workers` or `--drive illuminus` chooses the engine. The default is Illuminus.
+
+| Drive | Exhaust | Thrust | Delta-v per tank | Acceleration |
+|---|---|---|---|---|
+| Workers | 1,200 km/s | 5.5 kN | **2x** | ~3.8 mm/s² |
+| Illuminus | 600 km/s | 9.0 kN | 1x | ~6.2 mm/s² |
+
+The Workers drive is the efficient one: the same 40 t of propellant buys twice the delta-v, so it
+can afford the long burn and the tight deadline. The Illuminus drive is the fast one: 9 kN against
+a 145 t ship is about six milligee, so a manoeuvre takes about 1.6 times less time and burns about
+twice the propellant for the same delta-v. The HUD prints the drive, its exhaust velocity and its
+thrust; the contract's payout is the same either way, so the choice is how much time and fuel the
+run is worth.
 
 ## The narrator
 
