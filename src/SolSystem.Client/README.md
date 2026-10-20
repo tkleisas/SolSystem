@@ -155,6 +155,12 @@ Three things came out of that sentence:
     spacecraft in low orbit is a deep blue-grey in every photograph ever taken from one, and not
     black. One directional light made half of every hull a silhouette.
 
+**The Earth is the one body drawn by a shader.** Its day map and cloud alpha are still the NASA
+images, but `Planet.fx` owns the terminator, the Black Marble city lights, the cloud deck — sampled
+in the same shader so a cloud and the ground under it agree on where night is — and a 2 % Fresnel
+atmosphere shell. The other bodies stay baked sphere textures; only the Earth has a night side worth
+lighting.
+
 ## Rendering a frame without flying
 
 ```sh

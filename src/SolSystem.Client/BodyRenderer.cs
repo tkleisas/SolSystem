@@ -29,14 +29,12 @@ namespace SolSystem.Client;
 /// </remarks>
 internal sealed class BodyRenderer : IDisposable
 {
-    /// <summary>Radius of the mesh every body is drawn with, before its own scale.</summary>
-    private const float UnitRadius = 1.0f;
-
     private readonly GraphicsDevice _device;
     private readonly BasicEffect _effect;
     private readonly VertexBuffer _sphere;
     private readonly IndexBuffer _sphereIndices;
     private readonly int _sphereIndexCount;
+    private readonly PlanetRenderer _planet;
 
     /// <summary>Textures, by file name. Loaded once; a body without one keeps its flat colour.</summary>
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.Ordinal);
@@ -70,70 +68,21 @@ internal sealed class BodyRenderer : IDisposable
         _effect.DirectionalLight2.Enabled = false;
         _effect.PreferPerPixelLighting = true;
 
-        (_sphere, _sphereIndices, _sphereIndexCount) = BuildSphere(device, 64, 32);
-    }
+        (VertexPositionNormalTexture[] vertices, short[] indices) = SphereMesh.Build(64, 32);
 
-    /// <summary>A UV sphere of unit radius, which every body is drawn as.</summary>
-    private static (VertexBuffer Buffer, IndexBuffer Indices, int IndexCount) BuildSphere(
-        GraphicsDevice device, int longitudes, int latitudes)
-    {
-        var vertices = new VertexPositionNormalTexture[((longitudes + 1) * (latitudes + 1))];
+        _sphere = new VertexBuffer(
+            device, VertexPositionNormalTexture.VertexDeclaration, vertices.Length,
+            BufferUsage.WriteOnly);
+        _sphere.SetData(vertices);
 
-        for (int lat = 0; lat <= latitudes; lat++)
-        {
-            double phi = Math.PI * (lat / (double)latitudes);
-            float sinPhi = (float)Math.Sin(phi);
-            float cosPhi = (float)Math.Cos(phi);
+        _sphereIndices = new IndexBuffer(
+            device, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+        _sphereIndices.SetData(indices);
+        _sphereIndexCount = indices.Length;
 
-            for (int lon = 0; lon <= longitudes; lon++)
-            {
-                double theta = 2.0 * Math.PI * (lon / (double)longitudes);
-                var normal = new Vector3(
-                    sinPhi * (float)Math.Cos(theta),
-                    sinPhi * (float)Math.Sin(theta),
-                    cosPhi);
-
-                // The half-turn offset puts the mesh's longitude zero on the map's prime meridian:
-                // an equirectangular map has its u=0 at 180 degrees west, so without this every
-                // body's texture is rotated half a turn and the Earth's continents are in the wrong
-                // ocean.
-                vertices[(lat * (longitudes + 1)) + lon] = new VertexPositionNormalTexture(
-                    normal * UnitRadius, normal,
-                    new Vector2((lon / (float)longitudes) + 0.5f, lat / (float)latitudes));
-            }
-        }
-
-        var indices = new List<short>();
-        for (int lat = 0; lat < latitudes; lat++)
-        {
-            for (int lon = 0; lon < longitudes; lon++)
-            {
-                short a = (short)((lat * (longitudes + 1)) + lon);
-                short b = (short)(a + 1);
-                short c = (short)(a + longitudes + 1);
-                short d = (short)(c + 1);
-
-                indices.Add(a); indices.Add(c); indices.Add(b);
-                indices.Add(b); indices.Add(c); indices.Add(d);
-            }
-        }
-
-        if (vertices.Length > short.MaxValue)
-        {
-            throw new InvalidOperationException(
-                $"the body sphere has {vertices.Length} vertices and a sixteen-bit index reaches "
-                + $"{short.MaxValue}");
-        }
-
-        var buffer = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration,
-            vertices.Length, BufferUsage.WriteOnly);
-        buffer.SetData(vertices);
-
-        var indexBuffer = new IndexBuffer(device, IndexElementSize.SixteenBits,
-            indices.Count, BufferUsage.WriteOnly);
-        indexBuffer.SetData(indices.ToArray());
-
-        return (buffer, indexBuffer, indices.Count);
+        // The Earth gets the shader; the rest keep the fixed-function sphere. Both use this mesh,
+        // so the day map, the cloud deck and the city lights cannot drift apart.
+        _planet = new PlanetRenderer(device, vertices, indices);
     }
 
     /// <summary>
@@ -153,7 +102,8 @@ internal sealed class BodyRenderer : IDisposable
         Color Colour,
         bool Emissive,
         string? TextureFile,
-        string? CloudTexture);
+        string? CloudTexture,
+        string? NightTexture = null);
 
     /// <summary>
     /// Loads a body texture, or null if there is not one.
@@ -250,7 +200,8 @@ internal sealed class BodyRenderer : IDisposable
         // as a special case — and it carries a cloud deck, which is a second sphere a fifth of a per
         // cent larger, exactly as the Blender preview builds it.
         bodies.Add(new Body("Earth", system.Heliocentric(Ephemeris.Body.Earth).Position, 6_378.1,
-            new Color(0.24f, 0.42f, 0.72f), false, "earth_albedo.jpg", "earth_clouds.png"));
+            new Color(0.24f, 0.42f, 0.72f), false, "earth_albedo.jpg", "earth_clouds.png",
+            "earth_night.jpg"));
 
         return bodies;
     }
@@ -297,6 +248,9 @@ internal sealed class BodyRenderer : IDisposable
             -(float)(session.ObserverPosition.X.ToDouble() * scale),
             -(float)(session.ObserverPosition.Y.ToDouble() * scale),
             -(float)(session.ObserverPosition.Z.ToDouble() * scale)));
+
+        // The Earth's shader takes clip-space vertices, so the projection is done on the CPU.
+        Matrix viewProjection = view * projection;
 
         // THE LIGHT'S DIRECTION IS WHERE IT IS GOING, NOT WHERE IT COMES FROM. MonoGame's
         // BasicEffect shader computes `dot(-lightDirection, normal)`, so it wants the direction
@@ -352,8 +306,12 @@ internal sealed class BodyRenderer : IDisposable
 
             Texture2D? texture = TextureFor(body.TextureFile);
             Texture2D? clouds = TextureFor(body.CloudTexture);
-            _effect.Texture = texture;
-            _effect.TextureEnabled = texture is not null;
+            Texture2D? night = TextureFor(body.NightTexture);
+
+            // The Earth is the one body with a night side worth lighting and an atmosphere worth
+            // scattering, so it goes through Planet.fx. Everything else keeps the fixed-function
+            // sphere; a missing day map falls back to that too.
+            bool earth = body.Name == "Earth" && texture is not null;
 
             // Scale, then the body's own orientation, then place it.
             Matrix orientation = OrientationFor(body.Name, session.JulianDate);
@@ -361,48 +319,79 @@ internal sealed class BodyRenderer : IDisposable
                 * orientation
                 * Matrix.CreateTranslation(centre);
 
-            if (body.Emissive)
+            _device.SetVertexBuffer(_sphere);
+            _device.Indices = _sphereIndices;
+
+            if (earth)
             {
-                // The Sun is where the light comes from, so it is drawn as its own colour rather
-                // than as a surface something else shines on — which means the EMISSIVE term.
-                //
-                // The obvious choice is to put the colour in AmbientLightColor, and it draws a black
-                // disc: the ambient term in this effect is AmbientLightColor × DiffuseColor, so a
-                // material with no diffuse colour is black however bright the ambient light is. The
-                // Sun was a black circle in the middle of its own glare for one iteration.
-                _effect.EmissiveColor = body.Colour.ToVector3();
-                _effect.AmbientLightColor = Vector3.Zero;
-                _effect.DiffuseColor = Vector3.Zero;
+                _planet.DrawSurface(
+                    _device,
+                    centre,
+                    (float)body.RadiusKilometres * scale,
+                    orientation,
+                    toSun,
+                    viewProjection,
+                    texture!,
+                    night,
+                    clouds);
             }
             else
             {
-                _effect.EmissiveColor = Vector3.Zero;
-                _effect.AmbientLightColor = new Vector3(0.06f);
+                _effect.Texture = texture;
+                _effect.TextureEnabled = texture is not null;
 
-                // A TEXTURED BODY IS ALREADY THE COLOUR IT SHOULD BE. The baked map carries the
-                // surface: the Earth's ocean and land, Mars's dust and dark albedo features, the
-                // Moon's maria. Multiplying that by the decorative fallback colour darkened every
-                // textured world — the Earth was blue-tinted into a night side that never saw day —
-                // so the tint is used only where there is no map to disagree with.
-                _effect.DiffuseColor = texture is not null
-                    ? Vector3.One
-                    : body.Colour.ToVector3();
+                if (body.Emissive)
+                {
+                    // The Sun is where the light comes from, so it is drawn as its own colour rather
+                    // than as a surface something else shines on — which means the EMISSIVE term.
+                    //
+                    // The obvious choice is to put the colour in AmbientLightColor, and it draws a black
+                    // disc: the ambient term in this effect is AmbientLightColor × DiffuseColor, so a
+                    // material with no diffuse colour is black however bright the ambient light is.
+                    // The Sun was a black circle in the middle of its own glare for one iteration.
+                    _effect.EmissiveColor = body.Colour.ToVector3();
+                    _effect.AmbientLightColor = Vector3.Zero;
+                    _effect.DiffuseColor = Vector3.Zero;
+                }
+                else
+                {
+                    _effect.EmissiveColor = Vector3.Zero;
+                    _effect.AmbientLightColor = new Vector3(0.06f);
+
+                    // A TEXTURED BODY IS ALREADY THE COLOUR IT SHOULD BE. The baked map carries the
+                    // surface: the Earth's ocean and land, Mars's dust and dark albedo features, the
+                    // Moon's maria. Multiplying that by the decorative fallback colour darkened every
+                    // textured world — the Earth was blue-tinted into a night side that never saw day —
+                    // so the tint is used only where there is no map to disagree with.
+                    _effect.DiffuseColor = texture is not null
+                        ? Vector3.One
+                        : body.Colour.ToVector3();
+                }
+
+                foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _device.DrawIndexedPrimitives(
+                        PrimitiveType.TriangleList, 0, 0, _sphereIndexCount / 3);
+                }
             }
 
-            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                _device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _sphereIndexCount / 3);
-            }
-
-            if (clouds is not null && !body.Emissive)
+            if (clouds is not null && !body.Emissive && !earth)
             {
                 // The cloud deck, as a sphere a fifth of a per cent larger carrying the baked
                 // coverage map as its alpha. It is drawn immediately after its body so painter's
                 // order still holds, and blended non-premultiplied because the mask is a plain
                 // alpha rather than a multiplied one — before that it was a solid white shell.
+                //
+                // The Earth's surface went through Planet.fx, so the BasicEffect's material state
+                // may still describe the previous body; set it for the clouds explicitly.
+                _device.SetVertexBuffer(_sphere);
+                _device.Indices = _sphereIndices;
+
                 _effect.Texture = clouds;
                 _effect.TextureEnabled = true;
+                _effect.EmissiveColor = Vector3.Zero;
+                _effect.AmbientLightColor = new Vector3(0.06f);
                 _effect.DiffuseColor = Vector3.One;
                 _effect.World = Matrix.CreateScale((float)body.RadiusKilometres * scale * 1.002f)
                     * orientation
@@ -418,6 +407,19 @@ internal sealed class BodyRenderer : IDisposable
                 }
 
                 _device.BlendState = BlendState.Opaque;
+            }
+
+            if (earth)
+            {
+                // The outer half of the atmosphere: a 2% shell, drawn after the clouds so a cloud
+                // top at the limb is inside the haze rather than painted over it.
+                _planet.DrawAtmosphere(
+                    _device,
+                    centre,
+                    (float)body.RadiusKilometres * scale,
+                    orientation,
+                    toSun,
+                    viewProjection);
             }
 
 
@@ -442,6 +444,7 @@ internal sealed class BodyRenderer : IDisposable
     {
         _sphere.Dispose();
         _sphereIndices.Dispose();
+        _planet.Dispose();
 
         foreach (Texture2D texture in _textures.Values)
         {

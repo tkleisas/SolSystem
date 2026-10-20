@@ -1,5 +1,5 @@
-# The MonoGame content pipeline, for the two things that cannot be done without a shader:
-# the Sun's disc and corona, and the specular finish on an Illuminus hull.
+# The MonoGame content pipeline, for the two things that cannot be done with a fixed-function
+# effect: the Sun's disc and corona, and the Earth's day/night surface and atmosphere.
 
 /outputDir:bin/$(Platform)
 /intermediateDir:obj/$(Platform)
@@ -20,3 +20,6 @@
 # Windows SDK). The pipeline's only job with the file is to copy it where the XNB used to be;
 # the client reads it as a file, so there is no XNB wrapper in the path.
 /copy:Sun.mgfx
+
+#begin Planet.mgfx
+/copy:Planet.mgfx

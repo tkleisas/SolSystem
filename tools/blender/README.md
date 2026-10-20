@@ -99,5 +99,5 @@ it, so a window authored at 2.2 and a beacon at 8 are those strengths in the eng
 | `stations/illuminus_disk.py` | Illuminus residence disk |
 | `stations/workers_modules_spine.py` | Workers waystation, spine layout |
 | `stations/workers_modules_radial.py` | Workers waystation, radial layout |
-| `bodies/build_bodies.py` | The Sun and planets; the Earth uses NASA Blue Marble and cloud maps |
+| `bodies/build_bodies.py` | The Sun and planets; the Earth uses NASA Blue Marble and cloud maps, and the client adds the Black Marble night lights and atmosphere in `Planet.fx` |
 | `bake_bodies.py` | Bakes the remaining procedural body materials to client textures |

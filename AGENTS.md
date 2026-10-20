@@ -61,9 +61,13 @@ or every texture becomes monochrome. The client reads
 `KHR_materials_emissive_strength`, which is how the station's windows and floods keep
 the strengths they were authored with.
 
-The bodies are **baked to textures** by `bake_bodies.py` because the client is
-fixed-function. The Earth is the exception to the old all-procedural rule: its day
-map and cloud alpha are real NASA imagery, shared by the preview and the client.
+Most bodies are **baked to textures** by `bake_bodies.py` because most of the client
+is fixed-function. The Earth is the exception on both counts: its day map and cloud
+alpha are real NASA imagery shared by the preview and the client, and it is drawn by
+`Content/Planet.fx` rather than the fixed-function sphere. That shader owns the
+terminator, the Black Marble city lights (`art/textures/earth_night.jpg`), the cloud
+deck (sampled in the same shader so it shares the terminator) and the 2 % atmosphere
+shell. The other bodies still use the baked spheres.
 
 ## Probes
 
