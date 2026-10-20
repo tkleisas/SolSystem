@@ -53,8 +53,8 @@ exhaust velocity: a tonne of propellant carries `½ vₑ²` of jet energy. The c
 drives make the exchange rate visible — the Workers drive buys twice the delta-v per tonne,
 the Illuminus drive buys 1.6× the acceleration — and `--drive` is the choice between them.
 
-**[OPEN] The faction claims.** The natural political layer is three claims with three
-backings:
+**[DECIDED] The factions issue competing claims, and the Workers have no legal stock
+market.** Three claims with three backings:
 
 | Issuer | Claim | Backing |
 |---|---|---|
@@ -63,8 +63,11 @@ backings:
 | **Earth** | Old fiat | Habit and the remains of the pre-Exchange financial system; losing its anchor as the biosphere fails |
 
 The Exchange of 2090 is the arbitrage between them, and the player is a courier who profits
-from the spread. The faction currencies are a later layer; the first slice uses a single
-station-credit with the two anchors above.
+from the spread. The claims compete: a contract can be quoted in any of the three, and the
+player chooses which to be paid in. The Workers run their capital as cooperatives; a legal
+stock market is an Illuminus and Earth institution, and the Workers' absence of one is a
+political fact, not an oversight. The first slice still uses a single station-credit with the
+two anchors above; the competing claims are the contract board's second layer.
 
 **[DECIDED] Every credit is a claim on a measured stock.** The station cannot print claims
 against a farm it has not built. The model's stocks are the collateral; the tests check the
@@ -87,6 +90,11 @@ parts. Everything is conserved except the losses named explicitly.
 | **Labour** | person-hours | The crew; the 40 000; the wages |
 | **Parts / volatiles** | t | The imports; the ice; the ore; the equipment |
 | **Waste** | t | Feces, urine, biomass; the same atoms, dirty |
+
+**Labour is people and androids**, and the **AI** is a metered energy load. The androids and
+the EVA robots are cheap labour backed by regulated compute, and the compute is metered in
+kWh like any other load. The labour stock is person-hours plus android-hours; the AI's energy
+is a recipe input, not a separate currency.
 
 The **loss** terms are the only things that leave the loop: the water lost to the airlock and
 the recycler's brine, the nitrogen lost as N₂, the phosphorus lost in the sludge, the carbon
@@ -210,8 +218,12 @@ possible.
 ### 5.2 The farm
 
 At a continuous mixed-crop yield of **15 g dry/m²/day**, 15 t dry/day needs **1 km²** of
-growing area. That is a large new deck on a 2 km wheel, but it is not impossible: the ring's
-usable area is a few square kilometres.
+growing area. The design review fixes the mix: **spirulina and hydroponics**. At
+**25 g/m²/day** of spirulina, 0.24 km² gives 6 t dry/day and 3.6 t protein/day — enough for
+40 000 people at 50 g of protein each. The other 0.6 km² is hydroponics at 15 g/m²/day for
+9 t dry/day of vegetables and calories. The total is **0.84 km²**; the LED load is about
+**361 MW**, the daily energy about **8 660 MWh/day**, and the food is still 60 t/day. That is
+a large new deck on a 2 km wheel, but the ring's usable area is a few square kilometres.
 
 The LED load is the problem. At **800 µmol/m²/s** of photosynthetically active radiation,
 the PAR flux is about **0.17 kW/m²**. At 40 % LED efficiency that is **0.43 kW/m²** of
@@ -245,7 +257,8 @@ low orbit. With the **Workers drive** (1 200 km/s exhaust) the mass ratio is
 | **Import** | ~120 000 credits | ~2 000 credits/t | Earth's food supply; the lift |
 | **Farm** | ~10 300 000 credits | ~170 000 credits/t | Power, area, radiator |
 
-The farm is roughly **85×** the import cost at these assumptions. The symmetry that the
+The farm is roughly **85×** the import cost at 1 km² and 430 MW, or about **72×** with the
+review's 0.84 km² spirulina/hydroponics mix and 361 MW. Both are far above the import. The symmetry that the
 intuition expected does not exist in this setting, because the fusion drive makes the lift
 cheap and the LED makes the growing expensive.
 
@@ -262,8 +275,10 @@ The farm is not a food-cost optimisation. It is:
 - **A smaller make-up mass.** The recycler plus the farm reduces the water and nutrient
   imports, which is the mass that actually costs delta-v.
 
-**[DECIDED] The first slice models the farm as a resilience and loop asset, not as the cheap
-food source.** The contract board can offer both: deliver food (the cheap option) or deliver
+**[DECIDED] The farm is a resilience asset, not the cheap food source.** The design review
+fixes the closure at **99.5 %**, the crop mix at **spirulina and hydroponics**, and the farm's
+purpose at resilience, freshness and the closed loop. The farm is the strategic option the
+contract board can sell; the food run is the cheap option. The contract board can offer both: deliver food (the cheap option) or deliver
 the farm equipment (the strategic option). The player's choice is which risk to buy down.
 
 ### 5.5 The waste loop
@@ -281,6 +296,11 @@ per day at most, but they are the difference between a farm that works and one t
 
 The recycler's energy is cheap relative to the make-up mass it saves; the closure is worth
 paying for. That is the first real in-situ investment the player should be able to make.
+
+**[DECIDED] The recycler's output is tradeable.** Water, nutrients and compost are market
+goods, not only internal flows. A station with surplus closure can sell the make-up mass it
+does not need; a station with a farm can buy the nutrients it is short of. The waste loop is a
+trade as well as a station decision, and the player can carry the output.
 
 ---
 
@@ -318,6 +338,16 @@ The market layer is already in the client: a base mid, a spread, a three-day dri
 pressure that decays over 0.75 day, and a moving fuel price. The model replaces the base mid
 with the marginal cost above; the rest of the market layer stays.
 
+**[DECIDED] The recycler's output is tradeable.** Water, nutrients and compost are quoted at
+the model's marginal cost plus transport; a station with surplus closure sells the make-up it
+does not need, and a farm buys the nutrients it is short of. The waste loop is a market.
+
+**[DECIDED] The prices are quoted in the station's own claim.** A Meridian price is in
+Meridian energy credits, a Workers price in water/deuterium credits, an Earth price in the
+old fiat. The contract board quotes in the issuer's claim and the player chooses; the
+exchange is the arbitrage, and the legal stock market exists on the Illuminus and Earth side
+but not among the Workers.
+
 **[DECIDED] The market is per site, not global.** Food is cheap where it grows and expensive
 where it does not; the price difference is the transport cost plus the local scarcity. The
 player's arbitrage is the point.
@@ -348,6 +378,16 @@ The player is a courier with a 100 t hull, 40 t of propellant and 20 t of hold. 
    deadline-maker. The contract's delta-v price is the same; the player's cost is not.
 6. **The clock**: the strategic rates rotate the stations exactly; the contract's deadline is
    the session clock; the market drifts while the clock runs.
+7. **The claims**: a contract can be quoted in Illuminus energy, Workers water or Earth fiat;
+   the player chooses which claim to be paid in and carries the exchange risk. The Workers
+   have no legal stock market, so their capital is cooperative and the player's access is
+   through contracts, not shares.
+8. **The recycler's output**: water, nutrients and compost are tradeable. The player can buy
+   the surplus at a station with a high closure and sell it where a farm is short; the waste
+   loop is a trade, not only a station decision.
+9. **The labour and the AI**: the station's work is people and androids; the EVA is almost
+   entirely robots; the AI is metered in kWh. The player's contract can carry people, androids
+   or equipment, and the station's labour cost is part of the price the model computes.
 
 The first slice is deliberately small: **Meridian, the waystation and Earth**, with **food,
 water, waste, energy and parts**. The player can make the food run, the parts run, or the
@@ -357,6 +397,10 @@ is the mass that closes.
 ---
 
 ## 9. The first implementation slice
+
+**[DECIDED] The first slice now uses the review's decisions:** the **99.5 %** closure; the
+**spirulina/hydroponics** farm; the **competing** claims; the people-and-android labour; the
+EVA robots; the AI energy line; the Workers' no-stock-market rule; the contract board.
 
 **[DECIDED] The model lives behind the existing `Market` interface.** The client already has
 `Market`, `Ledger`, `CargoHold`, `Contract` and the market screen. The first slice adds a
@@ -374,7 +418,8 @@ The slice:
 | **Marginal cost** | `p_i = Σ λ_k a_ki + transport + capital`; the shadow prices from the binding constraints |
 | **Market** | The existing spread/drift/pressure; the base mid from the model |
 | **Contract** | The delta-v price; the payout; the in-situ alternative |
-| **UI** | The market screen's cost breakdown; the contract board; the closure and the food |
+| **Recycler goods** | Water, nutrients and compost as market goods; the player can buy and sell them |
+| **UI** | The market screen's cost breakdown; the contract board; the closure and the food; the recycler goods |
 | **Tests** | Mass balance, energy balance, closure, marginal cost, transport, determinism |
 
 **[OPEN] The data format.** The site and recipe tables should be authored data, not
@@ -386,25 +431,94 @@ loader exists.
 
 ## 10. The open questions
 
-1. **The food farm's real purpose.** Is the farm a resilience asset (this document's
-   reading) or should the design change the energy price so it is also the cheap food? The
-   first is more honest to the physics; the second is more satisfying to the intuition.
-2. **The closure target.** 98 % or 99.5 %? The answer sets the make-up mass and the recycler's
-   energy, and therefore the station's import bill.
-3. **The crop mix.** Calories and protein are separate constraints; the mix is a content
-   decision.
-4. **The credit's convertibility.** Is a Meridian credit redeemable at the waystation at the
-   transport cost, or only at Meridian? The first is a currency; the second is a voucher.
-5. **The faction currencies.** Do the Illuminus and the Workers issue competing claims, and
-   does the player have to choose which to be paid in?
-6. **The labour market.** The 40 000 are a labour pool and a consumer market; the wages and
-   the cost of living need a first number.
-7. **The waste's value.** Is the recycler's output a market good, or only an internal flow?
-   The first makes the loop tradeable; the second keeps it a station decision.
-8. **The transport's time cost.** The 4 milligee burn times are weeks; the contract deadline
-   is the real cost. How much of the contract price should be time?
+1. **[DECIDED]** The farm's real purpose: **resilience**, not cheap food. §11.
+2. **[DECIDED]** The closure target: **99.5 %**. §11.
+3. **[DECIDED]** The crop mix: **spirulina and hydroponics**. §11.
+4. **[OPEN] The credit's convertibility.** Is a Meridian credit redeemable at the waystation
+   at the transport cost, or only at Meridian? The first is a currency; the second is a
+   voucher.
+5. **[DECIDED]** The claims compete; the Workers have **no legal stock market**. §11.
+6. **[DECIDED]** The labour market is **people and androids**, automation is high, people
+   work, EVA is almost entirely robots, and the AI is **energy-regulated**. §11.
+7. **[DECIDED]** The recycler's output is **tradeable**: water, nutrients and compost are
+   market goods. §11.
+8. **[OPEN] The transport's time cost.** The 4 milligee burn times are days; the contract
+   deadline is the real cost. How much of the contract price should be time?
+9. **[OPEN] The AI energy licence.** What does one kWh of regulated compute cost, what does
+   it entitle, and who enforces the metering — the station, the faction or the Earth?
+10. **[OPEN] The android labour.** What is an android's power draw and maintenance cost, and
+    does it compete with people for the same work or take the work people cannot do?
+11. **[OPEN] The Workers' capital.** Cooperatives, not shares: how does the player invest,
+    and what does the absence of a stock market make possible or impossible?
+12. **[OPEN] The exchange.** What are the legal cross-claim rates, and how much of the
+    player's profit is the Exchange's arbitrage versus the transport cost?
+13. **[OPEN] The farm's energy and heat.** 361 MW is a large new load on the station's
+    radiator; where does the power come from and what is the heat bill?
+14. **[OPEN] The farm's labour.** How many people and androids run the spirulina and the
+    hydroponics, and is the farm's labour cost part of the food price or a fixed station
+    overhead?
 
 ---
+
+## 11. The design review: decisions
+
+The decisions that close the open questions above, and the numbers they imply.
+
+**[DECIDED] The farm is a resilience asset, not the cheap food source.** The farm is for
+resilience, freshness and the closed loop. At the review's 0.84 km² spirulina/hydroponics mix
+and 361 MW it is about **72×** the import cost of the same food; the contract board can sell
+the farm as the strategic option, and the food run as the cheap option. The station that can
+feed itself for a season cannot be starved by a blocked supply line.
+
+**[DECIDED] The closure target is 99.5 %.** The station loses **20 t/day** of water instead of
+80 t/day at 98 %. The recycler's energy rises to about **10 000 kWh/day**; the make-up water
+import falls from about 160 000 to about 40 000 credits/day, and the recycler costs about
+10 000, so the closure saves about **30 000 credits/day** before the nutrient loop is counted.
+The nutrients are the harder loss; the 99.5 % target is for water, nitrogen and phosphorus
+separately.
+
+**[DECIDED] The crop mix is spirulina and hydroponics.** 0.24 km² of spirulina at
+**25 g/m²/day** gives **6 t dry/day** and **3.6 t protein/day**, enough for 40 000 people at
+50 g of protein each. 0.6 km² of hydroponics at **15 g/m²/day** gives the other **9 t dry/day**
+of vegetables and calories. The total is **0.84 km²**; the LED load is about **361 MW**, the
+daily energy about **8 660 MWh/day**, and the energy per tonne of food about **144 kWh/kg**.
+The farm is a large new deck on the 2 km wheel, and a large new radiator load.
+
+**[DECIDED] The recycler's output is tradeable.** Water, nutrients and compost are market
+goods. A station with surplus closure sells the make-up it does not need; a farm buys the
+nutrients it is short of; the player can carry either. The waste loop is a trade as well as a
+station decision.
+
+**[DECIDED] The claims compete, and the Workers have no legal stock market.** The Illuminus
+energy credit, the Workers water/deuterium credit and the Earth fiat all circulate. A contract
+can be quoted in any of them; the player chooses which to be paid in and carries the exchange
+risk. The Workers run their capital as cooperatives; a legal stock market is an Illuminus and
+Earth institution, and the absence is a political fact. The player's access to Workers capital
+is through contracts and the black market, not shares.
+
+**[DECIDED] Labour is people and androids; automation is high; people work.** The station's
+40 000 are a labour pool and a consumer market. The androids take the routine, the hazardous
+and the EVA work; the people do the judgement, the maintenance and the work that needs a
+person. The **EVA is almost entirely robots**: the hull, the radiators, the solar arrays and
+the repairs are robot work, with the bandwidth, the latency and the radiation as the limits.
+The **AI is energy-regulated**: compute is metered in kWh, the licence is a real cost, and the
+thermal load is part of the station's radiator budget. The labour stock is person-hours plus
+android-hours; the AI's energy is a recipe input.
+
+**Consequences for the first slice.**
+
+- The market's goods include the **recycler outputs** (water, nutrients, compost); the player
+  can buy and sell them.
+- The market screen's cost breakdown has lines for **energy, labour, AI/compute, materials and
+  transport**.
+- The contract board quotes the **three claims**; the player chooses the payment claim and
+  carries the exchange risk.
+- The station's **labour** is people and androids; the **EVA** is robots; the **AI** is a
+  metered energy load.
+- The **farm** is a resilience and loop asset with the **99.5 %** closure and the
+  **spirulina/hydroponics** mix.
+- The tests add the **recycler goods**, the **claims**, the **labour/AI** and the **farm** to
+  Appendix C's list.
 
 ## Appendix A — the numbers and their sources
 
@@ -428,6 +542,16 @@ loader exists.
 | Workers drive | 1 200 km/s, 5.5 kN | `Drives`; the current `Hulls.Courier` reference |
 | Illuminus drive | 600 km/s, 9.0 kN | `Drives`; the client's default |
 | Credit | 1 kWh at the station bus | This document's reserve anchor |
+| Spirulina yield | 25 g dry/m²/day | The review's photobioreactor figure; the range is 20–30 |
+| Spirulina protein | 60 % dry | The cyanobacterium's usual range is 55–65 % |
+| Hydroponics yield | 15 g dry/m²/day | The review's leafy/vegetable mix; the range is 10–20 |
+| Farm area | 0.24 km² spirulina + 0.6 km² hydroponics | The 60 t/day food target |
+| Farm LED load | ~361 MW | 0.43 kW/m² over 0.84 km² |
+| Farm energy per tonne | ~144 kWh/kg | 8 660 MWh/day over 60 t/day |
+| Recycler closure | 99.5 % water | The review's target |
+| Recycler energy | ~10 000 kWh/day | The 4 000 t/day water loop at 99.5 % |
+| Labour | People + androids | The review; the AI is a metered energy load |
+| AI regulation | kWh-metered compute | The review; the licence and the thermal load |
 
 ## Appendix B — the balance equations
 
@@ -474,7 +598,14 @@ p_i = Σ_k λ_k a_ki + transport_i + capital_i
 7. **Determinism.** Two runs with the same site state, clock and trades produce the same
    prices.
 8. **Contract.** The delivery pays the payout and charges the delta-v/fuel; the in-situ
-   alternative is offered and priced.
+   alternative is offered and priced; the claim is recorded and converted at the contract's
+   quote.
+9. **Recycler goods.** Water, nutrients and compost are market goods; a station with surplus
+   closure can sell them, and a farm can buy the nutrients it lacks.
+10. **Labour and AI.** The labour cost is people-hours plus android-hours; the AI is a metered
+    energy load; the EVA robots are a capital and maintenance cost, not a person-hour.
+11. **The claims.** The Illuminus, Workers and Earth claims are distinct; the contract records
+    which claim it pays, and the player's ledger shows the claim and its energy anchor.
 
 ---
 

@@ -1173,7 +1173,11 @@ them; the two drives are in as a cost table — the Workers 1,200 km/s at 5.5 kN
 market — the stocks, recipes, sites, food/waste loop and the credit standard — is
 `docs/ECONOMY.md`; its first conclusion is that the fusion drive makes food cheap to
 lift and the LED farm expensive to run, so the farm is a resilience asset, not a
-transport-cost saving. The pilot starts with 3,000 credits; the contract's five tonnes are part of the
+transport-cost saving. The review decisions are in `docs/ECONOMY.md` §11: the farm is
+resilience with a **99.5 %** closure and a **spirulina/hydroponics** mix; the recycler's
+water, nutrients and compost are **tradeable**; the faction claims **compete** and the
+Workers have **no legal stock market**; labour is **people and androids**; EVA is almost
+entirely **robots**; and the AI is **energy-regulated**, metered in kWh. The pilot starts with 3,000 credits; the contract's five tonnes are part of the
 ship's mass; delivery pays the contract and charges the fuel burned at 250 credits a tonne.
 Meridian and the waystation trade machine parts and water at opposite prices, the hold is 20 t,
 and every trade moves the ship's mass. What is still open is the market that moves, the

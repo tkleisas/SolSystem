@@ -130,6 +130,12 @@ winter site's noon is measured, the summer one is a screenshot.
   never a wall clock or a random number generator. `--drive workers|illuminus` chooses the engine:
   1,200 km/s at 5.5 kN or 600 km/s at 9.0 kN. The default is Illuminus; the tests and probes that
   call `Hulls.Courier` without an engine get the reference Workers torch.
+* **The economy's review decisions are in `docs/ECONOMY.md` §11.** The farm is a resilience
+  asset with a **99.5 %** closure and a **spirulina/hydroponics** mix; the recycler's water,
+  nutrients and compost are **tradeable**; the faction claims **compete** and the Workers have
+  **no legal stock market**; labour is **people and androids**; EVA is almost entirely
+  **robots**; the AI is **energy-regulated**, metered in kWh. Change the doc before changing
+  the code's assumptions.
 * **The hold is part of the ship's mass.** A tonne bought at the market is a tonne of dry mass:
   `FlightGame.SyncShipMass` sets `Mass = hull + hold + propellant` after every trade, refuel and
   delivery. The contract cargo is loaded at the start and removed only by `Contract.SettleDelivery`;
