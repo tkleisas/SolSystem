@@ -27,6 +27,17 @@ internal sealed class FlightSession
     private readonly StarCatalogue _stars;
 
     private Station _station;
+    private Station _target;
+
+    /// <summary>
+    /// How far ahead of Meridian the Workers waystation sits, in radians.
+    /// </summary>
+    /// <remarks>
+    /// A milliradian at Meridian's radius is 6.8 km along the orbit, and the relative speed that
+    /// comes with it is about 7.7 m/s. Close enough to reach on the torch, far enough that the
+    /// undock and the rendezvous are a flight rather than a nudge.
+    /// </remarks>
+    private const double TargetPhaseRadians = 0.001;
 
     /// <summary>
     /// Where the observer sits relative to the station's port, and how fast.
@@ -46,11 +57,12 @@ internal sealed class FlightSession
     /// <summary>The ship's tick, which is also the station's — see <see cref="Advance"/>.</summary>
     private const double TickSeconds = Constants.NavigationTickSeconds;
 
-    private FlightSession(StarCatalogue stars, double julianDate, Station station)
+    private FlightSession(StarCatalogue stars, double julianDate, Station station, Station target)
     {
         _stars = stars;
         JulianDate = julianDate;
         _station = station;
+        _target = target;
     }
 
     private readonly SolarSystem _system = new();
@@ -82,8 +94,11 @@ internal sealed class FlightSession
     /// <summary>The clock, as a Julian date.</summary>
     internal double JulianDate { get; private set; }
 
-    /// <summary>The station being approached.</summary>
+    /// <summary>The home station: where the ship starts and the observer's anchor.</summary>
     internal Station Station => _station;
+
+    /// <summary>The station being approached: the co-orbital Workers waystation.</summary>
+    internal Station Target => _target;
 
     /// <summary>
     /// Where the observer is, heliocentric, in kilometres.
@@ -116,8 +131,9 @@ internal sealed class FlightSession
         // docking law, because it is the same corridor. The station is built in Core, where its
         // orbit and its port have their one definition.
         var station = Station.Meridian(options.Station);
+        var target = Station.CoOrbital(station, TargetPhaseRadians, "Waystation");
 
-        var session = new FlightSession(stars, options.JulianDate, station);
+        var session = new FlightSession(stars, options.JulianDate, station, target);
         Ephemeris.State earth = session.System.Heliocentric(Ephemeris.Body.Earth);
 
         session._localOffset = station.Port.Axis * Fix128.FromDouble(options.Standoff);
@@ -249,6 +265,7 @@ internal sealed class FlightSession
         for (int i = 0; i < ticks; i++)
         {
             _station.Step(dt);
+            _target.Step(dt);
         }
 
         Ephemeris.State earth = System.Heliocentric(Ephemeris.Body.Earth);
@@ -275,6 +292,7 @@ internal sealed class FlightSession
         for (int i = 0; i < ticks; i++)
         {
             _station.Step(dt);
+            _target.Step(dt);
         }
 
         JulianDate += ticks * TickSeconds / 86400.0;

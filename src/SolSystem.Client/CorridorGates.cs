@@ -166,7 +166,7 @@ internal sealed class CorridorGates
         Matrix nearView,
         float fieldOfViewDegrees)
     {
-        DockingPort port = session.Station.Port;
+        DockingPort port = session.Target.Port;
 
         // The ship's corridor geometry, in the same convention DrawFlightPanel reports: the offset
         // from the port, and its component along the corridor axis, which points AWAY from the
@@ -185,7 +185,7 @@ internal sealed class CorridorGates
         // overlay's. Measured along the live bearing to the port rather than the fixed axis, for
         // the reason Approach records: the two disagree once the ship is past the port.
         Fix128Vec toPort = offset.IsZero ? -port.Axis : -offset.Normalized();
-        Fix128Vec relative = flight.Ship.Velocity - session.Station.Velocity;
+        Fix128Vec relative = flight.Ship.Velocity - session.Target.Velocity;
         double closing = Fix128Vec.Dot(relative, toPort).ToDouble();
 
         // The drive's deceleration, computed the way the approach law computes it — thrust over

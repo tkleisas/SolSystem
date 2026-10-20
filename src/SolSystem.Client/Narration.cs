@@ -43,7 +43,7 @@ internal static class Narration
         var lines = new List<string?>();
 
         // The arrival, once: the port plane under two kilometres and the ship inbound.
-        double range = (flight.Ship.Position - session.Station.Port.Position).Length.ToDouble();
+        double range = (flight.Ship.Position - session.Target.Port.Position).Length.ToDouble();
         if (!state.ArrivalSaid && range < 2_000.0 && range > 1.0)
         {
             state.ArrivalSaid = true;
@@ -54,7 +54,7 @@ internal static class Narration
         // inside it. A ship that spawns inside a band gets no retroactive callout.
         double closing = Fix128Vec.Dot(
             flight.Ship.Velocity,
-            (session.Station.Port.Position - flight.Ship.Position).Normalized()).ToDouble();
+            (session.Target.Port.Position - flight.Ship.Position).Normalized()).ToDouble();
 
         if (state.PreviousRange is double previous)
         {

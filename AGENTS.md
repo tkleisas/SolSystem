@@ -118,6 +118,11 @@ the script itself records.
   not the screen up when the camera is pitched; `Camera.Build` returns the orthogonalised
   up, and `NavOverlay`/`SkyRenderer` must use it. The Sun is a screen-space quad for the
   same reason — a world-space billboard projects as a trapezoid off-axis.
+* **The second site is co-orbital, not another world.** The target is a
+  `Station.CoOrbital` of Meridian, a milliradian ahead — 6.8 km, 7.7 m/s of relative drift.
+  The home station stays the observer anchor and the ship's start; the target owns the
+  approach, nav, panel, gates and mission. The contract's deadline is the session clock; do
+  not add a second timer.
 * **The narrator schedules lines on the audio clock.** A line is synthesized in full, its
   duration is used for the comm log's typing rate, and `TryTakeStartedLine` releases it when
   the audio starts. Do not write narrator text from the voice thread or before playback.

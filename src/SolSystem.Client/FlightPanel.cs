@@ -37,6 +37,7 @@ internal sealed class FlightPanel
     private readonly Flight _flight;
     private readonly Camera _camera;
     private readonly HullRenderer _hulls;
+    private readonly Contract _contract;
 
     internal FlightPanel(
         GraphicsDevice device,
@@ -46,7 +47,8 @@ internal sealed class FlightPanel
         FlightSession session,
         Flight flight,
         Camera camera,
-        HullRenderer hulls)
+        HullRenderer hulls,
+        Contract contract)
     {
         _device = device;
         _sprites = sprites;
@@ -56,6 +58,7 @@ internal sealed class FlightPanel
         _flight = flight;
         _camera = camera;
         _hulls = hulls;
+        _contract = contract;
     }
 
     /// <summary>Draws the frame furniture and the flight panel.</summary>
@@ -101,15 +104,15 @@ internal sealed class FlightPanel
         // Speed relative to the station, which is the number that matters for a docking and the one
         // that reads zero when the ship is holding station. Its speed relative to the EARTH is seven
         // and a half kilometres a second and always will be, because that is what being in orbit is.
-        double speed = (_flight.Ship.Velocity - _session.Station.Velocity).Length.ToDouble();
+        double speed = (_flight.Ship.Velocity - _session.Target.Velocity).Length.ToDouble();
 
-        // Range from the ship to the docking port, both measured from the Earth's centre.
-        double range = (_flight.Ship.Position - _session.Station.Port.Position).Length.ToDouble();
+        // Range from the ship to the target's docking port, both measured from the Earth's centre.
+        double range = (_flight.Ship.Position - _session.Target.Port.Position).Length.ToDouble();
 
         // And the same thing along the corridor, signed: positive is outside the port, negative is
         // past it. A range alone cannot tell a pilot which side of the dock they are on.
-        double along = Fix128Vec.Dot(_flight.Ship.Position - _session.Station.Port.Position,
-            _session.Station.Port.Axis).ToDouble();
+        double along = Fix128Vec.Dot(_flight.Ship.Position - _session.Target.Port.Position,
+            _session.Target.Port.Axis).ToDouble();
 
         var ink = new Color(150, 220, 175);
         var dim = new Color(110, 150, 135);
@@ -117,7 +120,9 @@ internal sealed class FlightPanel
 
         var at = new Vector2(28f, 26f);
 
-        _sprites.DrawString(_font, "ILLUMINUS COURIER  \u00b7  MERIDIAN", at, dim);
+        _sprites.DrawString(_font,
+            $"ILLUMINUS COURIER  \u00b7  {_session.Station.Name} \u2192 {_session.Target.Name}",
+            at, dim);
         at.Y += FlightUi.Line * 1.6f;
 
         _sprites.DrawString(_font, $"SPEED      {speed,10:F1} m/s", at, ink);
@@ -141,6 +146,20 @@ internal sealed class FlightPanel
         // minute.
         _sprites.DrawString(_font, $"TIME       {DescribeRate(timeRate),10}", at,
             timeRateIndex == 1 ? dim : ink);
+        at.Y += FlightUi.Line;
+
+        // The contract, and the two numbers that make it a decision: how long is left and what
+        // the delivery pays. The due line turns amber in the last half hour.
+        double remaining = _contract.SecondsRemaining(_session.JulianDate);
+        bool urgent = !_contract.Completed && !_contract.Failed && remaining < 1800.0;
+        Color dueInk = _contract.Failed || urgent ? warn : ink;
+
+        _sprites.DrawString(_font, $"CONTRACT   {_contract.Name}", at, ink);
+        at.Y += FlightUi.Line;
+        _sprites.DrawString(_font, $"DUE        {_contract.Status(_session.JulianDate),10}", at,
+            dueInk);
+        at.Y += FlightUi.Line;
+        _sprites.DrawString(_font, $"CREDITS    {_contract.Credits,10:N0}", at, ink);
         at.Y += FlightUi.Line * 1.6f;
 
         // Delta-v first among the propellant figures, and deliberately: it is the one that decides

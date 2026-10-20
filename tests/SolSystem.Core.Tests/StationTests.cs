@@ -211,4 +211,45 @@ public class StationTests
             missDistance > standoff,
             $"a coasting ship should fall away from the port, and it is {missDistance:F0} m away");
     }
+
+    [Fact]
+    public void ACoOrbitalStationKeepsTheRadiusAndTheOrbitalSpeed()
+    {
+        Station home = Station.Meridian();
+        Station target = Station.CoOrbital(home, 0.001, "Waystation");
+
+        double radiusError = Math.Abs(home.Offset.Length.ToDouble() - target.Offset.Length.ToDouble());
+        double speedError = Math.Abs(home.Velocity.Length.ToDouble() - target.Velocity.Length.ToDouble());
+
+        // The rotation is fixed-point, so the radius and the speed hold to a centimetre and a
+        // millimetre per second rather than to the grid's last bit.
+        Assert.InRange(radiusError, 0.0, 0.10);
+        Assert.InRange(speedError, 0.0, 0.001);
+    }
+
+    [Fact]
+    public void AMilliradianAheadIsAboutSixPointEightKilometres()
+    {
+        Station home = Station.Meridian();
+        Station target = Station.CoOrbital(home, 0.001, "Waystation");
+
+        double separation = (target.Offset - home.Offset).Length.ToDouble();
+
+        // Meridian's radius is 6.7781e6 m; a milliradian of chord is about 6 778 m, and the
+        // relative speed that comes with it is the orbital speed times the same angle, 7.7 m/s.
+        // These are the numbers the contract's rendezvous is built from.
+        Assert.InRange(separation, 6_700.0, 6_800.0);
+        Assert.InRange((target.Velocity - home.Velocity).Length.ToDouble(), 7.0, 8.0);
+    }
+
+    [Fact]
+    public void TheCoOrbitalPortStillFacesRadiallyOutward()
+    {
+        Station home = Station.Meridian();
+        Station target = Station.CoOrbital(home, 0.001, "Waystation");
+
+        double radial = Fix128Vec.Dot(target.PortAxis, target.Offset.Normalized()).ToDouble();
+
+        Assert.InRange(radial, 0.999999, 1.000001);
+    }
 }

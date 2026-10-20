@@ -90,6 +90,44 @@ internal struct Station
         new Fix128Vec(Fix128.One, Fix128.Zero, Fix128.Zero));
 
     /// <summary>
+    /// A station sharing <paramref name="home"/>'s orbit but <paramref name="phaseRadians"/> ahead
+    /// of it, with its port facing radially outward like the home's.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The phase rotates the position, the velocity and the port about the orbit's normal. A small
+    /// phase is a co-orbital neighbour: at Meridian's radius a milliradian is 6.8 km along the
+    /// orbit, and the relative speed that comes with it is the orbital speed times the same angle,
+    /// about 7.7 m/s. That is a rendezvous, not a transfer: the target is close, moving slowly
+    /// across the sky, and the pilot can fly to it on the torch.
+    /// </para>
+    /// <para>
+    /// The port faces outward because that is the radial the home's does; a waystation whose port
+    /// faced along the orbit would make every arrival a side-on approach and every corridor a
+    /// different law. The station's own <see cref="Step"/> carries the port around the orbit after
+    /// this, so the phase is only the initial condition.
+    /// </para>
+    /// </remarks>
+    internal static Station CoOrbital(Station home, double phaseRadians, string name)
+    {
+        Fix128 phase = Fix128.FromDouble(phaseRadians);
+        Fix128 sin = Trig128.SinRadians(phase);
+        Fix128 cos = Trig128.CosRadians(phase);
+
+        // The local frame's stations orbit in the ecliptic's plane, so the normal is +z.
+        var normal = new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One);
+
+        return new Station(
+            home.Host,
+            name,
+            RotatedAbout(home.Offset, normal, sin, cos),
+            RotatedAbout(home.Velocity, normal, sin, cos),
+            home.GmMetres,
+            RotatedAbout(home.PortOffset, normal, sin, cos),
+            RotatedAbout(home.PortAxis, normal, sin, cos));
+    }
+
+    /// <summary>
     /// A station in a circular orbit of radius <paramref name="radiusMetres"/> about its host.
     /// </summary>
     /// <remarks>

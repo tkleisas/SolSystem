@@ -1160,6 +1160,12 @@ rescues it.**
 - [ ] Second site; a contract with a deadline
 - [ ] The two drives, and the cost table that makes them different
 
+The first slice is in the client: a co-orbital Workers waystation a milliradian ahead of
+Meridian, and a two-hour cargo contract that pays 12,000 credits on docking. It has the
+target plumbing — the home station is the anchor, the target owns the approach and the nav —
+but not the market, the ledger's sources and sinks, the strategic view, or a real transfer
+to a second orbit.
+
 ### Phase 2 — one moon system (weeks 11–20)
 
 - [ ] The Jovian theatre: three or four locations

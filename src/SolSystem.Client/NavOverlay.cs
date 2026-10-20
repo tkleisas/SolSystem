@@ -168,7 +168,7 @@ internal sealed class NavOverlay
         // negative — the convention a docking display has always used, where "minus five" means
         // "coming in at five".
         float range = portOffset.Length();
-        Vector3 relative = Unit(flight.Ship.Velocity - session.Station.Velocity);
+        Vector3 relative = Unit(flight.Ship.Velocity - session.Target.Velocity);
         float closing = range > 0.5f
             ? -Vector3.Dot(relative, portOffset / range)
             : 0f;
@@ -178,7 +178,8 @@ internal sealed class NavOverlay
 
         Color portColour = portClamped ? Faded(ink) : ink;
         Marker(portAt, Shape.Square, portColour, portClamped, centre);
-        Label(portAt, centre, portClamped, width, height, placed, "MERIDIAN PORT",
+        Label(portAt, centre, portClamped, width, height, placed,
+            $"{session.Target.Name.ToUpperInvariant()} PORT",
             [
                 $"{range:F0} m",
                 $"CLOSING {closing:+0.0;-0.0;0.0} m/s",

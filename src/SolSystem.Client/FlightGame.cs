@@ -68,12 +68,14 @@ internal sealed class FlightGame : Game, IControllerTarget
     private HullRenderer _hulls = null!;
     private Hull _courier = null!;
     private Hull _station = null!;
+    private Hull _waystation = null!;
     private Hull _freighter = null!;
     private Flight _flight = null!;
     private SpriteBatch _sprites = null!;
     private FlightPanel _panel = null!;
     private ChartScreen _chartScreen = null!;
     private Narrator? _narrator;
+    private Contract _contract = null!;
     private readonly CommLog _commLog = new();
     private Texture2D _sharedPixel = null!;
     private SpriteFont _sharedFont = null!;
@@ -237,6 +239,9 @@ internal sealed class FlightGame : Game, IControllerTarget
         _station = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "stations",
             "meridian.glb"));
 
+        _waystation = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "stations",
+            "workers_modules_spine.glb"));
+
         _freighter = Hull.Load(GraphicsDevice, Path.Combine(root, "art", "models", "ships",
             "workers_freighter.glb"));
 
@@ -250,6 +255,7 @@ internal sealed class FlightGame : Game, IControllerTarget
             }
         }
         Console.WriteLine($"  meridian: {Largest(_station):F0} m, {_station.Parts.Count} parts");
+        Console.WriteLine($"  waystation: {Largest(_waystation):F0} m, {_waystation.Parts.Count} parts");
         Console.WriteLine($"  freighter: {Largest(_freighter):F0} m, {_freighter.Parts.Count} parts");
 
 
@@ -285,6 +291,15 @@ internal sealed class FlightGame : Game, IControllerTarget
 
         _flight.SetThrottle(_options.Throttle);
 
+        // The first contract. Two hours is long enough to fly 6.8 km carefully and short enough
+        // that the clock on the panel is a fact rather than a decoration.
+        _contract = new Contract(
+            "Waystation run",
+            "medical supplies",
+            _session.Target.Name,
+            _session.JulianDate + (2.0 * 3600.0 / 86400.0),
+            12_000.0);
+
         if (_options.Hold.Length > 0)
         {
             _startNose = _flight.Ship.Attitude.Forward;
@@ -317,7 +332,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         // screen owns the chart's own drawing state. A destination on the command line is selected
         // here, after the chart exists to hold it.
         _panel = new FlightPanel(GraphicsDevice, _sprites, pixel, hud, _session, _flight,
-            _camera, _hulls);
+            _camera, _hulls, _contract);
         _chartScreen = new ChartScreen(GraphicsDevice, _sprites, hud);
         _narrator = Narrator.Start(_options);
 
@@ -331,6 +346,9 @@ internal sealed class FlightGame : Game, IControllerTarget
         }
         _sharedPixel = pixel;
         _sharedFont = hud;
+
+        Notice($"Contract: carry {_contract.Cargo} to {_contract.Destination}; due in "
+            + $"{_contract.Status(_session.JulianDate)}. {_contract.Payout:N0} credits on delivery.");
 
         if (_options.ControllerPort > 0)
         {
@@ -423,6 +441,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         // renderers are drawing.
         double advanced = _simulatedSeconds - _lastAdvanced;
         _mission?.Advanced(advanced);
+        UpdateContract();
 
         // THE TERMINAL IS A LIVE CHANNEL, NOT A SIMULATION CLOCK. With a voice it types on the
         // same real seconds the voice plays on, or a x100 run would leave the text minutes ahead
@@ -444,6 +463,47 @@ internal sealed class FlightGame : Game, IControllerTarget
         NoteFocusChange();
 
         base.Update(gameTime);
+    }
+
+    /// <summary>
+    /// Completes or expires the contract. The docking check is the same law the mission sees.
+    /// </summary>
+    private void UpdateContract()
+    {
+        if (_contract.Completed || _contract.Failed)
+        {
+            return;
+        }
+
+        if (_contract.CheckDeadline(_session.JulianDate))
+        {
+            Notice($"{_contract.Name} expired: {_contract.Destination} was not reached in time.");
+            return;
+        }
+
+        DockingReport report = Docking.Evaluate(
+            _flight.Ship, _session.Target.Port, _session.Target.Velocity);
+
+        if (report.Docked && _contract.TryComplete(_session.JulianDate))
+        {
+            Notice($"Docked at {_contract.Destination}. {_contract.Cargo} delivered. "
+                + $"{_contract.Payout:N0} credits banked.");
+        }
+    }
+
+    /// <summary>
+    /// Says something through the voice if there is one, and in the terminal if there is not.
+    /// </summary>
+    private void Notice(string line)
+    {
+        if (_narrator is not null)
+        {
+            _narrator.Say(line);
+        }
+        else
+        {
+            _commLog.WriteLine(line);
+        }
     }
 
     /// <summary>
@@ -745,9 +805,9 @@ internal sealed class FlightGame : Game, IControllerTarget
 
     long IControllerTarget.WorldTicks => _worldTicks;
 
-    Fix128Vec IControllerTarget.StationOffset => _session.Station.Offset;
+    Fix128Vec IControllerTarget.StationOffset => _session.Target.Offset;
 
-    Fix128Vec IControllerTarget.StationVelocity => _session.Station.Velocity;
+    Fix128Vec IControllerTarget.StationVelocity => _session.Target.Velocity;
 
     Ship IControllerTarget.Ship => _flight.Ship;
 
@@ -769,8 +829,8 @@ internal sealed class FlightGame : Game, IControllerTarget
         var words = new WorldHashBuilder();
         words.Add(Fix128.FromDouble((_session.JulianDate - Ephemeris.J2000JulianDate) * 86400.0));
         words.Add(_worldTicks);
-        words.Add(_session.Station.Offset);
-        words.Add(_session.Station.Velocity);
+        words.Add(_session.Target.Offset);
+        words.Add(_session.Target.Velocity);
         words.Add(_flight.Ship.Position);
         words.Add(_flight.Ship.Velocity);
         words.Add(_flight.Ship.Attitude.RotationVector);
@@ -938,7 +998,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         // A view is one thing. Two passes that disagree about where the camera is looking are not a
         // rendering bug that looks like a physics bug, they are a world split in half.
         (Matrix nearView, Fix128Vec cameraForward, Fix128Vec cameraUp) =
-            _camera.Build(NoseVector(), DeckVector(), PortOffset(), Largest(_courier));
+            _camera.Build(NoseVector(), DeckVector(), PortDirection(_session.Target), Largest(_courier));
 
         Matrix view = Matrix.CreateLookAt(
             Vector3.Zero, Unit(cameraForward), Unit(cameraUp));
@@ -1015,7 +1075,13 @@ internal sealed class FlightGame : Game, IControllerTarget
             // flying looks right beside the thing you are flying to — and it is why the two are drawn
             // together rather than in separate passes at separate scales.
             // The station's lights are on the station's own clock, which is the same one.
-            _hulls.Draw(_station, StationTransform(), nearView, close, sunDirection,
+            _hulls.Draw(_station, StationTransform(_session.Station), nearView, close, sunDirection,
+                EarthDirection(), Earthshine());
+
+            // The waystation is the destination, drawn at its true position relative to the ship:
+            // 6.8 km ahead on the same orbit. It is a Workers module, 200 m rather than 2 km, so
+            // the approach is a small thing growing out of the black rather than a wall arriving.
+            _hulls.Draw(_waystation, StationTransform(_session.Target), nearView, close, sunDirection,
                 EarthDirection(), Earthshine());
         }
 
@@ -1039,7 +1105,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         if (!_options.Lineup)
         {
             _nav.Draw(GraphicsDevice, _session, _flight, cameraForward, cameraUp,
-                FieldOfViewDegrees, PortOffset(), _chartScreen.Selected);
+                FieldOfViewDegrees, PortDirection(_session.Target), _chartScreen.Selected);
             _gates.Draw(GraphicsDevice, _session, _flight, nearView, FieldOfViewDegrees);
         }
 
@@ -1203,15 +1269,15 @@ internal sealed class FlightGame : Game, IControllerTarget
     /// it out on, and the client drew a 2 km wheel edge-on as a vertical sliver.
     /// </para>
     /// </remarks>
-    private Matrix StationTransform()
+    private Matrix StationTransform(Station station)
     {
-        Vector3 forward = Unit(_session.Station.Port.Axis);
+        Vector3 forward = Unit(station.Port.Axis);
 
         Vector3 seed = MathF.Abs(forward.Y) > 0.9f ? Vector3.UnitX : Vector3.UnitY;
         Vector3 side = Vector3.Normalize(Vector3.Cross(forward, seed));
         Vector3 up = Vector3.Cross(side, forward);
 
-        Vector3 offset = PortOffset();
+        Vector3 offset = PortVector(station);
 
         return new Matrix(
             side.X, side.Y, side.Z, 0f,
@@ -1238,6 +1304,7 @@ internal sealed class FlightGame : Game, IControllerTarget
             (_courier, "courier"),
             (_freighter, "freighter"),
             (_station, "meridian"),
+            (_waystation, "waystation"),
         ];
 
         // EVERY MODEL IS LONG ALONG ITS OWN +Y, so the lineup rotation is the one that puts the
@@ -1346,8 +1413,24 @@ internal sealed class FlightGame : Game, IControllerTarget
     private Vector3 DeckVector() => Unit(_flight.Ship.Attitude.Rotate(
         new Fix128Vec(Fix128.Zero, Fix128.Zero, Fix128.One)));
 
-    /// <summary>Where the station's docking port is, in metres, relative to the hull.</summary>
-    private Vector3 PortOffset() => Unit(_session.Station.Port.Position - _flight.Ship.Position);
+    /// <summary>Where a station's docking port is, in metres, relative to the hull.</summary>
+    /// <remarks>
+    /// The port, not the direction to it: the near pass is in metres and a station at 6.8 km must
+    /// be drawn at 6.8 km. The previous station transform translated by a unit vector, which put a
+    /// two-kilometre wheel one metre from the camera; the hull was inside it.
+    /// </remarks>
+    private Vector3 PortVector(Station station)
+    {
+        Fix128Vec offset = station.Port.Position - _flight.Ship.Position;
+        return new Vector3(
+            (float)offset.X.ToDouble(),
+            (float)offset.Y.ToDouble(),
+            (float)offset.Z.ToDouble());
+    }
+
+    /// <summary>The direction to a station's docking port, for the camera and the nav overlay.</summary>
+    private Vector3 PortDirection(Station station) =>
+        Unit(station.Port.Position - _flight.Ship.Position);
 
     /// <summary>The longest dimension of a hull, in metres.</summary>
     private static float Largest(Hull hull) =>
@@ -1409,6 +1492,7 @@ internal sealed class FlightGame : Game, IControllerTarget
         _chartScreen.Dispose();
         _courier.Dispose();
         _station.Dispose();
+        _waystation.Dispose();
         _freighter.Dispose();
         _sprites.Dispose();
         _sharedPixel.Dispose();

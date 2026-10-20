@@ -151,7 +151,7 @@ internal sealed class MissionHost
         sim["helm_engaged"] = (Func<bool>)(() => _helmEngaged());
         sim["propellant_t"] = (Func<double>)(() => _flight.Propellant);
         sim["delta_v"] = (Func<double>)(() => _flight.DeltaV);
-        sim["speed"] = (Func<double>)(() => _flight.SpeedRelativeTo(_session.Station.Velocity));
+        sim["speed"] = (Func<double>)(() => _flight.SpeedRelativeTo(_session.Target.Velocity));
 
         script.Globals["sim"] = sim;
     }
@@ -216,7 +216,7 @@ internal sealed class MissionHost
     private DockingReport Report()
     {
         Ship ship = _flight.Ship;
-        return Docking.Evaluate(ship, _session.Station.Port, _session.Station.Velocity);
+        return Docking.Evaluate(ship, _session.Target.Port, _session.Target.Velocity);
     }
 
     /// <summary>

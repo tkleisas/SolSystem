@@ -195,6 +195,18 @@ from this mode.
 `--frames` runs the loop a player gets — update, keyboard, fixed timestep — rather than the
 one-frame path, which is the only way to check that the thing a person actually types starts.
 
+## The first contract
+
+The second site is a Workers waystation a milliradian ahead of Meridian on the same orbit:
+6.8 km away, 7.7 m/s of relative drift, a 91 m spine with its port facing outward. The home
+station is still the observer's anchor and the ship's start; the target is what the range
+panel, the nav marker, the corridor gates, the approach and the mission now measure against.
+
+The contract pays 12,000 credits for medical supplies delivered within two hours. The deadline
+is the session clock, the credits are on the panel, and the docking law at the target is the
+same one the probe flies at the home. There is no market yet; this is the first loop, not the
+economy.
+
 ## The narrator
 
 The session speaks. The opening plays over the first frame; the arrival at a body is said once
